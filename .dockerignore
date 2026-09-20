@@ -1,0 +1,9 @@
+node_modules
+.next
+apps/api
+.git
+.env*
+ready.md
+todo.md
+docs
+infra

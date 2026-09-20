@@ -1,0 +1,2 @@
+import { IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
+export class SendGiftDto { @IsOptional() @IsUUID("4") recipientId?: string; @IsOptional() @IsString() @MaxLength(300) message?: string; }

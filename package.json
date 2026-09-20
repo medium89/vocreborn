@@ -1,0 +1,37 @@
+{
+  "name": "vocreborn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "dev:web": "next dev",
+    "dev:api": "npm --prefix apps/api run start:dev",
+    "build": "next build",
+    "build:web": "next build",
+    "build:api": "npm --prefix apps/api run build",
+    "build:all": "npm run build:web && npm run build:api",
+    "start": "next start",
+    "start:api": "npm --prefix apps/api run start",
+    "lint": "tsc --noEmit",
+    "lint:api": "npm --prefix apps/api run lint",
+    "lint:all": "npm run lint && npm run lint:api",
+    "test:integration": "npm --prefix apps/api run test:integration",
+    "db:up": "docker compose -f infra/docker-compose.yml up -d postgres",
+    "db:down": "docker compose -f infra/docker-compose.yml down",
+    "db:migrate": "npm --prefix apps/api run db:deploy",
+    "db:seed": "npm --prefix apps/api run db:seed"
+  },
+  "dependencies": {
+    "lucide-react": "^1.43.0",
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,595 @@
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { Prisma, ReactionType, type Attachment, type Message, type MessageReaction, type Room } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { mkdir, unlink, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import sharp from "sharp";
+import { AttachmentsService } from "../attachments/attachments.service";
+import { PrismaService } from "../database/prisma.service";
+import { NotificationsService } from "../notifications/notifications.service";
+import { EconomyService } from "../gifts/economy.service";
+const MAX_ROOM_COVER_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_ROOM_COVER_BYTES = 2 * 1024 * 1024;
+type RoomCoverFile = { buffer: Buffer; mimetype: string; size: number };
+
+function hasValidRoomCoverSignature(file: RoomCoverFile) {
+  const png = file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  const jpeg = file.buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
+  const webp = file.buffer.subarray(0, 4).toString("ascii") === "RIFF" && file.buffer.subarray(8, 12).toString("ascii") === "WEBP";
+  return (file.mimetype === "image/png" && png) || (file.mimetype === "image/jpeg" && jpeg) || (file.mimetype === "image/webp" && webp);
+}
+
+import type { ApiMessage, ApiPerson, ApiReactionType, ApiRoom, DirectConversation, ReactionUpdate, RoomSnapshot } from "./chat.types";
+
+@Injectable()
+export class ChatService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly attachments: AttachmentsService,
+    private readonly notifications: NotificationsService,
+    private readonly economy: EconomyService,
+  ) {}
+
+  async listRooms(): Promise<ApiRoom[]> {
+    const rooms = await this.prisma.room.findMany({ orderBy: { position: "asc" } });
+    return Promise.all(rooms.map((room) => this.toApiRoom(room)));
+  }
+
+  async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string }) {
+    const position = await this.prisma.room.count();
+    const room = await this.prisma.room.create({
+      data: {
+        id: "room-" + randomUUID().slice(0, 12),
+        name: input.name,
+        description: input.description ?? "",
+        tone: input.tone ?? "lime",
+        coverEmoji: input.coverEmoji ?? "✦",
+        rules: input.rules ?? "",
+        visibility: input.visibility === "private" ? "PRIVATE" : "PUBLIC",
+        position,
+        createdById: userId,
+        memberships: { create: { userId, role: "OWNER" } },
+      },
+    });
+    return this.toApiRoom(room);
+  }
+
+  async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string }) {
+    const room = await this.assertRoom(roomId);
+    if (role !== "admin") {
+      const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
+      if (membership?.role !== "OWNER") throw new ForbiddenException("Изменять комнату может только владелец или администратор");
+    }
+    const updated = await this.prisma.room.update({
+      where: { id: room.id },
+      data: { ...input, visibility: input.visibility === undefined ? undefined : input.visibility === "private" ? "PRIVATE" : "PUBLIC" },
+    });
+    return this.toApiRoom(updated);
+  }
+
+  async saveRoomCover(roomId: string, userId: string, role: "user" | "moderator" | "admin", file?: RoomCoverFile) {
+    const room = await this.assertRoom(roomId);
+    if (role !== "admin") {
+      const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
+      if (membership?.role !== "OWNER") throw new ForbiddenException("Изменять обложку может только владелец или администратор");
+    }
+    if (!file) throw new BadRequestException("Файл обложки не передан");
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.mimetype) || !hasValidRoomCoverSignature(file)) throw new BadRequestException("Допустимы корректные PNG, JPEG и WebP");
+    if (file.size > MAX_ROOM_COVER_UPLOAD_BYTES) throw new BadRequestException("Исходное изображение должно быть не больше 10 МБ");
+
+    let cover: Buffer | undefined;
+    try {
+      for (const width of [1600, 1280, 1024]) {
+        for (const quality of [84, 72, 60, 48]) {
+          const encoded = await sharp(file.buffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(width, 900, { fit: "inside", withoutEnlargement: true }).webp({ quality, effort: 5 }).toBuffer();
+          if (encoded.length <= MAX_ROOM_COVER_BYTES) { cover = encoded; break; }
+        }
+        if (cover) break;
+      }
+    } catch { throw new BadRequestException("Не удалось обработать обложку"); }
+    if (!cover) throw new BadRequestException("Не удалось сжать обложку до 2 МБ");
+    const thumbnail = await sharp(file.buffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(320, 180, { fit: "cover", position: "centre" }).webp({ quality: 72, effort: 4 }).toBuffer().catch(() => { throw new BadRequestException("Не удалось создать превью обложки"); });
+    const directory = join(process.cwd(), "uploads", "room-covers");
+    const id = randomUUID();
+    const filename = id + ".webp";
+    const thumbFilename = id + "-preview.webp";
+    await mkdir(directory, { recursive: true });
+    await Promise.all([writeFile(join(directory, filename), cover), writeFile(join(directory, thumbFilename), thumbnail)]);
+    try {
+      const updated = await this.prisma.room.update({ where: { id: room.id }, data: { coverKey: "/uploads/room-covers/" + filename, coverThumbKey: "/uploads/room-covers/" + thumbFilename } });
+      await Promise.all([this.deleteRoomCover(room.coverKey), this.deleteRoomCover(room.coverThumbKey)]);
+      return this.toApiRoom(updated);
+    } catch (error) {
+      await Promise.all([unlink(join(directory, filename)).catch(() => undefined), unlink(join(directory, thumbFilename)).catch(() => undefined)]);
+      throw error;
+    }
+  }
+
+  async joinMembership(userId: string, roomId: string) {
+    await this.assertRoom(roomId);
+    await this.prisma.roomMembership.upsert({
+      where: { userId_roomId: { userId, roomId } },
+      create: { userId, roomId },
+      update: {},
+    });
+    return { roomId, joined: true };
+  }
+
+  async leaveMembership(userId: string, roomId: string) {
+    const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
+    if (membership?.role === "OWNER") throw new BadRequestException("Владелец не может покинуть свою комнату");
+    await this.prisma.roomMembership.deleteMany({ where: { userId, roomId } });
+    return { roomId, joined: false };
+  }
+
+  async getMessagePage(roomId: string, cursor?: string, currentUserId?: string) {
+    await this.assertRoom(roomId);
+    const messages = await this.prisma.message.findMany({
+      where: { roomId, deletedAt: null },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 51,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+    });
+    const hasMore = messages.length > 50;
+    const page = messages.slice(0, 50);
+    return {
+      items: page.reverse().map((message) => this.toApiMessage(message, currentUserId)),
+      nextCursor: hasMore ? page[0]?.id ?? null : null,
+    };
+  }
+
+  async getRoomResources(roomId: string, currentUserId?: string) {
+    await this.assertRoom(roomId);
+    const messages = await this.prisma.message.findMany({
+      where: { roomId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+      include: { attachments: true },
+    });
+    const source = (message: typeof messages[number]) => ({ messageId: message.id, author: message.authorName, createdAt: message.createdAt.toISOString() });
+    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment) })));
+    const links = messages.flatMap((message) => Array.from(message.body.matchAll(/https?:\/\/[^\s<>"]+/g)).map((match) => ({ ...source(message), url: match[0] })));
+    return { media, files: media.filter((item) => item.attachment.kind === "audio"), links };
+  }
+
+  async getDirectResources(userId: string) {
+    const messages = await this.prisma.message.findMany({
+      where: { roomId: null, deletedAt: null, OR: [{ authorId: userId }, { recipientId: userId }] },
+      orderBy: { createdAt: "desc" },
+      take: 1000,
+      include: { attachments: true },
+    });
+    const source = (message: typeof messages[number]) => ({ messageId: message.id, author: message.authorName, createdAt: message.createdAt.toISOString() });
+    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment) })));
+    const links = messages.flatMap((message) => Array.from(message.body.matchAll(/https?:\/\/[^\s<>"]+/g)).map((match) => ({ ...source(message), url: match[0] })));
+    return { media, files: media.filter((item) => item.attachment.kind === "audio"), links };
+  }
+
+  async getMessages(roomId: string, currentUserId?: string): Promise<ApiMessage[]> {
+    return (await this.getMessagePage(roomId, undefined, currentUserId)).items;
+  }
+
+  async searchRoomMessages(roomId: string, query: string, currentUserId: string): Promise<ApiMessage[]> {
+    await this.assertRoom(roomId);
+    const messages = await this.prisma.message.findMany({
+      where: {
+        roomId,
+        deletedAt: null,
+        OR: [
+          { body: { contains: query, mode: "insensitive" } },
+          { authorName: { contains: query, mode: "insensitive" } },
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 30,
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+    });
+    return messages.map((message) => this.toApiMessage(message, currentUserId));
+  }
+
+  async getRoomMessage(roomId: string, messageId: string, currentUserId: string): Promise<ApiMessage> {
+    await this.assertRoom(roomId);
+    const message = await this.prisma.message.findFirst({
+      where: { id: messageId, roomId, deletedAt: null },
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+    });
+    if (!message) throw new NotFoundException("Сообщение не найдено");
+    return this.toApiMessage(message, currentUserId);
+  }
+
+  async getSnapshot(roomId: string, currentUserId?: string): Promise<RoomSnapshot> {
+    const [room, messages] = await Promise.all([
+      this.assertRoom(roomId),
+      this.getMessages(roomId, currentUserId),
+    ]);
+
+    return {
+      room: await this.toApiRoom(room),
+      messages,
+      people: [],
+    };
+  }
+
+  async createMessage(
+    roomId: string,
+    body: string,
+    requestId: string | undefined,
+    authorId: string,
+    authorName: string,
+    attachmentId?: string,
+    replyToId?: string,
+  ): Promise<ApiMessage> {
+    await this.assertCanWrite(authorId);
+    if (!body.trim() && !attachmentId) throw new BadRequestException("Введите сообщение или прикрепите файл");
+    await this.assertRoom(roomId);
+    await this.assertReplyTarget(replyToId, { roomId });
+
+    if (requestId) {
+      const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+      if (existing) {
+        if (existing.authorId !== authorId || existing.roomId !== roomId) {
+          throw new ConflictException("requestId уже использован");
+        }
+        if (attachmentId && existing.attachments.length === 0) await this.attachments.attachToMessage(authorId, attachmentId, existing.id);
+        return this.toApiMessage(existing);
+      }
+    }
+
+    const message = await this.prisma.message.create({
+      data: {
+        roomId,
+        authorId,
+        authorName,
+        body: body.trim(),
+        requestId,
+        replyToId,
+      },
+    });
+    try {
+      await this.attachments.attachToMessage(authorId, attachmentId, message.id);
+    } catch (error) {
+      await this.prisma.message.delete({ where: { id: message.id } });
+      throw error;
+    }
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    await Promise.all([
+      this.notifications.createReply(authorId, completed.id, replyToId),
+      this.notifications.createMentions(authorId, completed.id, completed.body),
+      this.economy.awardForPublicMessage(authorId, completed.id, completed.body),
+    ]);
+    return this.toApiMessage(completed, authorId);
+  }
+
+  async createBotMessage(roomId: string, authorId: string, authorName: string, body: string): Promise<ApiMessage> {
+    await this.assertRoom(roomId);
+    const message = await this.prisma.message.create({
+      data: { roomId, authorId, authorName, body },
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true },
+    });
+    return this.toApiMessage(message);
+  }
+
+  async createSystemMessage(body: string): Promise<ApiMessage> {
+    const message = await this.prisma.message.create({
+      data: { roomId: "main", authorName: "Система", body, kind: "SYSTEM" },
+      include: { attachments: true, reactions: true },
+    });
+    return this.toApiMessage(message);
+  }
+
+  async listUsers(currentUserId: string): Promise<ApiPerson[]> {
+    const users = await this.prisma.user.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ status: "asc" }, { displayName: "asc" }],
+      include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 } },
+    });
+
+    return users.map((user) => ({
+      id: user.id,
+      username: user.username,
+      name: user.displayName,
+      status: user.status.toLowerCase() as ApiPerson["status"],
+      gender: user.gender.toLowerCase() as ApiPerson["gender"],
+      isBot: user.isBot || undefined,
+      role: user.role === "USER" ? undefined : user.role.toLowerCase(),
+      room: user.memberships[0]?.roomId ?? "main",
+      avatar: user.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarKey : user.displayName[0]?.toUpperCase() ?? "?",
+      avatarThumbnail: user.avatarThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarThumbKey : undefined,
+    }));
+  }
+
+  async listDirectConversations(userId: string): Promise<DirectConversation[]> {
+    const heads = await this.prisma.$queryRaw<Array<{ messageId: string; peerId: string }>>(Prisma.sql`
+      SELECT DISTINCT ON ("peerId") "messageId", "peerId"
+      FROM (
+        SELECT
+          m.id AS "messageId",
+          CASE WHEN m.author_id = ${userId}::uuid THEN m.recipient_id ELSE m.author_id END AS "peerId",
+          m.created_at AS "createdAt"
+        FROM messages m
+        WHERE m.room_id IS NULL
+          AND m.deleted_at IS NULL
+          AND (m.author_id = ${userId}::uuid OR m.recipient_id = ${userId}::uuid)
+      ) direct_messages
+      WHERE "peerId" IS NOT NULL
+      ORDER BY "peerId", "createdAt" DESC
+    `);
+
+    if (heads.length === 0) return [];
+
+    const peerIds = heads.map((head) => head.peerId);
+    const [messages, peers, unreadGroups] = await Promise.all([
+      this.prisma.message.findMany({ where: { id: { in: heads.map((head) => head.messageId) } }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } }),
+      this.prisma.user.findMany({
+        where: { id: { in: peerIds }, deletedAt: null },
+        include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 } },
+      }),
+      this.prisma.message.groupBy({
+        by: ["authorId"],
+        where: { recipientId: userId, roomId: null, readAt: null, deletedAt: null },
+        _count: { _all: true },
+      }),
+    ]);
+
+    const messageById = new Map(messages.map((message) => [message.id, message]));
+    const peerById = new Map(peers.map((peer) => [peer.id, peer]));
+    const unreadByPeer = new Map(unreadGroups.map((group) => [group.authorId, group._count._all]));
+
+    return heads.flatMap((head) => {
+      const message = messageById.get(head.messageId);
+      const peer = peerById.get(head.peerId);
+      if (!message || !peer) return [];
+
+      return [{
+        peer: {
+          id: peer.id,
+          username: peer.username,
+          name: peer.displayName,
+          status: peer.status.toLowerCase() as ApiPerson["status"],
+          role: peer.role === "USER" ? undefined : peer.role.toLowerCase(),
+          room: peer.memberships[0]?.roomId ?? "main",
+          avatar: peer.displayName[0]?.toUpperCase() ?? "?",
+          gender: peer.gender.toLowerCase() as ApiPerson["gender"],
+        },
+        lastMessage: this.toApiMessage(message, userId),
+        unread: unreadByPeer.get(peer.id) ?? 0,
+        updatedAt: message.createdAt.toISOString(),
+      }];
+    }).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  }
+
+  async markDirectRead(userId: string, peerId: string) {
+    await this.assertPeer(userId, peerId);
+    const result = await this.prisma.message.updateMany({
+      where: { authorId: peerId, recipientId: userId, readAt: null, deletedAt: null },
+      data: { readAt: new Date() },
+    });
+    return { updated: result.count };
+  }
+
+  async getDirectMessagePage(userId: string, peerId: string, cursor?: string) {
+    await this.assertPeer(userId, peerId);
+    const messages = await this.prisma.message.findMany({
+      where: {
+        deletedAt: null,
+        OR: [
+          { authorId: userId, recipientId: peerId },
+          { authorId: peerId, recipientId: userId },
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 51,
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+    });
+    const hasMore = messages.length > 50;
+    const page = messages.slice(0, 50);
+    return {
+      items: page.reverse().map((message) => this.toApiMessage(message, userId)),
+      nextCursor: hasMore ? page[0]?.id ?? null : null,
+    };
+  }
+
+  async getDirectMessages(userId: string, peerId: string): Promise<ApiMessage[]> {
+    return (await this.getDirectMessagePage(userId, peerId)).items;
+  }
+
+  async searchDirectMessages(userId: string, peerId: string, query: string): Promise<ApiMessage[]> {
+    await this.assertPeer(userId, peerId);
+    const messages = await this.prisma.message.findMany({
+      where: {
+        deletedAt: null,
+        AND: [
+          { OR: [{ authorId: userId, recipientId: peerId }, { authorId: peerId, recipientId: userId }] },
+          { OR: [{ body: { contains: query, mode: "insensitive" } }, { authorName: { contains: query, mode: "insensitive" } }] },
+        ],
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 30,
+      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+    });
+    return messages.map((message) => this.toApiMessage(message, userId));
+  }
+
+  async createDirectMessage(
+    recipientId: string,
+    body: string,
+    requestId: string,
+    authorId: string,
+    authorName: string,
+    attachmentId?: string,
+    replyToId?: string,
+  ): Promise<ApiMessage> {
+    await this.assertCanWrite(authorId);
+    if (!body.trim() && !attachmentId) throw new BadRequestException("Введите сообщение или прикрепите файл");
+    await this.assertPeer(authorId, recipientId);
+    await this.assertReplyTarget(replyToId, { participantIds: [authorId, recipientId] });
+
+    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    if (existing) {
+      if (existing.authorId !== authorId || existing.recipientId !== recipientId) {
+        throw new ConflictException("requestId уже использован");
+      }
+      if (attachmentId && existing.attachments.length === 0) await this.attachments.attachToMessage(authorId, attachmentId, existing.id);
+      return this.toApiMessage(existing);
+    }
+
+    const message = await this.prisma.message.create({
+      data: { recipientId, authorId, authorName, body: body.trim(), requestId, replyToId },
+    });
+    try {
+      await this.attachments.attachToMessage(authorId, attachmentId, message.id);
+    } catch (error) {
+      await this.prisma.message.delete({ where: { id: message.id } });
+      throw error;
+    }
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    await this.notifications.createReply(authorId, completed.id, replyToId);
+    return this.toApiMessage(completed, authorId);
+  }
+
+  async toggleReaction(userId: string, messageId: string, type: ReactionType): Promise<ReactionUpdate> {
+    const message = await this.prisma.message.findFirst({ where: { id: messageId, deletedAt: null } });
+    if (!message) throw new NotFoundException("Сообщение не найдено");
+    if (message.kind === "SYSTEM") throw new BadRequestException("Системные сообщения нельзя оценивать");
+    if (message.recipientId && message.authorId !== userId && message.recipientId !== userId) {
+      throw new ForbiddenException("Эта переписка вам недоступна");
+    }
+
+    const result = await this.prisma.$transaction(async (prisma) => {
+      const existing = await prisma.messageReaction.findUnique({ where: { messageId_userId: { messageId, userId } } });
+      let selected: ReactionType | null = type;
+      if (existing?.type === type) {
+        await prisma.messageReaction.delete({ where: { id: existing.id } });
+        selected = null;
+      } else {
+        await prisma.messageReaction.upsert({
+          where: { messageId_userId: { messageId, userId } },
+          create: { messageId, userId, type },
+          update: { type },
+        });
+      }
+      const counts = await prisma.messageReaction.groupBy({
+        by: ["type"],
+        where: { messageId },
+        _count: { _all: true },
+        orderBy: { type: "asc" },
+      });
+      return { selected, counts };
+    });
+
+    await this.notifications.syncReaction(userId, message, result.selected);
+
+    return {
+      messageId,
+      userId,
+      selected: result.selected ? result.selected.toLowerCase() as ApiReactionType : null,
+      reactions: result.counts.map((item) => ({ type: item.type.toLowerCase() as ApiReactionType, count: item._count._all })),
+      roomId: message.roomId ?? undefined,
+      participantIds: message.recipientId ? [message.authorId, message.recipientId].filter((id): id is string => Boolean(id)) : undefined,
+    };
+  }
+  private async assertReplyTarget(replyToId: string | undefined, context: { roomId?: string; participantIds?: string[] }) {
+    if (!replyToId) return;
+    const target = await this.prisma.message.findFirst({
+      where: { id: replyToId, deletedAt: null },
+      select: { authorId: true, recipientId: true, roomId: true },
+    });
+    if (!target) throw new NotFoundException("Цитируемое сообщение не найдено");
+    if (context.roomId) {
+      if (target.roomId !== context.roomId) throw new BadRequestException("Можно отвечать только на сообщение из текущей комнаты");
+      return;
+    }
+    const expected = new Set(context.participantIds ?? []);
+    if (target.roomId || !target.authorId || !target.recipientId || !expected.has(target.authorId) || !expected.has(target.recipientId)) {
+      throw new BadRequestException("Можно отвечать только на сообщение из текущего личного диалога");
+    }
+  }
+  private async assertCanWrite(userId: string) {
+    const now = new Date();
+    const [mute, ban] = await Promise.all([
+      this.prisma.mute.findFirst({ where: { userId, expiresAt: { gt: now } } }),
+      this.prisma.ban.findFirst({
+        where: {
+          userId,
+          revokedAt: null,
+          OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        },
+      }),
+    ]);
+    if (ban) throw new ForbiddenException("Аккаунт заблокирован");
+    if (mute) throw new ForbiddenException("Вы не можете писать до " + mute.expiresAt.toLocaleString("ru-RU"));
+  }
+
+  async setPresence(userId: string, status: "online" | "away" | "dnd" | "offline") {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { status: status.toUpperCase() as "ONLINE" | "AWAY" | "DND" | "OFFLINE" },
+    });
+  }
+
+  private async assertPeer(userId: string, peerId: string) {
+    if (userId === peerId) throw new BadRequestException("Нельзя написать самому себе");
+    const peer = await this.prisma.user.findFirst({ where: { id: peerId, deletedAt: null } });
+    if (!peer) throw new NotFoundException("Пользователь не найден");
+    return peer;
+  }
+
+  private async assertRoom(roomId: string): Promise<Room> {
+    const room = await this.prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new NotFoundException("Комната не найдена");
+    return room;
+  }
+
+  private async toApiRoom(room: Room): Promise<ApiRoom> {
+    const [online, memberCount] = await Promise.all([
+      this.prisma.roomMembership.count({ where: { roomId: room.id, user: { status: "ONLINE" } } }),
+      this.prisma.roomMembership.count({ where: { roomId: room.id } }),
+    ]);
+    const visibility = room.visibility.toLowerCase() as ApiRoom["visibility"];
+    return {
+      id: room.id,
+      name: room.name,
+      description: room.description,
+      tone: room.tone,
+      coverEmoji: room.coverEmoji,
+      coverUrl: room.coverKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + room.coverKey : undefined,
+      coverThumbnailUrl: room.coverThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + room.coverThumbKey : undefined,
+      rules: room.rules,
+      visibility,
+      kind: room.id === "main" ? "general" : visibility,
+      createdAt: room.createdAt.toISOString(),
+      memberCount,
+      online,
+      createdById: room.createdById ?? undefined,
+    };
+  }
+
+  private async deleteRoomCover(key: string | null) {
+    if (!key || !key.startsWith("/uploads/room-covers/")) return;
+    await unlink(join(process.cwd(), key.slice(1))).catch(() => undefined);
+  }
+
+  private toApiMessage(message: Message & { author?: { avatarKey: string | null } | null; attachments?: Attachment[]; reactions?: MessageReaction[]; replyTo?: { id: string; authorId: string | null; authorName: string; createdAt: Date } | null }, currentUserId?: string): ApiMessage {
+    const grouped = new Map<ApiReactionType, { count: number; mine: boolean }>();
+    for (const reaction of message.reactions ?? []) {
+      const type = reaction.type.toLowerCase() as ApiReactionType;
+      const current = grouped.get(type) ?? { count: 0, mine: false };
+      grouped.set(type, { count: current.count + 1, mine: current.mine || reaction.userId === currentUserId });
+    }
+    return {
+      id: message.id,
+      authorId: message.authorId ?? undefined,
+      author: message.authorName,
+      avatarUrl: message.author?.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + message.author.avatarKey : undefined,
+      body: message.body,
+      time: message.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      createdAt: message.createdAt.toISOString(),
+      system: message.kind === "SYSTEM",
+      attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment)),
+      reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
+      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: message.replyTo.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) } : undefined,
+    };
+  }
+}
