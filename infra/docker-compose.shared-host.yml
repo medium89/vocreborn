@@ -1,0 +1,15 @@
+# Use together with docker-compose.prod.yml on a host where system Caddy owns 80/443.
+# Start only postgres, api and web; do not start the Compose caddy service.
+services:
+  postgres:
+    mem_limit: 256m
+
+  api:
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:3004:3001"
+
+  web:
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:3003:3000"

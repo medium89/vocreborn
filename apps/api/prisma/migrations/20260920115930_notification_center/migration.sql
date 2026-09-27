@@ -1,9 +1,3 @@
-/*
-  Warnings:
-
-  - Made the column `message_id` on table `attachments` required. This step will fail if there are existing NULL values in that column.
-
-*/
 -- AlterEnum
 -- This migration adds more than one value to an enum.
 -- With PostgreSQL versions 11 and earlier, this is not possible
@@ -22,14 +16,8 @@ ALTER TYPE "NotificationType" ADD VALUE 'UNBAN';
 ALTER TYPE "NotificationType" ADD VALUE 'PHOTO_LIKE';
 ALTER TYPE "NotificationType" ADD VALUE 'PHOTO_COMMENT';
 
--- DropForeignKey
-ALTER TABLE "attachments" DROP CONSTRAINT "attachments_profile_post_id_fkey";
-
 -- DropIndex
 DROP INDEX "notifications_user_id_actor_id_message_id_type_key";
-
--- AlterTable
-ALTER TABLE "attachments" ALTER COLUMN "message_id" SET NOT NULL;
 
 -- AlterTable
 ALTER TABLE "notifications" ADD COLUMN     "gift_inventory_id" UUID,
@@ -85,9 +73,6 @@ ALTER TABLE "notifications" ADD CONSTRAINT "notifications_gift_inventory_id_fkey
 
 -- AddForeignKey
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_photo_id_fkey" FOREIGN KEY ("photo_id") REFERENCES "album_photos"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "attachments" ADD CONSTRAINT "attachments_profile_post_id_fkey" FOREIGN KEY ("profile_post_id") REFERENCES "profile_posts"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "photo_likes" ADD CONSTRAINT "photo_likes_photo_id_fkey" FOREIGN KEY ("photo_id") REFERENCES "album_photos"("id") ON DELETE CASCADE ON UPDATE CASCADE;

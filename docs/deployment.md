@@ -32,6 +32,17 @@ Caddy автоматически получает и обновляет HTTPS-с
 
 ## Проверка
 
+На общем сервере с уже работающим системным Caddy (как `/opt/tusova`) не запускайте сервис `caddy` из Compose: он попытается занять порты 80/443 и столкнётся с существующим прокси. Используйте дополнительный файл `infra/docker-compose.shared-host.yml` и явно перечисляйте сервисы:
+
+```bash
+docker compose -p tusova --env-file .env.production \
+  -f infra/docker-compose.prod.yml \
+  -f infra/docker-compose.shared-host.yml \
+  up -d --no-build postgres api web
+```
+
+На малом сервере `--no-build` требует предварительно собранных и доставленных образов `tusova-api:latest` и `tusova-web:latest`: сборку Next.js и API выполняйте вне сервера, чтобы не мешать соседним сервисам. Этот вариант публикует web только на `127.0.0.1:3003`, API только на `127.0.0.1:3004`, с ограничениями памяти. Системный Caddy направляет `/api/*`, `/socket.io/*`, `/uploads/*` и `/bot-avatars/*` в API, остальные пути — в web. До публичного запуска убедитесь, что настроены production-секреты, SMTP и миграции на чистой базе. Переключайте A-записи домена после проверки сервисов, а затем проверяйте выпуск HTTPS-сертификата и реальные запросы с домена. Почтовые DNS-записи не меняйте.
+
 ```bash
 docker compose --env-file .env.production -f infra/docker-compose.prod.yml ps
 curl -fsS https://YOUR_DOMAIN/api/health/live
