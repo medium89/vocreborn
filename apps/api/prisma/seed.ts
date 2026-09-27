@@ -6,7 +6,7 @@ async function main() {
   const room = { id: "main", name: "Главная", description: "Общая комната сообщества", tone: "lime", position: 0 };
   await prisma.room.upsert({
     where: { id: room.id },
-    update: room,
+    update: {},
     create: room,
   });
 

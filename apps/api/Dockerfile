@@ -20,4 +20,4 @@ COPY --from=builder /app/assets ./assets
 RUN mkdir -p /app/uploads/avatars /app/storage/attachments && chown -R node:node /app
 USER node
 EXPOSE 3001
-CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy && npm run db:seed && node dist/main.js"]
