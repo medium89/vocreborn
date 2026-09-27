@@ -19,7 +19,7 @@ async function main() {
       data: {
         roomId: "main",
         authorName: "Система",
-        body: "Добро пожаловать в Aura.",
+        body: "Добро пожаловать в TUSOVA.",
         kind: MessageKind.SYSTEM,
       },
     });

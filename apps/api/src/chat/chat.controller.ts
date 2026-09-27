@@ -96,7 +96,7 @@ export class ChatController {
   ) {
     return {
       requestId: input.requestId,
-      message: await this.chat.createMessage(roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId),
+      message: await this.chat.createMessage(roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice),
     };
   }
 }
@@ -114,6 +114,23 @@ export class UsersController {
   @Get(":userId")
   getProfile(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string) {
     return this.profiles.getPublicProfile(userId);
+  }
+
+  @Get(":userId/friends")
+  listFriends(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string) {
+    return this.profiles.listFriends(userId);
+  }
+
+  @Post(":userId/friends")
+  @RateLimit({ limit: 30, windowMs: 60 * 1000, key: "session" })
+  addFriend(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.profiles.addFriend(user.id, userId);
+  }
+
+  @Delete(":userId/friends")
+  @RateLimit({ limit: 30, windowMs: 60 * 1000, key: "session" })
+  removeFriend(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.profiles.removeFriend(user.id, userId);
   }
 }
 

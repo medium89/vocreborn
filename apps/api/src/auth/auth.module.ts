@@ -1,14 +1,16 @@
-import { Module } from "@nestjs/common";
+import { forwardRef, Module } from "@nestjs/common";
 import { AuthController, MeController } from "./auth.controller";
 import { AuthService } from "./auth.service";
+import { EmailService } from "./email.service";
 import { SessionGuard } from "./session.guard";
 import { ProfileService } from "./profile.service";
 import { NotificationsModule } from "../notifications/notifications.module";
+import { GiftsModule } from "../gifts/gifts.module";
 
 @Module({
-  imports: [NotificationsModule],
+  imports: [forwardRef(() => NotificationsModule), forwardRef(() => GiftsModule)],
   controllers: [AuthController, MeController],
-  providers: [AuthService, SessionGuard, ProfileService],
+  providers: [AuthService, EmailService, SessionGuard, ProfileService],
   exports: [AuthService, SessionGuard, ProfileService],
 })
 export class AuthModule {}

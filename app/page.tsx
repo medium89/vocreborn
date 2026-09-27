@@ -9,11 +9,14 @@ import { PeoplePanel } from "@/components/chat/people-panel";
 import { PublicProfileModal } from "@/components/chat/public-profile-modal";
 import { ReportModal } from "@/components/chat/report-modal";
 import { ReportsModal } from "@/components/chat/reports-modal";
-import { NotificationsModal } from "@/components/chat/notifications-modal";
+import { NotificationsPage } from "@/components/chat/notifications-modal";
 import { ModerationModal, ProfileModal, RoomsModal } from "@/components/chat/modals";
+import { UserEditorPage } from "@/components/chat/user-editor-page";
 import { CommunitiesModal } from "@/components/chat/communities-modal";
-import { GiftShopModal } from "@/components/chat/gift-shop-modal";
+import { CommunityChatPage } from "@/components/chat/community-chat-page";
+import { GiftShopPage } from "@/components/chat/gift-shop-modal";
 import { Sidebar } from "@/components/chat/sidebar";
+import { SupportModal } from "@/components/chat/support-modal";
 
 import { changePassword, getMe, logout, updateProfile, uploadAvatar } from "@/lib/auth-api";
 import {
@@ -21,9 +24,7 @@ import {
   createRoom,
   fetchDirectConversations,
   fetchDirectMessagePage,
-  fetchDirectMessages,
   fetchRoomMessagePage,
-  fetchRoomMessages,
   fetchRooms,
   fetchUsers,
   markDirectRead,
@@ -33,11 +34,12 @@ import {
   updateRoom,
   uploadRoomCover,
 } from "@/lib/chat-api";
-import type { Attachment, AuthUser, DirectConversation, Message, NotificationItem, Person, ReactionType, ReactionUpdate, ReportReason, Room, UserStatus } from "@/lib/chat-contract";
+import type { Attachment, AuthUser, Community, DirectConversation, EconomyBalance, Message, NotificationItem, Person, ReactionType, ReactionUpdate, ReportReason, Room, UserStatus } from "@/lib/chat-contract";
 import { createReport } from "@/lib/reports-api";
-import { fetchNotifications, markNotificationsRead } from "@/lib/notifications-api";
-import { uploadAttachment } from "@/lib/social-api";
-import { banUser, deletePublicMessage, muteUser, unbanUser, unmuteUser } from "@/lib/moderation-api";
+import { clearAllNotifications as clearAllNotificationsApi, fetchNotifications, markNotificationsRead, removeNotification } from "@/lib/notifications-api";
+import { fetchCommunities, fetchCommunityMenuBadge, fetchEconomyBalance, fetchGiftCatalog, uploadAttachment } from "@/lib/social-api";
+import { defaultNotificationPreferences, defaultTabAlertPreferences, notificationTypeOptions, loadNotificationPreferences, loadTabAlertPreferences, saveNotificationPreferences, saveTabAlertPreferences, type NotificationPreferences, type TabAlertPreferences } from "@/lib/tab-alerts";
+import { banUser, deletePublicMessage, imposeChaos, muteUser, removeChaos, unbanUser, unmuteUser } from "@/lib/moderation-api";
 
 
 type MessageCreated = { roomId: string; message: Message; requestId?: string };
@@ -73,15 +75,25 @@ function createRequestId() {
   return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
 }
 
+const MAX_LOADED_MESSAGES = 150;
+
 function appendUnique(items: Message[], message: Message) {
-  return items.some((item) => item.id === message.id) ? items : [...items, message];
+  return items.some((item) => item.id === message.id) ? items : [...items, message].slice(-MAX_LOADED_MESSAGES);
 }
 
 function mergeChronological(items: Message[], message: Message) {
   const next = items.some((item) => item.id === message.id)
     ? items.map((item) => item.id === message.id ? message : item)
     : [...items, message];
-  return next.sort((left, right) => (left.createdAt ?? "").localeCompare(right.createdAt ?? ""));
+  return next.sort((left, right) => (left.createdAt ?? "").localeCompare(right.createdAt ?? "") || String(left.id).localeCompare(String(right.id)));
+}
+
+function revealWindow(items: Message[], message: Message) {
+  const ordered = mergeChronological(items, message);
+  if (ordered.length <= MAX_LOADED_MESSAGES) return { items: ordered, droppedNewer: false };
+  const index = ordered.findIndex((item) => item.id === message.id);
+  const start = Math.min(Math.max(0, index - 20), ordered.length - MAX_LOADED_MESSAGES);
+  return { items: ordered.slice(start, start + MAX_LOADED_MESSAGES), droppedNewer: start + MAX_LOADED_MESSAGES < ordered.length };
 }
 
 
@@ -114,12 +126,22 @@ export default function Home() {
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [tabAlertPreferences, setTabAlertPreferences] = useState<TabAlertPreferences>(defaultTabAlertPreferences);
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreferences>(defaultNotificationPreferences);
+  const [unreadRoomMessages, setUnreadRoomMessages] = useState<Record<string, number>>({});
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [direct, setDirect] = useState<Record<string, Message[]>>({});
   const [roomCursors, setRoomCursors] = useState<Record<string, string | null>>({});
   const [directCursors, setDirectCursors] = useState<Record<string, string | null>>({});
+  const [roomHasNewer, setRoomHasNewer] = useState<Record<string, boolean>>({});
+  const [directHasNewer, setDirectHasNewer] = useState<Record<string, boolean>>({});
+  const roomHasNewerRef = useRef<Record<string, boolean>>({});
+  const directHasNewerRef = useRef<Record<string, boolean>>({});
+  const roomOldestRef = useRef<Record<string, Message>>({});
+  const directOldestRef = useRef<Record<string, Message>>({});
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [draft, setDraft] = useState("");
+  const [adminVoice, setAdminVoice] = useState(false);
   const [mentionFocusRequest, setMentionFocusRequest] = useState(0);
   const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -129,20 +151,32 @@ export default function Home() {
   const [privateMessagePreview, setPrivateMessagePreview] = useState<PrivateMessagePreview | null>(null);
   const [roomsOpen, setRoomsOpen] = useState(false);
   const [communitiesOpen, setCommunitiesOpen] = useState(false);
+  const [communityChatOpen, setCommunityChatOpen] = useState(false);
+  const [myCommunity, setMyCommunity] = useState<Community | null>(null);
   const [giftsOpen, setGiftsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [communityBadge, setCommunityBadge] = useState(0);
+  const [shopBadge, setShopBadge] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const [viewedProfile, setViewedProfile] = useState<Person | null>(null);
   const [reportTarget, setReportTarget] = useState<{ label: string; userId?: string; messageId?: string } | null>(null);
   const [moderationTarget, setModerationTarget] = useState<Person | null>(null);
+  const [quickModerationTarget, setQuickModerationTarget] = useState<Person | null>(null);
   const [muted, setMuted] = useState(false);
   const [mutedPeople, setMutedPeople] = useState<Set<string>>(new Set());
 
   const [notice, setNotice] = useState("Проверка сессии…");
   const [errorNotice, setErrorNotice] = useState("");
   const socketRef = useRef<Socket | null>(null);
+  const tabAlertPreferencesRef = useRef<TabAlertPreferences>(defaultTabAlertPreferences);
+  const notificationPreferencesRef = useRef<NotificationPreferences>(defaultNotificationPreferences);
+  const tabAlertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabAlertCountRef = useRef(0);
+  const seenNotificationsRef = useRef(new Map<string, string>());
+  const notificationsBaselineReadyRef = useRef(false);
   const activeRoomRef = useRef(roomId);
   const activeDialogRef = useRef<string | null>(null);
   const peopleRef = useRef<Person[]>([]);
@@ -150,6 +184,136 @@ export default function Home() {
   const muteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const privateMessagePreviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const ownRequests = useRef(new Set<string>());
+  const economyRequestId = useRef(0);
+
+  function markRoomNewer(key: string, value: boolean) {
+    roomHasNewerRef.current[key] = value;
+    setRoomHasNewer((old) => ({ ...old, [key]: value }));
+  }
+  function markDirectNewer(key: string, value: boolean) {
+    directHasNewerRef.current[key] = value;
+    setDirectHasNewer((old) => ({ ...old, [key]: value }));
+  }
+  useEffect(() => {
+    for (const [key, items] of Object.entries(messages)) {
+      const first = items[0];
+      const previous = roomOldestRef.current[key];
+      if (first && previous && items.length === MAX_LOADED_MESSAGES &&
+          ((first.createdAt ?? "").localeCompare(previous.createdAt ?? "") || String(first.id).localeCompare(String(previous.id))) > 0) {
+        setRoomCursors((old) => ({ ...old, [key]: String(first.id) }));
+      }
+      if (first) roomOldestRef.current[key] = first;
+    }
+  }, [messages]);
+  useEffect(() => {
+    for (const [key, items] of Object.entries(direct)) {
+      const first = items[0];
+      const previous = directOldestRef.current[key];
+      if (first && previous && items.length === MAX_LOADED_MESSAGES &&
+          ((first.createdAt ?? "").localeCompare(previous.createdAt ?? "") || String(first.id).localeCompare(String(previous.id))) > 0) {
+        setDirectCursors((old) => ({ ...old, [key]: String(first.id) }));
+      }
+      if (first) directOldestRef.current[key] = first;
+    }
+  }, [direct]);
+
+  function clearTabAlert() {
+    if (tabAlertTimerRef.current) clearTimeout(tabAlertTimerRef.current);
+    tabAlertTimerRef.current = null;
+    tabAlertCountRef.current = 0;
+    document.title = "TUSOVA — ночные разговоры";
+  }
+
+  function showTabAlert(kind: keyof TabAlertPreferences, label: string) {
+    if (!tabAlertPreferencesRef.current[kind]) return;
+    if (tabAlertTimerRef.current) clearTimeout(tabAlertTimerRef.current);
+    tabAlertCountRef.current += 1;
+    const count = tabAlertCountRef.current > 1 ? "(" + tabAlertCountRef.current + ") " : "";
+    document.title = count + label.replace(/\s+/g, " ").slice(0, 70) + " · TUSOVA";
+    if (!document.hidden && document.hasFocus()) tabAlertTimerRef.current = setTimeout(() => {
+      tabAlertTimerRef.current = null;
+      if (!document.hidden && document.hasFocus()) clearTabAlert();
+    }, 10_000);
+  }
+
+  function changeTabAlertPreferences(next: TabAlertPreferences) {
+    tabAlertPreferencesRef.current = next;
+    setTabAlertPreferences(next);
+    if (!next.directPreview) dismissPrivateMessagePreview();
+    if (user) {
+      try { saveTabAlertPreferences(user.id, next); }
+      catch { showNotice("Не удалось сохранить настройки вкладки в браузере."); }
+    }
+    clearTabAlert();
+  }
+
+  function changeNotificationPreferences(next: NotificationPreferences) {
+    notificationPreferencesRef.current = next;
+    setNotificationPreferences(next);
+    if (user) {
+      try { saveNotificationPreferences(user.id, next); }
+      catch { showNotice("Не удалось сохранить настройки уведомлений в браузере."); }
+    }
+    clearTabAlert();
+  }
+
+  useEffect(() => {
+    seenNotificationsRef.current.clear();
+    notificationsBaselineReadyRef.current = false;
+    if (user) {
+      const next = loadTabAlertPreferences(user.id);
+      tabAlertPreferencesRef.current = next;
+      setTabAlertPreferences(next);
+      const notificationNext = loadNotificationPreferences(user.id);
+      notificationPreferencesRef.current = notificationNext;
+      setNotificationPreferences(notificationNext);
+    } else {
+      tabAlertPreferencesRef.current = defaultTabAlertPreferences;
+      setTabAlertPreferences(defaultTabAlertPreferences);
+      notificationPreferencesRef.current = defaultNotificationPreferences;
+      setNotificationPreferences(defaultNotificationPreferences);
+      seenNotificationsRef.current.clear();
+      notificationsBaselineReadyRef.current = false;
+      clearTabAlert();
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    const resetOnReturn = () => { if (!document.hidden && document.hasFocus()) clearTabAlert(); };
+    document.addEventListener("visibilitychange", resetOnReturn);
+    window.addEventListener("focus", resetOnReturn);
+    return () => {
+      document.removeEventListener("visibilitychange", resetOnReturn);
+      window.removeEventListener("focus", resetOnReturn);
+      clearTabAlert();
+    };
+  }, []);
+
+  function applyEconomyBalance(balance: EconomyBalance, userId: string) {
+    economyRequestId.current += 1;
+    setUser((current) => current?.id === userId && (current.credits !== balance.credits || current.rating !== balance.rating)
+      ? { ...current, credits: balance.credits, rating: balance.rating }
+      : current);
+  }
+
+  async function refreshEconomy(userId?: string) {
+    if (!userId) return;
+    const requestId = ++economyRequestId.current;
+    try {
+      const balance = await fetchEconomyBalance();
+      if (requestId === economyRequestId.current) applyEconomyBalance(balance, userId);
+    } catch {
+      // The next poll will retry; actions keep their own errors.
+    }
+  }
+
+  useEffect(() => {
+    if (!user?.id) return;
+    const userId = user.id;
+    void refreshEconomy(userId);
+    const timer = window.setInterval(() => void refreshEconomy(userId), 5_000);
+    return () => { window.clearInterval(timer); economyRequestId.current += 1; };
+  }, [user?.id]);
 
   function showNotice(message: string) {
     const isError = /не удалось|ошиб|недоступ|потеряно|не отправ|не подтверд|запрещен|заблокир|требуется|разрешены только|должн[ао] быть|сессия завершена|отклонил/i.test(message);
@@ -192,6 +356,7 @@ export default function Home() {
   }
 
   function showPrivateMessagePreview(peerId: string, body: string) {
+    if (!tabAlertPreferencesRef.current.directPreview) return;
     if (privateMessagePreviewTimerRef.current) clearTimeout(privateMessagePreviewTimerRef.current);
     setPrivateMessagePreview({ peerId, text: body.trim() || "Отправлено вложение" });
     privateMessagePreviewTimerRef.current = setTimeout(() => {
@@ -208,12 +373,27 @@ export default function Home() {
     ]);
     setChatPeople(serverPeople);
     setConversations(normalizeConversations(serverConversations, currentUser.id));
+    for (const item of feed.items) {
+      if (!seenNotificationsRef.current.has(item.id)) seenNotificationsRef.current.set(item.id, item.createdAt);
+    }
+    notificationsBaselineReadyRef.current = true;
     setNotifications(feed.items);
     setUnreadNotifications(feed.unread);
   }
 
-  async function refreshNotifications() {
+  async function refreshNotifications(alertOnNew = false) {
     const feed = await fetchNotifications();
+    const newItems = feed.items.filter((item) => !item.readAt && seenNotificationsRef.current.get(item.id) !== item.createdAt);
+    for (const item of feed.items) seenNotificationsRef.current.set(item.id, item.createdAt);
+    if (alertOnNew && notificationsBaselineReadyRef.current) {
+      const item = newItems.find((entry) => notificationPreferencesRef.current[entry.type] && tabAlertPreferencesRef.current[entry.type === "mention" ? "mentions" : "notifications"]);
+      if (item) {
+        const actor = item.actor.name.trim() || "участника";
+        showTabAlert(item.type === "mention" ? "mentions" : "notifications",
+          item.type === "mention" ? "Упоминание от " + actor : "Новое уведомление от " + actor);
+      }
+    }
+    notificationsBaselineReadyRef.current = true;
     setNotifications(feed.items);
     setUnreadNotifications(feed.unread);
   }
@@ -292,27 +472,29 @@ export default function Home() {
       showNotice(error.message === "Требуется вход" ? "Сессия завершена. Войдите снова." : "Сервер недоступен.");
     });
     socket.on("room:snapshot", (snapshot: RoomSnapshot) => {
+      if (snapshot.room.id !== activeRoomRef.current) return;
       const snapshotMessages = snapshot.messages.map((message) => ({
         ...message,
         mine: message.authorId ? message.authorId === user.id : message.author === user.displayName,
       }));
-      setMessages((old) => ({ ...old, [snapshot.room.id]: snapshotMessages }));
+      if (!roomHasNewerRef.current[snapshot.room.id]) setMessages({ [snapshot.room.id]: snapshotMessages.slice(-MAX_LOADED_MESSAGES) });
     });
     socket.on("message:created", (payload: MessageCreated) => {
       const mine = payload.message.authorId === user.id || Boolean(payload.requestId && ownRequests.current.delete(payload.requestId));
       const message = mine ? { ...payload.message, mine: true } : payload.message;
-      setMessages((old) => ({
-        ...old,
-        [payload.roomId]: appendUnique(old[payload.roomId] ?? [], message),
-      }));
+      if (payload.roomId === activeRoomRef.current) {
+        if (roomHasNewerRef.current[payload.roomId]) markRoomNewer(payload.roomId, true);
+        else setMessages((old) => ({ ...old, [payload.roomId]: appendUnique(old[payload.roomId] ?? [], message) }));
+      }
+      if (!mine && (Boolean(activeDialogRef.current) || payload.roomId !== activeRoomRef.current)) setUnreadRoomMessages((old) => ({ ...old, [payload.roomId]: (old[payload.roomId] ?? 0) + 1 }));
     });
     socket.on("direct:created", (payload: DirectCreated) => {
       const mine = payload.message.authorId === user.id || Boolean(payload.requestId && ownRequests.current.delete(payload.requestId));
       const message = mine ? { ...payload.message, mine: true } : payload.message;
-      setDirect((old) => ({
-        ...old,
-        [payload.peerId]: appendUnique(old[payload.peerId] ?? [], message),
-      }));
+      if (payload.peerId === activeDialogRef.current) {
+        if (directHasNewerRef.current[payload.peerId]) markDirectNewer(payload.peerId, true);
+        else setDirect((old) => ({ ...old, [payload.peerId]: appendUnique(old[payload.peerId] ?? [], message) }));
+      }
       recordConversation(payload.peerId, message, mine);
       if (!mine) {
         setChatPeople((old) => old.some((person) => person.id === payload.peerId) ? old : [...old, {
@@ -324,6 +506,7 @@ export default function Home() {
         gender: "unspecified",
         }]);
         showPrivateMessagePreview(payload.peerId, message.body);
+        showTabAlert("direct", "Личное сообщение от " + message.author);
       }
       if (!mine && activeDialogRef.current === payload.peerId) {
         markDirectRead(payload.peerId).catch(() => showNotice("Не удалось отметить сообщение прочитанным."));
@@ -341,7 +524,7 @@ export default function Home() {
       setConversations((old) => old.map((item) => ({ ...item, lastMessage: applyReactionUpdate(item.lastMessage, payload, user.id) })));
     });
     socket.on("notification:changed", () => {
-      refreshNotifications().catch(() => showNotice("Не удалось обновить уведомления."));
+      refreshNotifications(true).catch(() => showNotice("Не удалось обновить уведомления."));
     });
     socket.on("moderation:changed", (payload: { mutedUntil: string | null; banned: boolean; actorName?: string }) => {
       if (payload.banned) {
@@ -352,6 +535,12 @@ export default function Home() {
       applyMutedUntil(payload.mutedUntil);
       setUser((current) => current ? { ...current, mutedUntil: payload.mutedUntil } : current);
       showNotice(payload.mutedUntil ? "Вас замутил " + (payload.actorName ?? "модератор") + "." : "Ограничение на отправку снято.");
+    });
+    socket.on("chaos:changed", (payload: { chaosUntil: string | null; actorName?: string }) => {
+      setUser((current) => current ? { ...current, chaosUntil: payload.chaosUntil } : current);
+      showNotice(payload.chaosUntil
+        ? "Вам назначен «Хаос» до " + new Date(payload.chaosUntil).toLocaleString("ru-RU") + ". Приват доступен."
+        : "«Хаос» снят.");
     });
     socket.on("exception", (payload: { message?: string | string[] }) => {
       showNotice(Array.isArray(payload.message) ? payload.message[0] : payload.message ?? "Сервер отклонил действие.");
@@ -415,6 +604,8 @@ export default function Home() {
 
   useEffect(() => {
     activeRoomRef.current = roomId;
+    markRoomNewer(roomId, false);
+    setMessages({});
     let active = true;
     const socket = socketRef.current;
 
@@ -426,7 +617,7 @@ export default function Home() {
           ...message,
           mine: Boolean(user && (message.authorId ? message.authorId === user.id : message.author === user.displayName)),
         }));
-        setMessages((old) => ({ ...old, [roomId]: normalized }));
+        setMessages({ [roomId]: normalized.slice(-MAX_LOADED_MESSAGES) });
       })
       .catch(() => {
         if (active) showNotice("Не удалось загрузить историю комнаты.");
@@ -443,9 +634,10 @@ export default function Home() {
   const room = rooms.find((item) => item.id === roomId) ?? defaultRoom;
   const currentMessages = dialog?.id ? (direct[dialog.id] ?? []) : (messages[roomId] ?? []);
   const currentPeople = useMemo(
-    () => chatPeople.filter((person) => person.id === privateMessagePreview?.peerId || (person.status !== "offline" && (person.room === roomId || person.role === "admin"))),
-    [chatPeople, roomId, privateMessagePreview?.peerId],
+    () => chatPeople.filter((person) => person.id === privateMessagePreview?.peerId || (person.status !== "offline" && (person.room === roomId || person.role === "admin"))).map((person) => person.id === user?.id ? { ...person, appearance: user?.appearance ?? person.appearance } : person),
+    [chatPeople, roomId, privateMessagePreview?.peerId, user?.id, user?.appearance],
   );
+  const unreadChatMessages = useMemo(() => Object.values(unreadRoomMessages).reduce((total, count) => total + count, 0), [unreadRoomMessages]);
   const unreadDirects = useMemo(
     () => conversations.reduce((total, conversation) => total + conversation.unread, 0),
     [conversations],
@@ -456,7 +648,24 @@ export default function Home() {
     [conversations, hiddenDirectIds],
   );
 
+  function leaveFullScreenSections() {
+    setNotificationsOpen(false);
+    setCommunitiesOpen(false);
+    setCommunityChatOpen(false);
+    setGiftsOpen(false);
+    setModerationTarget(null);
+    setQuickModerationTarget(null);
+    setReportsOpen(false);
+    setAdminOpen(false);
+  }
+
+  function openOverlay(setOpen: (open: boolean) => void) {
+    leaveFullScreenSections();
+    setOpen(true);
+  }
+
   function openDirects() {
+    leaveFullScreenSections();
     const latest = conversations[0];
     if (!latest) {
       showNotice("Личных диалогов пока нет. Откройте профиль участника, чтобы начать переписку.");
@@ -465,9 +674,31 @@ export default function Home() {
     void openDialog(latest.peer);
   }
 
+  function refreshMenuBadges() {
+    if (!user) { setCommunityBadge(0); setShopBadge(0); setMyCommunity(null); return; }
+    void fetchCommunities().then((allCommunities) => setMyCommunity(allCommunities.find((community) => community.membership?.status === "approved") ?? null)).catch(() => setMyCommunity(null));
+    void fetchCommunityMenuBadge().then((communities) => setCommunityBadge(communities.pendingRequests)).catch(() => setCommunityBadge(0));
+    void fetchGiftCatalog().then((catalog) => { const key = "tusova:shop-seen-catalog:" + user.id; const legacyKey = "aura:shop-seen-catalog:" + user.id; const saved = window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey) ?? "[]"; if (!window.localStorage.getItem(key) && window.localStorage.getItem(legacyKey)) { window.localStorage.setItem(key, saved); window.localStorage.removeItem(legacyKey); } const seen = new Set<string>(JSON.parse(saved)); setShopBadge(catalog.filter((item) => !seen.has(item.id)).length); }).catch(() => setShopBadge(0));
+  }
+
+  function openGifts() {
+    if (!user) { showNotice("Войдите, чтобы открыть магазин."); return; }
+    openOverlay(setGiftsOpen);
+    void fetchGiftCatalog().then((catalog) => {
+      window.localStorage.setItem("tusova:shop-seen-catalog:" + user.id, JSON.stringify(catalog.map((item) => item.id)));
+      setShopBadge(0);
+    }).catch(() => undefined);
+  }
+
+  useEffect(() => { refreshMenuBadges(); }, [user?.id]);
+
+  const visibleNotifications = notifications.filter((item) => notificationPreferences[item.type]);
+  const visibleUnreadNotifications = Math.min(unreadNotifications, visibleNotifications.filter((item) => !item.readAt).length);
+
   function openNotifications() {
+    leaveFullScreenSections();
     setNotificationsOpen(true);
-    if (!unreadNotifications) return;
+    if (!visibleUnreadNotifications) return;
     const readAt = new Date().toISOString();
     setUnreadNotifications(0);
     setNotifications((old) => old.map((notification) => notification.readAt ? notification : { ...notification, readAt }));
@@ -475,7 +706,7 @@ export default function Home() {
   }
 
   function openNotification(notification: NotificationItem) {
-    setNotificationsOpen(false);
+    leaveFullScreenSections();
     if (notification.roomId) {
       changeRoom(notification.roomId);
       return;
@@ -489,6 +720,26 @@ export default function Home() {
     showNotice("Связанный диалог больше недоступен.");
   }
 
+  async function clearAllNotificationsForUser() {
+    await clearAllNotificationsApi();
+    setNotifications([]);
+    setUnreadNotifications(0);
+    seenNotificationsRef.current.clear();
+    clearTabAlert();
+  }
+
+  async function deleteNotification(notificationId: string) {
+    const target = notifications.find((notification) => notification.id === notificationId);
+    setNotifications((items) => items.filter((notification) => notification.id !== notificationId));
+    if (target && !target.readAt) setUnreadNotifications((count) => Math.max(0, count - 1));
+    try {
+      await removeNotification(notificationId);
+    } catch {
+      showNotice("Не удалось удалить уведомление.");
+      void refreshNotifications();
+    }
+  }
+
   async function openDialog(person: Person) {
     dismissPrivateMessagePreview();
     if (!person.id || !user) {
@@ -497,6 +748,8 @@ export default function Home() {
     }
 
     activeDialogRef.current = person.id;
+    markDirectNewer(person.id, false);
+    setDirect({});
     setDialog(person);
     setHiddenDirectIds((old) => {
       const next = new Set(old);
@@ -512,10 +765,9 @@ export default function Home() {
         markDirectRead(person.id),
       ]);
       setDirectCursors((old) => ({ ...old, [person.id as string]: page.nextCursor }));
-      setDirect((old) => ({
-        ...old,
-        [person.id as string]: page.items.map((message) => ({ ...message, mine: message.authorId === user.id })),
-      }));
+      if (activeDialogRef.current === person.id) setDirect({
+        [person.id]: page.items.map((message) => ({ ...message, mine: message.authorId === user.id })).slice(-MAX_LOADED_MESSAGES),
+      });
       showNotice("");
     } catch {
       showNotice("Не удалось загрузить личную переписку.");
@@ -526,35 +778,67 @@ export default function Home() {
   }
 
   function changeRoom(nextRoomId: string) {
+    setUnreadRoomMessages((old) => old[nextRoomId] ? { ...old, [nextRoomId]: 0 } : old);
     activeDialogRef.current = null;
     setRoomId(nextRoomId);
     setDialog(null);
     setReplyingTo(null);
     setRoomsOpen(false);
+    leaveFullScreenSections();
     showNotice("");
   }
 
   async function loadOlder() {
     if (loadingOlder || !user) return;
+    const peerId = dialog?.id;
     setLoadingOlder(true);
     try {
-      if (dialog?.id) {
-        const cursor = directCursors[dialog.id];
+      if (peerId) {
+        const cursor = directCursors[peerId];
         if (!cursor) return;
-        const page = await fetchDirectMessagePage(dialog.id, cursor);
+        const page = await fetchDirectMessagePage(peerId, cursor);
+        if (activeDialogRef.current !== peerId) return;
         const items = page.items.map((message) => ({ ...message, mine: message.authorId === user.id }));
-        setDirect((old) => ({ ...old, [dialog.id as string]: [...items, ...(old[dialog.id as string] ?? [])] }));
-        setDirectCursors((old) => ({ ...old, [dialog.id as string]: page.nextCursor }));
+        markDirectNewer(peerId, true);
+        setDirect((old) => ({ [peerId]: [...items, ...(old[peerId] ?? [])].slice(0, MAX_LOADED_MESSAGES) }));
+        setDirectCursors((old) => ({ ...old, [peerId]: page.nextCursor }));
       } else {
         const cursor = roomCursors[roomId];
         if (!cursor) return;
         const page = await fetchRoomMessagePage(roomId, cursor);
+        if (activeRoomRef.current !== roomId || activeDialogRef.current) return;
         const items = page.items.map((message) => ({ ...message, mine: message.authorId === user.id }));
-        setMessages((old) => ({ ...old, [roomId]: [...items, ...(old[roomId] ?? [])] }));
+        markRoomNewer(roomId, true);
+        setMessages((old) => ({ [roomId]: [...items, ...(old[roomId] ?? [])].slice(0, MAX_LOADED_MESSAGES) }));
         setRoomCursors((old) => ({ ...old, [roomId]: page.nextCursor }));
       }
     } catch {
       showNotice("Не удалось загрузить более ранние сообщения.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
+  async function showLatest() {
+    if (loadingOlder || !user) return;
+    const peerId = dialog?.id;
+    setLoadingOlder(true);
+    try {
+      if (peerId) {
+        const page = await fetchDirectMessagePage(peerId);
+        if (activeDialogRef.current !== peerId) return;
+        markDirectNewer(peerId, false);
+        setDirect({ [peerId]: page.items.map((message) => ({ ...message, mine: message.authorId === user.id })) });
+        setDirectCursors((old) => ({ ...old, [peerId]: page.nextCursor }));
+      } else {
+        const page = await fetchRoomMessagePage(roomId);
+        if (activeRoomRef.current !== roomId || activeDialogRef.current) return;
+        markRoomNewer(roomId, false);
+        setMessages({ [roomId]: page.items.map((message) => ({ ...message, mine: message.authorId === user.id })) });
+        setRoomCursors((old) => ({ ...old, [roomId]: page.nextCursor }));
+      }
+    } catch {
+      showNotice("Не удалось вернуться к новым сообщениям.");
     } finally {
       setLoadingOlder(false);
     }
@@ -576,7 +860,12 @@ export default function Home() {
     const body = draft.trim();
     const selectedAttachment = attachment;
     const selectedReply = replyingTo;
+    const useAdminVoice = adminVoice && !dialog?.id && (user?.role === "admin" || user?.role === "moderator") && Boolean(body);
     if ((!body && !selectedAttachment) || muted || !user) return;
+    if (!dialog?.id && user.chaosUntil && new Date(user.chaosUntil).getTime() > Date.now()) {
+      showNotice("Хаос: общий чат недоступен до " + new Date(user.chaosUntil).toLocaleString("ru-RU") + ". Личные сообщения доступны.");
+      return;
+    }
     setDraft("");
     setAttachment(null);
     setReplyingTo(null);
@@ -589,7 +878,7 @@ export default function Home() {
 
     if (dialog?.id) {
       if (useRealtimeSend && socket?.connected) {
-        socket.emit("direct:send", { recipientId: dialog.id, body, requestId, attachmentId: selectedAttachment?.id, replyToId: typeof selectedReply?.id === "string" ? selectedReply.id : undefined }, (result: DirectCreated) => { if (!result?.message) { ownRequests.current.delete(requestId); setDraft(body); setAttachment(selectedAttachment); setReplyingTo(selectedReply); showNotice("Сервер не подтвердил личное сообщение."); return; } ownRequests.current.delete(requestId); const message = { ...result.message, mine: true }; setDirect((old) => ({ ...old, [dialog.id as string]: appendUnique(old[dialog.id as string] ?? [], message) })); recordConversation(dialog.id as string, message, true); });
+        socket.emit("direct:send", { recipientId: dialog.id, body, requestId, attachmentId: selectedAttachment?.id, replyToId: typeof selectedReply?.id === "string" ? selectedReply.id : undefined }, (result: DirectCreated) => { if (!result?.message) { ownRequests.current.delete(requestId); setDraft(body); setAttachment(selectedAttachment); setReplyingTo(selectedReply); showNotice("Сервер не подтвердил личное сообщение."); return; } ownRequests.current.delete(requestId); const message = { ...result.message, mine: true }; if (directHasNewerRef.current[dialog.id as string]) void showLatest(); else setDirect((old) => ({ ...old, [dialog.id as string]: appendUnique(old[dialog.id as string] ?? [], message) })); recordConversation(dialog.id as string, message, true); });
         return;
       }
 
@@ -597,10 +886,8 @@ export default function Home() {
         const result = await postDirectMessage(dialog.id, body, requestId, selectedAttachment?.id, typeof selectedReply?.id === "string" ? selectedReply.id : undefined);
         ownRequests.current.delete(requestId);
         const message = { ...result.message, mine: true };
-        setDirect((old) => ({
-          ...old,
-          [dialog.id as string]: appendUnique(old[dialog.id as string] ?? [], message),
-        }));
+        if (directHasNewerRef.current[dialog.id]) void showLatest();
+        else setDirect((old) => ({ ...old, [dialog.id as string]: appendUnique(old[dialog.id as string] ?? [], message) }));
         recordConversation(dialog.id, message, true);
       } catch {
         ownRequests.current.delete(requestId);
@@ -613,17 +900,16 @@ export default function Home() {
     }
 
     if (useRealtimeSend && socket?.connected) {
-      socket.emit("message:send", { roomId, body, requestId, attachmentId: selectedAttachment?.id, replyToId: typeof selectedReply?.id === "string" ? selectedReply.id : undefined }, (result: MessageCreated) => { if (!result?.message) { ownRequests.current.delete(requestId); setDraft(body); setAttachment(selectedAttachment); setReplyingTo(selectedReply); showNotice("Сервер не подтвердил сообщение."); return; } ownRequests.current.delete(requestId); setMessages((old) => ({ ...old, [roomId]: appendUnique(old[roomId] ?? [], { ...result.message, mine: true }) })); });
+      socket.emit("message:send", { roomId, body, requestId, attachmentId: selectedAttachment?.id, replyToId: typeof selectedReply?.id === "string" ? selectedReply.id : undefined, adminVoice: useAdminVoice }, (result: MessageCreated) => { if (!result?.message) { ownRequests.current.delete(requestId); setDraft(body); setAttachment(selectedAttachment); setReplyingTo(selectedReply); showNotice("Сервер не подтвердил сообщение."); return; } ownRequests.current.delete(requestId); if (roomHasNewerRef.current[roomId]) void showLatest(); else setMessages((old) => ({ ...old, [roomId]: appendUnique(old[roomId] ?? [], { ...result.message, mine: true }) })); });
       return;
     }
 
     try {
-      const result = await postRoomMessage(roomId, body, requestId, selectedAttachment?.id, typeof selectedReply?.id === "string" ? selectedReply.id : undefined);
+      const result = await postRoomMessage(roomId, body, requestId, selectedAttachment?.id, typeof selectedReply?.id === "string" ? selectedReply.id : undefined, useAdminVoice);
       ownRequests.current.delete(requestId);
-      setMessages((old) => ({
-        ...old,
-        [roomId]: appendUnique(old[roomId] ?? [], { ...result.message, mine: true }),
-      }));
+      if (roomHasNewerRef.current[roomId]) void showLatest();
+      else setMessages((old) => ({ ...old, [roomId]: appendUnique(old[roomId] ?? [], { ...result.message, mine: true }) }));
+      void refreshEconomy(user.id);
     } catch {
       ownRequests.current.delete(requestId);
       setDraft(body);
@@ -659,14 +945,43 @@ export default function Home() {
     else { await muteUser(person.id, 60, "Быстрый мут"); setMutedPeople((items) => new Set(items).add(person.id as string)); }
   }
 
-  async function moderateTarget(action: "mute" | "unmute" | "ban" | "unban", durationMinutes: number, reason: string) {
-    const targetId = moderationTarget?.id;
+  async function moderatePerson(target: Person | null, action: "mute" | "unmute" | "chaos" | "unchaos" | "ban" | "unban", durationMinutes: number, reason: string) {
+    const targetId = target?.id;
     if (!targetId) throw new Error("Пользователь не выбран");
     if (action === "mute") await muteUser(targetId, durationMinutes, reason);
     if (action === "unmute") await unmuteUser(targetId);
+    if (action === "chaos") await imposeChaos(targetId, durationMinutes, reason);
+    if (action === "unchaos") await removeChaos(targetId);
     if (action === "ban") await banUser(targetId, durationMinutes, reason);
     if (action === "unban") await unbanUser(targetId);
-    showNotice("Действие модерации выполнено для " + moderationTarget.name + ".");
+    if (action === "mute" || action === "unmute") setMutedPeople((items) => {
+      const next = new Set(items);
+      if (action === "mute") next.add(targetId);
+      else next.delete(targetId);
+      return next;
+    });
+    showNotice("Действие модерации выполнено для " + target.name + ".");
+  }
+
+  function revealMessage(message: Message) {
+    const normalized = { ...message, mine: message.authorId === user?.id };
+    if (dialog?.id) {
+      const current = direct[dialog.id] ?? [];
+      const result = revealWindow(current, normalized);
+      if (!current.some((item) => item.id === message.id)) {
+        setDirectCursors((old) => ({ ...old, [dialog.id as string]: String(result.items[0].id) }));
+        markDirectNewer(dialog.id, true);
+      }
+      setDirect({ [dialog.id]: result.items });
+    } else {
+      const current = messages[roomId] ?? [];
+      const result = revealWindow(current, normalized);
+      if (!current.some((item) => item.id === message.id)) {
+        setRoomCursors((old) => ({ ...old, [roomId]: String(result.items[0].id) }));
+        markRoomNewer(roomId, true);
+      }
+      setMessages({ [roomId]: result.items });
+    }
   }
 
   async function handleReaction(messageId: string, type: ReactionType) {
@@ -713,20 +1028,19 @@ export default function Home() {
     try {
       const [serverRooms, roomMessages, currentUser] = await Promise.all([
         fetchRooms(),
-        fetchRoomMessages(roomId),
+        fetchRoomMessagePage(roomId),
         getMe(),
       ]);
       setRooms(serverRooms);
       setUser(currentUser);
       applyMutedUntil(currentUser.mutedUntil);
       await loadSocialData(currentUser);
-      setMessages((old) => ({
-        ...old,
-        [roomId]: roomMessages.map((message) => ({
-          ...message,
-          mine: message.authorId ? message.authorId === currentUser.id : message.author === currentUser.displayName,
-        })),
-      }));
+      markRoomNewer(roomId, false);
+      setRoomCursors((old) => ({ ...old, [roomId]: roomMessages.nextCursor }));
+      setMessages({ [roomId]: roomMessages.items.map((message) => ({
+        ...message,
+        mine: message.authorId ? message.authorId === currentUser.id : message.author === currentUser.displayName,
+      })) });
       showNotice("Данные обновлены с сервера.");
     } catch {
       showNotice("Не удалось обновить данные с сервера.");
@@ -748,6 +1062,7 @@ export default function Home() {
       setUnreadNotifications(0);
         setNotificationsOpen(false);
       setModerationTarget(null);
+      setQuickModerationTarget(null);
       setProfileOpen(false);
       setReportsOpen(false);
       setReportTarget(null);
@@ -770,46 +1085,58 @@ export default function Home() {
     loadSocialData(authenticatedUser).catch(() => showNotice("Не удалось загрузить пользователей и личные диалоги."));
   }
 
+  useEffect(() => {
+    if (!user || new URLSearchParams(window.location.search).get("support") !== "1") return;
+    setSupportOpen(true);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("support");
+    window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
+  }, [user]);
+
+  if (!authReady) return <div className="tusova-loading" role="status" aria-label="Загрузка TUSOVA"><img src="/brand/tusova-header-logo.png" alt="TUSOVA" /></div>;
+  if (!user) return <AuthModal onAuthenticated={handleAuthenticated} />;
   return (
     <main className="shell">
       <Sidebar
         user={user}
         unreadDirects={unreadDirects}
-        unreadNotifications={unreadNotifications}
-        directActive={Boolean(dialog)}
-        onOpenProfile={() => user && setProfileOpen(true)}
+        unreadNotifications={visibleUnreadNotifications}
+        unreadChatMessages={unreadChatMessages}
+        communityBadge={communityBadge}
+        shopBadge={shopBadge}
+        activeSection={adminOpen ? "admin" : reportsOpen ? "reports" : communityChatOpen ? "community-chat" : notificationsOpen ? "notifications" : communitiesOpen ? "communities" : giftsOpen ? "store" : "chat"}
+        onOpenProfile={() => user && openOverlay(setProfileOpen)}
         onSetStatus={setPresenceStatus}
         onLogout={() => void signOut()}
         onOpenChat={() => changeRoom(roomId)}
         onOpenDirects={openDirects}
         onOpenNotifications={openNotifications}
-        onOpenRooms={() => setRoomsOpen(true)}
-        onOpenCommunities={() => user ? setCommunitiesOpen(true) : showNotice("Войдите, чтобы открыть сообщества.")}
-        onOpenGifts={() => user ? setGiftsOpen(true) : showNotice("Войдите, чтобы открыть подарки.")}
-        onOpenReports={() => setReportsOpen(true)}
-        onOpenAdmin={() => setAdminOpen(true)}
+        onOpenRooms={() => openOverlay(setRoomsOpen)}
+        communityChatName={myCommunity?.name ?? null}
+        onOpenCommunityChat={() => { if (!myCommunity) return; leaveFullScreenSections(); setCommunityChatOpen(true); }}
+        onOpenCommunities={() => user ? openOverlay(setCommunitiesOpen) : showNotice("Войдите, чтобы открыть сообщества.")}
+        onOpenGifts={openGifts}
+        onOpenReports={() => openOverlay(setReportsOpen)}
+        onOpenAdmin={() => openOverlay(setAdminOpen)}
         onNotice={showNotice}
       />
       <section className="app">
 
         <div className="layout">
-          <Conversation currentUserId={user?.id} room={room} dialog={dialog?.name ?? null} dialogId={dialog?.id ?? null} directConversations={visibleDirectConversations} onOpenDirect={(person) => void openDialog(person)} onDismissDirect={(personId) => setHiddenDirectIds((old) => new Set(old).add(personId))} messages={currentMessages} draft={draft} muted={muted || !user} attachment={attachment} replyingTo={replyingTo} uploadingAttachment={uploadingAttachment} canDelete={user?.role === "admin" || user?.role === "moderator"} canReport={Boolean(user)} canReact={Boolean(user)} hasOlder={dialog?.id ? Boolean(directCursors[dialog.id]) : Boolean(roomCursors[roomId])} loadingOlder={loadingOlder} notice={notice} onDraftChange={setDraft} onSend={send} onLoadOlder={() => void loadOlder()} onFileSelect={(file) => void handleFileSelect(file)} onRemoveAttachment={() => setAttachment(null)} onReply={setReplyingTo} onCancelReply={() => setReplyingTo(null)} onDelete={(messageId) => void handleDeleteMessage(messageId)} onReact={handleReaction} onRevealMessage={(message) => { const normalized = { ...message, mine: message.authorId === user?.id }; if (dialog?.id) setDirect((old) => ({ ...old, [dialog.id as string]: mergeChronological(old[dialog.id as string] ?? [], normalized) })); else setMessages((old) => ({ ...old, [roomId]: mergeChronological(old[roomId] ?? [], normalized) })); }} onReport={(messageId, label) => setReportTarget({ messageId, label })} onNotice={showNotice} onExitDialog={() => changeRoom(roomId)} mentionCandidates={currentPeople} mentionFocusRequest={mentionFocusRequest} />
-          <PeoplePanel people={currentPeople} rooms={rooms} roomId={roomId} currentUserId={user?.id ?? null} canModerate={user?.role === "admin" || user?.role === "moderator"} privateMessagePreview={privateMessagePreview} onOpenDialog={setViewedProfile} onMention={(person) => { const prefix = "@" + (person.username ?? person.name) + ": "; setDraft((current) => current + (current && !current.endsWith(" ") ? " " : "") + prefix); setMentionFocusRequest((value) => value + 1); }} onOpenPrivate={(person) => void openDialog(person)} onModerate={setModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => setRoomsOpen(true)} mutedPeople={mutedPeople} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} />
+          {moderationTarget && user ? <UserEditorPage key={moderationTarget.id} person={moderationTarget} actor={user} onBack={() => changeRoom(roomId)} onChanged={() => { void fetchUsers().then(setChatPeople).catch(() => showNotice("Не удалось обновить список пользователей.")); }} onModerate={(action, duration, reason) => moderatePerson(moderationTarget, action, duration, reason)} /> : communityChatOpen && myCommunity && user ? <CommunityChatPage community={myCommunity} user={user} rooms={rooms} roomId={roomId} mutedPeople={mutedPeople} onOpenProfile={setViewedProfile} onOpenPrivate={(person) => void openDialog(person)} onModerate={setModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} onBackToChat={() => changeRoom(roomId)} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : adminOpen && user?.role === "admin" ? <AdminModal onOpenRooms={() => { setAdminOpen(false); setRoomsOpen(true); }} onOpenReports={() => { setAdminOpen(false); setReportsOpen(true); }} onBackToChat={() => changeRoom(roomId)} /> : reportsOpen && user && user.role !== "user" ? <ReportsModal canBan={user.role === "admin"} onBackToChat={() => changeRoom(roomId)} /> : notificationsOpen ? <NotificationsPage enabledTypes={notificationTypeOptions.filter(({ key }) => notificationPreferences[key]).map(({ key }) => key)} allNotificationsCount={notifications.length} onClearAll={clearAllNotificationsForUser} onOpen={openNotification} onDelete={deleteNotification} onClose={() => changeRoom(roomId)} /> : communitiesOpen && user ? <CommunitiesModal user={user} onBalanceChanged={() => refreshEconomy(user.id)} onBackToChat={() => changeRoom(roomId)} /> : giftsOpen && user ? <GiftShopPage user={user} people={chatPeople} onBackToChat={() => changeRoom(roomId)} onBalanceChanged={(balance) => applyEconomyBalance(balance, user.id)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : <>
+          <Conversation currentUserId={user?.id} canUseAdminVoice={user?.role === "admin" || user?.role === "moderator"} adminVoice={adminVoice} onAdminVoiceChange={setAdminVoice} appearance={user?.appearance} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} room={room} dialog={dialog?.name ?? null} dialogId={dialog?.id ?? null} directConversations={visibleDirectConversations} onOpenDirect={(person) => void openDialog(person)} onDismissDirect={(personId) => setHiddenDirectIds((old) => new Set(old).add(personId))} messages={currentMessages} draft={draft} muted={muted || !user} attachment={attachment} replyingTo={replyingTo} uploadingAttachment={uploadingAttachment} canDelete={user?.role === "admin" || user?.role === "moderator"} canReport={Boolean(user)} canReact={Boolean(user)} hasOlder={dialog?.id ? Boolean(directCursors[dialog.id]) : Boolean(roomCursors[roomId])} hasNewer={dialog?.id ? Boolean(directHasNewer[dialog.id]) : Boolean(roomHasNewer[roomId])} loadingOlder={loadingOlder} notice={notice} onDraftChange={setDraft} onSend={send} onLoadOlder={() => void loadOlder()} onShowLatest={() => void showLatest()} onFileSelect={(file) => void handleFileSelect(file)} onRemoveAttachment={() => setAttachment(null)} onReply={setReplyingTo} onCancelReply={() => setReplyingTo(null)} onDelete={(messageId) => void handleDeleteMessage(messageId)} onReact={handleReaction} onRevealMessage={revealMessage} onReport={(messageId, label) => setReportTarget({ messageId, label })} onNotice={showNotice} onExitDialog={() => changeRoom(roomId)} mentionCandidates={currentPeople} mentionFocusRequest={mentionFocusRequest} />
+          </>}
+          {(moderationTarget || !(communityChatOpen && myCommunity && user)) && <PeoplePanel showMobileToggle={!moderationTarget && !adminOpen && !reportsOpen && !notificationsOpen && !communitiesOpen && !giftsOpen} people={currentPeople} rooms={rooms} roomId={roomId} currentUserId={user?.id ?? null} canModerate={user?.role === "admin" || user?.role === "moderator"} privateMessagePreview={privateMessagePreview} onOpenDialog={setViewedProfile} onMention={(person) => { leaveFullScreenSections(); const prefix = "@" + (person.username ?? person.name) + ": "; setDraft((current) => current + (current && !current.endsWith(" ") ? " " : "") + prefix); setMentionFocusRequest((value) => value + 1); }} onOpenPrivate={(person) => { leaveFullScreenSections(); void openDialog(person); }} onModerate={setQuickModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} mutedPeople={mutedPeople} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} />}
         </div>
       </section>
-      {giftsOpen && user && <GiftShopModal user={user} people={chatPeople} onClose={() => setGiftsOpen(false)} />}
-      {communitiesOpen && user && <CommunitiesModal user={user} onClose={() => setCommunitiesOpen(false)} />}
       {roomsOpen && <RoomsModal rooms={rooms} user={user} onChangeRoom={changeRoom} onSaveRoom={saveRoom} onClose={() => setRoomsOpen(false)} />}
-      {notificationsOpen && <NotificationsModal notifications={notifications} onOpen={openNotification} onClose={() => setNotificationsOpen(false)} />}
-      {moderationTarget && user && <ModerationModal person={moderationTarget} canBan={user.role === "admin"} onAction={moderateTarget} onClose={() => setModerationTarget(null)} />}
-      {profileOpen && user && <ProfileModal user={user} muted={muted} onSave={saveProfile} onRefresh={() => void refreshFromServer()} onChangePassword={handleChangePassword} onClose={() => setProfileOpen(false)} />}
+      {profileOpen && user && <ProfileModal user={user} muted={muted} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} tabAlertPreferences={tabAlertPreferences} onTabAlertPreferencesChange={changeTabAlertPreferences} notificationPreferences={notificationPreferences} onNotificationPreferencesChange={changeNotificationPreferences} onSave={saveProfile} onRefresh={() => void refreshFromServer()} onChangePassword={handleChangePassword} onClose={() => setProfileOpen(false)} />}
       {reportTarget && user && <ReportModal target={reportTarget} onSubmit={submitReport} onClose={() => setReportTarget(null)} />}
-      {reportsOpen && user && user.role !== "user" && <ReportsModal onClose={() => setReportsOpen(false)} />}
-      {viewedProfile && user && <PublicProfileModal person={viewedProfile} currentUser={user} onWriteDirect={async () => { const person = viewedProfile; await openDialog(person); setViewedProfile(null); }} onClose={() => setViewedProfile(null)} />}
-      {adminOpen && user?.role === "admin" && <AdminModal onOpenRooms={() => { setAdminOpen(false); setRoomsOpen(true); }} onOpenReports={() => { setAdminOpen(false); setReportsOpen(true); }} onClose={() => setAdminOpen(false)} />}
+      {quickModerationTarget && (user?.role === "admin" || user?.role === "moderator") && <ModerationModal key={quickModerationTarget.id} person={quickModerationTarget} canBan={user.role === "admin"} onAction={(action, duration, reason) => moderatePerson(quickModerationTarget, action, duration, reason)} onClose={() => setQuickModerationTarget(null)} />}
+      {viewedProfile && user && <PublicProfileModal person={viewedProfile} currentUser={user} onOpenFriend={setViewedProfile} onBalanceChanged={() => void refreshEconomy(user.id)} onWriteDirect={async () => { const person = viewedProfile; await openDialog(person); setViewedProfile(null); }} onClose={() => setViewedProfile(null)} />}
       {notice && <div className="chat-info-toast" role="status"><span>{notice}</span><button type="button" aria-label="Закрыть уведомление" title="Закрыть" onClick={() => setNotice("")}>×</button></div>}
       {errorNotice && <div className="chat-error-backdrop" role="presentation" onMouseDown={() => setErrorNotice("")}><section className="chat-error-modal" role="alertdialog" aria-modal="true" aria-label="Ошибка" onMouseDown={(event) => event.stopPropagation()}><button type="button" aria-label="Закрыть ошибку" title="Закрыть" onClick={() => setErrorNotice("")}>×</button><strong>Не удалось выполнить действие</strong><p>{errorNotice}</p></section></div>}
-      {authReady && !user && <AuthModal onAuthenticated={handleAuthenticated} />}
+      {supportOpen && <SupportModal onClose={() => setSupportOpen(false)} />}
     </main>
   );
 }

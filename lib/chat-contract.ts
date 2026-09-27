@@ -1,6 +1,7 @@
 export type UserStatus = "online" | "away" | "dnd" | "offline";
 export type UserRole = "user" | "moderator" | "admin";
 export type Gender = "male" | "female" | "unspecified";
+export type CosmeticAppearance = Record<string, Record<string, string | boolean>>;
 
 export type Attachment = {
   id: string;
@@ -53,12 +54,17 @@ export type NotificationFeed = {
 };
 export type PublicProfile = {
   id: string; username: string; displayName: string; bio: string | null; avatarUrl: string | null; avatarThumbnailUrl: string | null;
-  rating: number; role: UserRole; status: UserStatus; gender: Gender; createdAt: string;
+  rating: number; role: UserRole; status: UserStatus; gender: Gender; createdAt: string; appearance?: CosmeticAppearance;
   albums: Array<{ id: string; title: string; createdAt: string; photos: Array<{ id: string; originalName: string; url: string; thumbnailUrl: string; size: number; createdAt: string }> }>;
   gifts: Array<{ id: string; createdAt: string; message: string | null; gift: GiftCatalogItem; sender: { id: string; displayName: string } | null }>;
   communities: Array<{ id: string; name: string; role: string }>;
   rooms: Array<{ id: string; name: string }>;
   stats: { messages: number; profilePosts: number };
+};
+
+export type FriendSummary = {
+  id: string; username: string; displayName: string; avatarUrl: string | null;
+  status: UserStatus; role: UserRole; gender: Gender; friendsSince: string;
 };
 
 export type ProfilePost = {
@@ -69,6 +75,8 @@ export type ProfilePost = {
   createdAt: string;
   attachment: Attachment | null;
   author: { id: string; username: string; displayName: string; avatarUrl: string | null };
+  likeCount: number;
+  likedByMe: boolean;
   replies: ProfilePost[];
 };
 
@@ -102,15 +110,19 @@ export type AuthUser = {
   id: string;
   username: string;
   displayName: string;
+  email?: string | null;
+  emailVerified?: boolean;
   role: UserRole;
   status: UserStatus;
   gender: Gender;
   mutedUntil: string | null;
+  chaosUntil: string | null;
   bio: string | null;
   avatarUrl: string | null;
   avatarThumbnailUrl: string | null;
   rating: number;
   credits: number;
+  appearance?: CosmeticAppearance;
 };
 
 export type Room = {
@@ -134,8 +146,10 @@ export type Message = {
   id: string | number;
   authorId?: string;
   author: string;
+  appearance?: CosmeticAppearance;
   avatarUrl?: string;
   body: string;
+  adminVoice?: boolean;
   time: string;
   createdAt?: string;
   mine?: boolean;
@@ -153,9 +167,11 @@ export type Person = {
   gender: Gender;
   role?: string;
   isBot?: boolean;
+  isGuest?: boolean;
   room: string;
   avatar: string;
   avatarThumbnail?: string;
+  appearance?: CosmeticAppearance;
 };
 
 export type DirectConversation = {
@@ -168,7 +184,7 @@ export type DirectConversation = {
 export type ClientToServerEvents = {
   "room:join": { roomId: string };
   "room:leave": { roomId: string };
-  "message:send": { roomId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string };
+  "message:send": { roomId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string; adminVoice?: boolean };
   "direct:send": { recipientId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string };
   "presence:update": { status: UserStatus };
 };
@@ -179,6 +195,7 @@ export type ServerToClientEvents = {
   "direct:created": { peerId: string; message: Message; requestId?: string };
   "presence:changed": { userId: string; status: UserStatus };
   "moderation:changed": { mutedUntil: string | null; banned: boolean };
+  "chaos:changed": { chaosUntil: string | null; actorName?: string };
   "reaction:updated": ReactionUpdate;
   "notification:changed": undefined;
   error: { code: string; message: string; requestId?: string };
@@ -201,7 +218,7 @@ export type Report = {
   resolvedAt: string | null;
   reporter: CompactUser;
   targetUser: CompactUser | null;
-  message: { id: string; authorName: string; body: string; roomId: string | null; createdAt: string } | null;
+  message: { id: string; authorId: string | null; authorName: string; body: string; roomId: string | null; createdAt: string } | null;
   handledBy: CompactUser | null;
 };
 export type AuditEntry = {
@@ -216,8 +233,12 @@ export type AuditEntry = {
   targetUser: CompactUser | null;
 };
 
-export type CommunityRole="owner"|"moderator"|"member";export type CommunityMembershipStatus="pending"|"approved";export type Community={id:string;name:string;description:string;joinPolicy:"open"|"approval";createdById:string;createdAt:string;memberCount:number;membership:{role:CommunityRole;status:CommunityMembershipStatus}|null};export type CommunityMember={id:string;displayName:string;avatarUrl:string|null;role:CommunityRole};export type CommunityRequest={id:string;displayName:string;avatarUrl:string|null;createdAt:string};export type CommunityPost={id:string;body:string;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null}};export type CommunityDetail=Community&{members:CommunityMember[];posts:CommunityPost[]};
+export type CommunityRole="owner"|"moderator"|"member";export type CommunityMembershipStatus="pending"|"approved";export type Community={coverUrl?:string|null;messagesLastDay?:number;memberPreview?:Array<{id:string;displayName:string;avatarUrl:string|null}>;id:string;name:string;description:string;joinPolicy:"open"|"approval";createdById:string;createdAt:string;memberCount:number;membership:{role:CommunityRole;status:CommunityMembershipStatus}|null};export type CommunityMember={id:string;username:string;displayName:string;avatarUrl:string|null;avatarThumbnailUrl?:string|null;role:CommunityRole;siteRole?:UserRole;status:"online"|"away"|"dnd"|"offline";gender:Gender;isBot:boolean;appearance?:CosmeticAppearance};export type CommunityRequest={id:string;displayName:string;avatarUrl:string|null;createdAt:string};export type CommunityPost={id:string;body:string;createdAt:string;author:{id:string;displayName:string;avatarUrl:string|null;appearance?:CosmeticAppearance}};export type CommunityDetail=Community&{members:CommunityMember[];posts:CommunityPost[]};
 
-export type EconomyBalance={rating:number;credits:number};export type GiftCatalogItem={id:string;name:string;description:string;emoji:string;price:number};export type GiftInventoryItem={id:string;createdAt:string;gift:GiftCatalogItem;sender:{id:string;displayName:string}|null};
+export type CommunityTopic={id:string;name:string;createdAt:string};
+export type CommunityMessage={id:string;body:string;createdAt:string;topic:{id:string;name:string}|null;attachment:Attachment|null;author:{id:string;displayName:string;avatarUrl:string|null;appearance?:CosmeticAppearance}};
+
+export type EconomyBalance={rating:number;credits:number};export type GiftCatalogItem={id:string;categoryId:string;name:string;description:string;emoji:string;price:number;kind?:"gift"|"cosmetic";effectKey?:string|null;imageUrl?:string|null};
+export type StoreCategory={id:string;name:string;description:string;icon:string;imageUrl:string|null;active:boolean;position:number;createdAt:string};export type GiftInventoryItem={id:string;createdAt:string;gift:GiftCatalogItem;sender:{id:string;displayName:string}|null};
 export type RoomResourceItem = { messageId: string; author: string; createdAt: string; attachment: Attachment };
 export type RoomResources = { media: RoomResourceItem[]; files: RoomResourceItem[]; links: Array<{ messageId: string; author: string; createdAt: string; url: string }> };

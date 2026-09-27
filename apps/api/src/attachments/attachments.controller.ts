@@ -23,9 +23,32 @@ export class AttachmentsController {
   private async sendContent(id: string, preview: boolean, request: AuthenticatedRequest, response: Response) {
     const result = await this.attachments.readContent(request.user, id, preview);
     response.setHeader("Content-Type", result.mimeType);
-    response.setHeader("Content-Length", result.buffer.length);
     response.setHeader("Content-Disposition", 'inline; filename="' + encodeURIComponent(preview ? "preview.webp" : result.attachment.originalName) + '"');
     response.setHeader("Cache-Control", "private, max-age=3600");
+    if (!preview && result.attachment.kind === "AUDIO") {
+      response.setHeader("Accept-Ranges", "bytes");
+      const range = request.headers.range;
+      if (range) {
+        const match = /^bytes=(\d*)-(\d*)$/.exec(range);
+        const size = result.buffer.length;
+        const first = match?.[1] ?? "";
+        const last = match?.[2] ?? "";
+        const suffix = first === "" ? Number(last) : 0;
+        const start = first === "" ? Math.max(0, size - suffix) : Number(first);
+        const end = first === "" || last === "" ? size - 1 : Math.min(Number(last), size - 1);
+        if (!match || (!first && !last) || !Number.isSafeInteger(start) || !Number.isSafeInteger(end) || (first === "" && (!Number.isSafeInteger(suffix) || suffix <= 0)) || start >= size || end < start) {
+          response.setHeader("Content-Range", 'bytes */' + size);
+          response.status(416).end();
+          return;
+        }
+        const chunk = result.buffer.subarray(start, end + 1);
+        response.setHeader("Content-Range", 'bytes ' + start + '-' + end + '/' + size);
+        response.setHeader("Content-Length", chunk.length);
+        response.status(206).send(chunk);
+        return;
+      }
+    }
+    response.setHeader("Content-Length", result.buffer.length);
     response.send(result.buffer);
   }
 }

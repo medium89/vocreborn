@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from "class-validator";
+import { IsBoolean, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from "class-validator";
 
 class MessageContentDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
@@ -21,14 +21,20 @@ class MessageContentDto {
   requestId!: string;
 }
 
-export class SendMessageDto extends MessageContentDto {
+class RoomMessageContentDto extends MessageContentDto {
+  @IsOptional()
+  @IsBoolean()
+  adminVoice?: boolean;
+}
+
+export class SendMessageDto extends RoomMessageContentDto {
   @IsString()
   @MaxLength(64)
   @Matches(/^[a-z0-9_-]+$/)
   roomId!: string;
 }
 
-export class CreateRoomMessageDto extends MessageContentDto {}
+export class CreateRoomMessageDto extends RoomMessageContentDto {}
 
 export class SendDirectMessageDto extends MessageContentDto {
   @IsUUID()

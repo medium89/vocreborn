@@ -35,6 +35,12 @@ services:
       PUBLIC_API_URL: https://${DOMAIN}
       METRICS_TOKEN: ${METRICS_TOKEN}
       NODE_ENV: production
+      TUSOVA_BOTS_ENABLED: "false"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
     volumes:
       - avatar-data:/app/uploads
       - attachment-data:/app/storage

@@ -29,6 +29,14 @@ export function reviewReport(reportId: string, status: Exclude<ReportStatus, "OP
     body: JSON.stringify({ status, resolution: resolution || undefined }),
   });
 }
+export type ReportAction = "DELETE_MESSAGE" | "MUTE_HOUR" | "MUTE_DAY" | "CHAOS_DAY" | "BAN_DAY";
+
+export function actOnReport(reportId: string, action: ReportAction, resolution?: string) {
+  return request<Report>("/api/moderation/reports/" + encodeURIComponent(reportId) + "/actions", {
+    method: "POST",
+    body: JSON.stringify({ action, resolution: resolution || undefined }),
+  });
+}
 
 export function fetchAudit() {
   return request<AuditEntry[]>("/api/moderation/audit");

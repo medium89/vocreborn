@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
-import { NotificationType, type Message, type ReactionType } from "@prisma/client";
+import { NotificationType, type Message, type Prisma, type ReactionType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
 type ChangeListener = (userId: string) => void;
 
@@ -13,21 +13,21 @@ export class NotificationsService implements OnModuleDestroy {
   }
   onModuleDestroy() { this.listeners.clear(); }
 
-  async list(userId: string) {
-    const [unread, items] = await Promise.all([
-      this.prisma.notification.count({ where: { userId, readAt: null } }),
-      this.prisma.notification.findMany({
-        where: { userId }, orderBy: { createdAt: "desc" }, take: 50,
-        include: {
-          actor: { select: { id: true, displayName: true, avatarKey: true } },
-          message: { select: { id: true, body: true, roomId: true, authorId: true, recipientId: true } },
-          profilePost: { select: { id: true, body: true, profileUserId: true } },
-          giftInventory: { include: { gift: true } },
-          photo: { select: { id: true, thumbnailKey: true, album: { select: { userId: true } } } },
-        },
-      }),
-    ]);
-    return { unread, items: items.map((item) => ({
+  private async loadItems(where: Prisma.NotificationWhereInput, take: number, skip = 0) {
+    return this.prisma.notification.findMany({
+      where, orderBy: [{ createdAt: "desc" }, { id: "desc" }], take, skip,
+      include: {
+        actor: { select: { id: true, displayName: true, avatarKey: true } },
+        message: { select: { id: true, body: true, roomId: true, authorId: true, recipientId: true } },
+        profilePost: { select: { id: true, body: true, profileUserId: true } },
+        giftInventory: { include: { gift: true } },
+        photo: { select: { id: true, thumbnailKey: true, album: { select: { userId: true } } } },
+      },
+    });
+  }
+
+  private toApi(item: Awaited<ReturnType<NotificationsService["loadItems"]>>[number], userId: string) {
+    return {
       id: item.id, type: item.type.toLowerCase(),
       actor: {
         id: item.actor.id, name: item.actor.displayName,
@@ -40,12 +40,46 @@ export class NotificationsService implements OnModuleDestroy {
       photoThumbnailUrl: item.photo ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + item.photo.thumbnailKey : null,
       reactionType: item.reactionType?.toLowerCase() ?? null,
       readAt: item.readAt?.toISOString() ?? null, createdAt: item.createdAt.toISOString(),
-    })) };
+    };
+  }
+
+  async list(userId: string) {
+    const [unread, items] = await Promise.all([
+      this.prisma.notification.count({ where: { userId, readAt: null } }),
+      this.loadItems({ userId }, 50),
+    ]);
+    return { unread, items: items.map((item) => this.toApi(item, userId)) };
+  }
+
+  async history(userId: string, rawPage?: string, rawTypes?: string) {
+    const requestedPage = Number(rawPage);
+    const page = Number.isSafeInteger(requestedPage) && requestedPage > 0 ? Math.min(requestedPage, 100000) : 1;
+    const allowed = new Set<string>(Object.values(NotificationType));
+    const types = rawTypes === undefined ? undefined : [...new Set(rawTypes.split(",").map((type) => type.trim().toUpperCase()).filter((type) => allowed.has(type)))] as NotificationType[];
+    const where: Prisma.NotificationWhereInput = { userId, ...(types ? { type: { in: types } } : {}) };
+    const pageSize = 20;
+    const total = await this.prisma.notification.count({ where });
+    const pages = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(page, pages);
+    const items = await this.loadItems(where, pageSize, (currentPage - 1) * pageSize);
+    return { items: items.map((item) => this.toApi(item, userId)), total, page: currentPage, pages, pageSize };
+  }
+
+  async clearAll(userId: string) {
+    const result = await this.prisma.notification.deleteMany({ where: { userId } });
+    if (result.count) this.emit(userId);
+    return { deleted: result.count };
   }
 
   async markAllRead(userId: string) {
     const result = await this.prisma.notification.updateMany({ where: { userId, readAt: null }, data: { readAt: new Date() } });
     return { updated: result.count };
+  }
+
+  async remove(userId: string, id: string) {
+    const result = await this.prisma.notification.deleteMany({ where: { id, userId } });
+    if (result.count) this.emit(userId);
+    return { deleted: result.count };
   }
 
   async createReply(actorId: string, replyMessageId: string, replyToId?: string) {
@@ -76,8 +110,8 @@ export class NotificationsService implements OnModuleDestroy {
     if (!selected) { const deleted = await this.prisma.notification.deleteMany({ where: { userId, actorId, messageId: message.id, type: NotificationType.REACTION } }); if (deleted.count) this.emit(userId); return; }
     await this.createEvent({ userId, actorId, type: NotificationType.REACTION, messageId: message.id, metadata: { reactionType: selected } });
   }
-  async createEvent(input: { userId: string; actorId: string; type: NotificationType; messageId?: string; profilePostId?: string; giftInventoryId?: string; photoId?: string; metadata?: Record<string, unknown> }) {
-    if (input.userId === input.actorId) return;
+  async createEvent(input: { userId: string; actorId: string; type: NotificationType; messageId?: string; profilePostId?: string; giftInventoryId?: string; photoId?: string; metadata?: Record<string, unknown>; allowSelf?: boolean }) {
+    if (input.userId === input.actorId && !input.allowSelf) return;
     const where = { userId: input.userId, actorId: input.actorId, type: input.type, messageId: input.messageId ?? null, profilePostId: input.profilePostId ?? null, giftInventoryId: input.giftInventoryId ?? null, photoId: input.photoId ?? null };
     const existing = await this.prisma.notification.findFirst({ where });
     if (existing) await this.prisma.notification.update({ where: { id: existing.id }, data: { readAt: null, createdAt: new Date(), metadata: input.metadata as any, reactionType: (input.metadata as any)?.reactionType ?? null } });

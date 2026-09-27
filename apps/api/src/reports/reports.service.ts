@@ -2,11 +2,14 @@ import { BadRequestException, ConflictException, ForbiddenException, Injectable,
 import { ReportStatus } from "@prisma/client";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { PrismaService } from "../database/prisma.service";
+import { ChatGateway } from "../chat/chat.gateway";
+import { ModerationService } from "../moderation/moderation.service";
+import { ActOnReportDto, ReportActionKind } from "./report.dto";
 import type { CreateReportDto, ReviewReportDto } from "./report.dto";
 
 @Injectable()
 export class ReportsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly moderation: ModerationService, private readonly gateway: ChatGateway) {}
 
   async create(reporter: AuthenticatedUser, input: CreateReportDto) {
     if (Boolean(input.userId) === Boolean(input.messageId)) {
@@ -54,7 +57,7 @@ export class ReportsService {
       include: {
         reporter: { select: { id: true, username: true, displayName: true } },
         targetUser: { select: { id: true, username: true, displayName: true } },
-        message: { select: { id: true, authorName: true, body: true, roomId: true, createdAt: true } },
+        message: { select: { id: true, authorId: true, authorName: true, body: true, roomId: true, createdAt: true } },
         handledBy: { select: { id: true, username: true, displayName: true } },
       },
     });
@@ -65,6 +68,15 @@ export class ReportsService {
     if (input.status === "OPEN") throw new BadRequestException("Нельзя вернуть жалобу в исходный статус");
     const report = await this.prisma.report.findUnique({ where: { id: reportId } });
     if (!report) throw new NotFoundException("Жалоба не найдена");
+    if (report.status === "DISMISSED" || report.status === "ACTIONED") {
+      throw new ConflictException("Жалоба уже закрыта");
+    }
+    if (input.status === "ACTIONED") {
+      const measure = await this.prisma.moderationAudit.findFirst({
+        where: { reportId, action: { in: ["MUTE", "CHAOS", "BAN", "MESSAGE_DELETE"] } },
+      });
+      if (!measure) throw new BadRequestException("Сначала примените меру к сообщению или пользователю");
+    }
 
     const terminal = input.status === "DISMISSED" || input.status === "ACTIONED";
     return this.prisma.$transaction(async (prisma) => {
@@ -88,6 +100,81 @@ export class ReportsService {
         },
       });
       return updated;
+    });
+  }
+
+  async action(actor: AuthenticatedUser, reportId: string, input: ActOnReportDto) {
+    this.requireModerator(actor);
+    const report = await this.prisma.report.findUnique({
+      where: { id: reportId },
+      include: { message: { select: { id: true, authorId: true, roomId: true } } },
+    });
+    if (!report) throw new NotFoundException("Жалоба не найдена");
+    if (report.status === "DISMISSED" || report.status === "ACTIONED") {
+      throw new ConflictException("Жалоба уже закрыта");
+    }
+
+    // Повторный запрос после сбоя фиксации статуса не должен повторять наказание.
+    const existingMeasure = await this.prisma.moderationAudit.findFirst({
+      where: { reportId, action: { in: ["MUTE", "CHAOS", "BAN", "MESSAGE_DELETE"] } },
+      orderBy: { createdAt: "desc" },
+    });
+    let measure = existingMeasure?.action;
+    const targetUserId = report.targetUserId ?? report.message?.authorId;
+    const reason = input.resolution || "Мера по жалобе: " + report.reason;
+
+    if (!measure) {
+      switch (input.action) {
+        case ReportActionKind.DELETE_MESSAGE: {
+          if (!report.messageId || !report.message?.roomId) {
+            throw new BadRequestException("Можно удалить только сообщение из общего чата");
+          }
+          await this.moderation.deletePublicMessage(actor, report.messageId, reportId);
+          this.gateway.notifyMessageDeleted(report.message.roomId, report.messageId);
+          measure = "MESSAGE_DELETE";
+          break;
+        }
+        case ReportActionKind.MUTE_HOUR:
+        case ReportActionKind.MUTE_DAY: {
+          if (!targetUserId) throw new BadRequestException("Автор сообщения не найден");
+          const durationMinutes = input.action === ReportActionKind.MUTE_HOUR ? 60 : 1_440;
+          const result = await this.moderation.mute(actor, { userId: targetUserId, durationMinutes, reason }, reportId);
+          this.gateway.notifyModeration(result.userId, { mutedUntil: result.mutedUntil, banned: false, actorName: actor.displayName });
+          measure = "MUTE";
+          break;
+        }
+        case ReportActionKind.CHAOS_DAY: {
+          if (!targetUserId) throw new BadRequestException("Автор сообщения не найден");
+          const result = await this.moderation.imposeChaos(actor, { userId: targetUserId, durationMinutes: 1_440, reason }, reportId);
+          this.gateway.notifyChaos(result.userId, result.chaosUntil, actor.displayName);
+          measure = "CHAOS";
+          break;
+        }
+        case ReportActionKind.BAN_DAY: {
+          if (!targetUserId) throw new BadRequestException("Автор сообщения не найден");
+          const result = await this.moderation.ban(actor, { userId: targetUserId, durationMinutes: 1_440, reason }, reportId);
+          this.gateway.notifyModeration(result.userId, { mutedUntil: null, banned: true }, true);
+          measure = "BAN";
+          break;
+        }
+      }
+    }
+
+    const mutedMinutes = measure === "MUTE"
+      ? existingMeasure
+        ? Number((existingMeasure.details as { durationMinutes?: number } | null)?.durationMinutes)
+        : input.action === ReportActionKind.MUTE_HOUR ? 60 : 1_440
+      : null;
+    const label = measure === "MESSAGE_DELETE"
+      ? "Сообщение удалено"
+      : measure === "BAN"
+        ? "Аккаунт заблокирован на сутки"
+        : measure === "CHAOS"
+          ? "Хаос на сутки"
+        : mutedMinutes === 60 ? "Пользователю запрещено писать на час" : "Пользователю запрещено писать на сутки";
+    return this.review(actor, reportId, {
+      status: "ACTIONED",
+      resolution: input.resolution ? label + " · " + input.resolution : label,
     });
   }
 

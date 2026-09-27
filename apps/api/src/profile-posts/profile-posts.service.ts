@@ -1,8 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { DailyActivityAction } from "@prisma/client";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { AttachmentsService } from "../attachments/attachments.service";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { EconomyService } from "../gifts/economy.service";
+import { assertNotInChaos } from "../moderation/chaos.guard";
 
 const authorSelect = { id: true, username: true, displayName: true, avatarKey: true } as const;
 
@@ -12,9 +15,10 @@ export class ProfilePostsService {
     private readonly prisma: PrismaService,
     private readonly attachments: AttachmentsService,
     private readonly notifications: NotificationsService,
+    private readonly economy: EconomyService,
   ) {}
 
-  async list(profileUserId: string) {
+  async list(profileUserId: string, viewerId: string) {
     await this.assertProfile(profileUserId);
     const posts = await this.prisma.profilePost.findMany({
       where: { profileUserId, parentId: null, deletedAt: null },
@@ -23,10 +27,17 @@ export class ProfilePostsService {
       include: {
         author: { select: authorSelect },
         attachment: true,
+        _count: { select: { likes: true } },
+        likes: { where: { userId: viewerId }, select: { id: true } },
         replies: {
           where: { deletedAt: null },
           orderBy: { createdAt: "asc" },
-          include: { author: { select: authorSelect }, attachment: true },
+          include: {
+            author: { select: authorSelect },
+            attachment: true,
+            _count: { select: { likes: true } },
+            likes: { where: { userId: viewerId }, select: { id: true } },
+          },
         },
       },
     });
@@ -35,6 +46,8 @@ export class ProfilePostsService {
 
   async create(profileUserId: string, author: AuthenticatedUser, body: string, parentId?: string, attachmentId?: string) {
     await this.assertProfile(profileUserId);
+    await assertNotInChaos(this.prisma, author.id);
+    if (!body.trim() && !attachmentId) throw new BadRequestException("Добавьте текст или изображение");
     let parentAuthorId: string | undefined;
     if (parentId) {
       const parent = await this.prisma.profilePost.findFirst({ where: { id: parentId, profileUserId, deletedAt: null } });
@@ -49,7 +62,8 @@ export class ProfilePostsService {
         if (!attachment || attachment.createdAt.getTime() + 24 * 60 * 60 * 1000 <= Date.now()) throw new NotFoundException("Вложение не найдено или срок хранения истёк");
         if (attachment.uploaderId !== author.id) throw new ForbiddenException("Нельзя прикрепить чужой файл");
         if (attachment.kind !== "IMAGE") throw new BadRequestException("К записи можно прикрепить только изображение");
-        if (attachment.profilePostId || attachment.messageId) throw new BadRequestException("Вложение уже прикреплено");
+        if (attachment.size > 100 * 1024) throw new BadRequestException("Изображение для записи должно быть не больше 100 КБ");
+        if (attachment.profilePostId || attachment.messageId || attachment.communityMessageId) throw new BadRequestException("Вложение уже прикреплено");
         if (attachment.status === "REJECTED") throw new BadRequestException("Вложение отклонено");
       }
 
@@ -61,7 +75,26 @@ export class ProfilePostsService {
       });
     });
     await this.notifications.createProfilePost(author.id, post.id, profileUserId, parentAuthorId);
-    return this.toApi(post);
+    const reward = profileUserId === author.id ? null : await this.economy.awardDailyActivity(author.id, DailyActivityAction.PROFILE_COMMENT);
+    return { ...this.toApi(post), reward };
+  }
+
+  async toggleLike(id: string, actor: AuthenticatedUser) {
+    const post = await this.prisma.profilePost.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, profileUserId: true, authorId: true },
+    });
+    if (!post) throw new NotFoundException("Сообщение не найдено");
+    const existing = await this.prisma.profilePostLike.findUnique({ where: { postId_userId: { postId: id, userId: actor.id } } });
+    if (existing) {
+      await this.prisma.profilePostLike.delete({ where: { id: existing.id } });
+      return { liked: false, reward: null };
+    }
+    await this.prisma.profilePostLike.create({ data: { postId: id, userId: actor.id } });
+    const reward = post.profileUserId === actor.id || post.authorId === actor.id
+      ? null
+      : await this.economy.awardDailyActivity(actor.id, DailyActivityAction.PROFILE_POST_LIKE);
+    return { liked: true, reward };
   }
 
   async remove(id: string, actor: AuthenticatedUser) {
@@ -100,6 +133,8 @@ export class ProfilePostsService {
       createdAt: post.createdAt.toISOString(),
       author: mapAuthor(post.author),
       attachment: post.attachment ? this.attachments.toApi(post.attachment) : null,
+      likeCount: post._count?.likes ?? 0,
+      likedByMe: Boolean(post.likes?.length),
       replies: (post.replies ?? []).map((reply: any) => ({
         id: reply.id,
         profileUserId: reply.profileUserId,
@@ -108,6 +143,8 @@ export class ProfilePostsService {
         createdAt: reply.createdAt.toISOString(),
         author: mapAuthor(reply.author),
         attachment: reply.attachment ? this.attachments.toApi(reply.attachment) : null,
+        likeCount: reply._count?.likes ?? 0,
+        likedByMe: Boolean(reply.likes?.length),
         replies: [],
       })),
     };

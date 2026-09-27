@@ -112,12 +112,29 @@ enum NotificationType {
 enum EconomyEntryType {
   MESSAGE_RATING
   DAILY_ACTIVITY_CREDIT
+  DAILY_FIRST_MESSAGE
+  DAILY_FIRST_REPLY
+  DAILY_PROFILE_COMMENT
+  DAILY_PHOTO_LIKE
+  DAILY_PROFILE_POST_LIKE
+  COMMUNITY_CREATION
   GIFT_PURCHASE
+  COSMETIC_PURCHASE
+}
+
+enum DailyActivityAction {
+  FIRST_MESSAGE
+  FIRST_REPLY
+  PROFILE_COMMENT
+  PHOTO_LIKE
+  PROFILE_POST_LIKE
 }
 
 model User {
   id              String            @id @default(uuid()) @db.Uuid
   username        String            @unique @db.VarChar(32)
+  email           String?           @unique @db.VarChar(254)
+  emailVerifiedAt DateTime?         @map("email_verified_at")
   displayName     String            @db.VarChar(64)
   passwordHash    String?           @map("password_hash") @db.VarChar(255)
   isGuest         Boolean           @default(false) @map("is_guest")
@@ -138,12 +155,15 @@ model User {
   ratingAwardsToday Int              @default(0) @map("rating_awards_today")
   sessions        Session[]
   recoveryCodes   RecoveryCode[]
+  emailTokens     EmailToken[]
   memberships     RoomMembership[]
   createdRooms    Room[]            @relation("RoomCreator")
   messages        Message[]         @relation("MessageAuthor")
   received        Message[]         @relation("DirectRecipient")
   mutesGiven      Mute[]            @relation("MuteModerator")
   mutes           Mute[]            @relation("MutedUser")
+  chaosGiven      Chaos[]           @relation("ChaosModerator")
+  chaos           Chaos[]           @relation("ChaosUser")
   bansGiven       Ban[]             @relation("BanModerator")
   bans            Ban[]             @relation("BannedUser")
   reportsCreated  Report[]          @relation("ReportReporter")
@@ -157,17 +177,37 @@ model User {
   communitiesCreated Community[]     @relation("CommunityCreator")
   communityMemberships CommunityMembership[]
   communityPosts CommunityPost[]    @relation("CommunityPostAuthor")
+  communityMessages CommunityMessage[]
   receivedGifts GiftInventory[]     @relation("ReceivedGifts")
   sentGifts GiftInventory[]         @relation("SentGifts")
   authoredPosts        ProfilePost[]     @relation("ProfilePostAuthor")
   reactions            MessageReaction[]
   photoLikes           PhotoLike[]
   photoComments        PhotoComment[]
+  profilePostLikes     ProfilePostLike[]
   notifications        Notification[]     @relation("NotificationRecipient")
   notificationActions  Notification[]     @relation("NotificationActor")
   economyEntries       EconomyEntry[]
+  dailyActivityRewards DailyActivityReward[]
+  cosmetics UserCosmetic[]
+  supportTickets SupportTicket[]
+  friendshipsAsA Friendship[] @relation("FriendshipUserA")
+  friendshipsAsB Friendship[] @relation("FriendshipUserB")
 
   @@map("users")
+}
+
+model Friendship {
+  id        String   @id @default(uuid()) @db.Uuid
+  userAId   String   @map("user_a_id") @db.Uuid
+  userBId   String   @map("user_b_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  userA     User     @relation("FriendshipUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB     User     @relation("FriendshipUserB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userBId, createdAt])
+  @@map("friendships")
 }
 
 model Session {
@@ -184,6 +224,21 @@ model Session {
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
+}
+
+model EmailToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash") @db.VarChar(64)
+  purpose   String    @db.VarChar(16)
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@index([expiresAt])
+  @@map("email_tokens")
 }
 
 model RecoveryCode {
@@ -240,6 +295,7 @@ model Message {
   roomId      String?           @map("room_id") @db.VarChar(64)
   recipientId String?           @map("recipient_id") @db.Uuid
   body        String            @db.VarChar(1000)
+  adminVoice  Boolean           @default(false) @map("admin_voice")
   kind        MessageKind       @default(TEXT)
   requestId   String?           @unique @map("request_id") @db.VarChar(100)
   createdAt   DateTime          @default(now()) @map("created_at")
@@ -312,7 +368,7 @@ model Notification {
 model Attachment {
   id           String           @id @default(uuid()) @db.Uuid
   uploaderId   String           @map("uploader_id") @db.Uuid
-  messageId    String           @map("message_id") @db.Uuid
+  messageId    String?          @map("message_id") @db.Uuid
   kind         AttachmentKind
   status       AttachmentStatus @default(PENDING)
   mimeType     String           @map("mime_type") @db.VarChar(100)
@@ -323,9 +379,11 @@ model Attachment {
   createdAt    DateTime         @default(now()) @map("created_at")
   reviewedAt   DateTime?        @map("reviewed_at")
   uploader     User             @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-  message      Message          @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  message      Message?         @relation(fields: [messageId], references: [id], onDelete: Cascade)
   profilePostId String?          @unique @map("profile_post_id") @db.Uuid
-  profilePost   ProfilePost?     @relation(fields: [profilePostId], references: [id], onDelete: Cascade)
+  profilePost   ProfilePost? @relation(fields: [profilePostId], references: [id], onDelete: Cascade)
+  communityMessageId String? @unique @map("community_message_id") @db.Uuid
+  communityMessage CommunityMessage? @relation(fields: [communityMessageId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
   @@index([uploaderId, createdAt])
@@ -399,10 +457,25 @@ model ProfilePost {
   replies       ProfilePost[] @relation("ProfilePostReplies")
   attachment    Attachment?
   notifications Notification[]
+  likes         ProfilePostLike[]
 
   @@index([profileUserId, createdAt(sort: Desc)])
   @@index([parentId, createdAt])
   @@map("profile_posts")
+}
+
+
+model ProfilePostLike {
+  id        String      @id @default(uuid()) @db.Uuid
+  postId    String      @map("post_id") @db.Uuid
+  userId    String      @map("user_id") @db.Uuid
+  createdAt DateTime    @default(now()) @map("created_at")
+  post      ProfilePost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId, createdAt])
+  @@map("profile_post_likes")
 }
 
 model Mute {
@@ -419,6 +492,21 @@ model Mute {
   @@map("mutes")
 }
 
+model Chaos {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  moderatorId String    @map("moderator_id") @db.Uuid
+  reason      String?   @db.VarChar(500)
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  user        User      @relation("ChaosUser", fields: [userId], references: [id], onDelete: Cascade)
+  moderator   User      @relation("ChaosModerator", fields: [moderatorId], references: [id], onDelete: Restrict)
+
+  @@index([userId, expiresAt])
+  @@map("chaos")
+}
+
 model Ban {
   id          String    @id @default(uuid()) @db.Uuid
   userId      String    @map("user_id") @db.Uuid
@@ -432,6 +520,21 @@ model Ban {
 
   @@index([userId, expiresAt])
   @@map("bans")
+}
+
+model SupportTicket {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  subject    String    @db.VarChar(120)
+  message    String    @db.VarChar(4000)
+  status     String    @default("OPEN") @db.VarChar(16)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("support_tickets")
 }
 
 model Report {
@@ -478,6 +581,7 @@ model ModerationAudit {
 }
 
 model Community {
+  coverKey    String?                @map("cover_key") @db.VarChar(255)
   id          String                @id @default(uuid()) @db.Uuid
   name        String                @db.VarChar(80)
   description String                @default("") @db.VarChar(300)
@@ -488,6 +592,8 @@ model Community {
   createdBy   User                  @relation("CommunityCreator", fields: [createdById], references: [id], onDelete: Cascade)
   memberships CommunityMembership[]
   posts       CommunityPost[]
+  messages    CommunityMessage[]
+  topics      CommunityTopic[]
 
   @@index([createdAt])
   @@map("communities")
@@ -524,17 +630,68 @@ model CommunityPost {
 }
 
 
+model CommunityMessage {
+  id          String    @id @default(uuid()) @db.Uuid
+  communityId String    @map("community_id") @db.Uuid
+  authorId    String    @map("author_id") @db.Uuid
+  body        String    @db.VarChar(2000)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  community   Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  topicId     String? @map("topic_id") @db.Uuid
+  topic       CommunityTopic? @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  attachment Attachment?
+
+  @@index([communityId, createdAt(sort: Desc)])
+  @@map("community_messages")
+}
+
+
+model CommunityTopic {
+  id String @id @default(uuid()) @db.Uuid
+  communityId String @map("community_id") @db.Uuid
+  name String @db.VarChar(60)
+  createdAt DateTime @default(now()) @map("created_at")
+  community Community @relation(fields: [communityId], references: [id], onDelete: Cascade)
+  messages CommunityMessage[]
+  @@index([communityId, createdAt])
+  @@map("community_topics")
+}
+
+model StoreCategory {
+  id          String        @id @default(cuid()) @db.VarChar(64)
+  name        String        @db.VarChar(80)
+  description String        @default("") @db.VarChar(240)
+  icon        String        @default("gift") @db.VarChar(32)
+  imageKey    String?       @map("image_key") @db.VarChar(255)
+  active      Boolean       @default(true)
+  position    Int           @default(0)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  deletedAt   DateTime?     @map("deleted_at")
+  products    GiftCatalog[]
+
+  @@index([active, position])
+  @@map("store_categories")
+}
+
 model GiftCatalog {
   id          String          @id @db.VarChar(64)
+  categoryId  String          @default("surprises") @map("category_id") @db.VarChar(64)
   name        String          @db.VarChar(80)
   description String          @default("") @db.VarChar(240)
   emoji       String          @db.VarChar(16)
+  kind        String          @default("gift") @db.VarChar(16)
+  effectKey   String?         @map("effect_key") @db.VarChar(32)
+  imageKey    String?         @map("image_key") @db.VarChar(255)
   active      Boolean         @default(true)
   position    Int             @default(0)
   price       Int             @default(5)
   createdAt   DateTime        @default(now()) @map("created_at")
+  deletedAt   DateTime?       @map("deleted_at")
+  category    StoreCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   inventories GiftInventory[]
 
+  @@index([categoryId, active, position])
   @@map("gift_catalog")
 }
 
@@ -544,6 +701,10 @@ model GiftInventory {
   recipientId String      @map("recipient_id") @db.Uuid
   senderId    String?     @map("sender_id") @db.Uuid
   message     String?     @db.VarChar(300)
+  giftName    String      @map("gift_name") @db.VarChar(80)
+  giftDescription String  @map("gift_description") @db.VarChar(240)
+  giftEmoji   String      @map("gift_emoji") @db.VarChar(16)
+  giftPrice   Int         @map("gift_price")
   createdAt   DateTime    @default(now()) @map("created_at")
   gift        GiftCatalog @relation(fields: [giftId], references: [id], onDelete: Restrict)
   recipient   User        @relation("ReceivedGifts", fields: [recipientId], references: [id], onDelete: Cascade)
@@ -553,6 +714,17 @@ model GiftInventory {
   @@index([recipientId, createdAt(sort: Desc)])
   @@index([senderId, createdAt(sort: Desc)])
   @@map("gift_inventory")
+}
+
+model UserCosmetic {
+  userId    String   @map("user_id") @db.Uuid
+  effectKey String   @map("effect_key") @db.VarChar(32)
+  settings  Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, effectKey])
+  @@map("user_cosmetics")
 }
 
 model EconomyEntry {
@@ -569,4 +741,19 @@ model EconomyEntry {
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("economy_entries")
+}
+
+
+model DailyActivityReward {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  action    DailyActivityAction
+  day       DateTime            @db.Date
+  credits   Int
+  createdAt DateTime            @default(now()) @map("created_at")
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, action, day])
+  @@index([userId, day])
+  @@map("daily_activity_rewards")
 }

@@ -48,6 +48,7 @@ async function bootstrap() {
   });
 
   app.useStaticAssets(join(process.cwd(), "uploads"), { prefix: "/uploads/" });
+  app.useStaticAssets(join(process.cwd(), "assets", "bot-avatars"), { prefix: "/bot-avatars/" });
   app.setGlobalPrefix("api");
   app.enableCors({ origin: process.env.WEB_ORIGIN ?? "http://localhost:3000", credentials: true });
   app.use(cookieParser());

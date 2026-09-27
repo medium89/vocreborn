@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 
 import type { Gender, Person, Room } from "@/lib/chat-contract";
-import { BellOff, BellRing, Flag, MessageCircle, Shield, UserRound } from "lucide-react";
+import { BellOff, BellRing, Crown, Flag, MessageCircle, Shield, ShieldCheck, Star, UserRound, UsersRound, X } from "lucide-react";
 import { Avatar } from "./avatar";
 
 type PrivateMessagePreview = { peerId: string; text: string };
 
 const groups: Array<{ gender: Gender; title: string; description: string }> = [
-  { gender: "male", title: "Мужчины", description: "Указали мужской пол" },
-  { gender: "female", title: "Женщины", description: "Указали женский пол" },
+  { gender: "male", title: "Парни", description: "Указали мужской пол" },
+  { gender: "female", title: "Девушки", description: "Указали женский пол" },
   { gender: "unspecified", title: "Они", description: "Не указали пол" },
 ];
 
@@ -23,16 +23,46 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     return () => window.clearTimeout(timer);
   }, [preview]);
   const isSelf = person.id === currentUserId;
-  const role = person.role === "admin" ? "администратор" : person.role === "moderator" ? "модератор" : undefined;
-  const description = isSelf ? "это вы" : person.isBot ? "бот" : role ?? (person.status === "away" ? "нет на месте" : person.status === "offline" ? "не в сети" : person.room === "main" ? "в Главной" : "в комнате");
+  const role = person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
+  const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
+  const avatarRole = role ?? (isVip ? "vip" : null);
   return <div className="person">
-    <span className={"presence person-presence " + person.status} /><span className="person-avatar-anchor"><button className="person-avatar-button" aria-label={"Открыть профиль " + person.name} title={"Открыть профиль " + person.name} onClick={() => !isSelf && onClick(person)}><Avatar value={person.avatar} previewUrl={person.avatarThumbnail} name={person.name} className={person.status} /></button>{visiblePreview && !isSelf && <button type="button" className={"private-message-preview " + (isPreviewLeaving ? "is-leaving" : "")} data-testid="private-message-preview" aria-label={"Открыть личное сообщение от " + person.name} onClick={(event) => { event.stopPropagation(); onOpenPrivate(person); }}><MessageCircle size={15} /><span><small>Личное сообщение</small><strong>{visiblePreview}</strong></span></button>}</span><button className="person-main" onClick={() => !isSelf && onMention(person)}><span className="person-copy"><strong>{person.name}</strong><small>{description}</small></span></button>{!isSelf && <button className="person-profile" aria-label={"Посмотреть профиль " + person.name} title={"Посмотреть профиль " + person.name} onClick={() => onClick(person)}><UserRound size={14} /></button>}
-    {!isSelf && person.id && <button className="report-person" aria-label={"Пожаловаться на " + person.name} title={"Пожаловаться на " + person.name} onClick={() => onReport(person)}><Flag size={13} /></button>}
-    {!isSelf && canModerate && person.id && <button className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}{!isSelf && canModerate && person.id && <button className="moderate-person" aria-label={"Модерировать " + person.name} title={"Модерировать " + person.name} onClick={() => onModerate(person)}><Shield size={14} /></button>}
+    <span className={"presence person-presence " + person.status} />
+    <span className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
+      <button type="button" className="person-avatar-button" aria-label={"Открыть профиль " + person.name} onClick={() => onClick(person)}>
+        <Avatar value={person.avatar} previewUrl={person.avatarThumbnail} previewHint="Нажмите, чтобы открыть профиль" name={person.name} className={person.status} />
+      </button>
+      {avatarRole && <span className={"person-avatar-role person-avatar-role-" + avatarRole} title={avatarRole === "admin" ? "Администратор" : avatarRole === "moderator" ? "Модератор" : "VIP"} aria-hidden="true">
+        {avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
+      </span>}
+      {visiblePreview && !isSelf && <button type="button" className={"private-message-preview " + (isPreviewLeaving ? "is-leaving" : "")} data-testid="private-message-preview" aria-label={"Открыть личное сообщение от " + person.name} onClick={(event) => { event.stopPropagation(); onOpenPrivate(person); }}>
+        <MessageCircle size={15} /><span><small>Личное сообщение</small><strong>{visiblePreview}</strong></span>
+      </button>}
+    </span>
+    <button type="button" className="person-main" title={person.name} onClick={() => isSelf ? onClick(person) : onMention(person)}>
+      <span className="person-copy">
+        <span className="person-name-line"><strong className={avatarRole ? "person-name-" + avatarRole : undefined}>{person.name}</strong></span>
+      </span>
+    </button>
+    <div className="person-lower">
+      <span className="person-role-badges">
+        {!role && !isVip && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
+        {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
+        {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
+      </span>
+    </div>
+    <span className="person-actions">
+      <button type="button" className="person-profile" aria-label={"Посмотреть профиль " + person.name} title={"Посмотреть профиль " + person.name} onClick={() => onClick(person)}><UserRound size={14} /></button>
+      {!isSelf && person.id && <button type="button" className="report-person" aria-label={"Пожаловаться на " + person.name} title={"Пожаловаться на " + person.name} onClick={() => onReport(person)}><Flag size={13} /></button>}
+      {!isSelf && canModerate && person.id && <button type="button" className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}
+      {canModerate && person.id && (!isSelf || role !== null) && <button type="button" className="moderate-person" aria-label={isSelf ? "Модерировать себя" : "Модерировать " + person.name} title={isSelf ? "Модерировать себя" : "Модерировать " + person.name} onClick={() => onModerate(person)}><Shield size={14} /></button>}
+    </span>
   </div>;
 }
 
 type PeoplePanelProps = {
+  className?: string;
+  showMobileToggle?: boolean;
   people: Person[]; rooms: Room[]; roomId: string; currentUserId: string | null; canModerate: boolean;
   privateMessagePreview: PrivateMessagePreview | null;
   onOpenDialog: (person: Person) => void; onMention: (person: Person) => void; onOpenPrivate: (person: Person) => void;
@@ -40,12 +70,26 @@ type PeoplePanelProps = {
   onChangeRoom: (roomId: string) => void; onOpenRooms: () => void; mutedPeople: Set<string>; onToggleMute: (person: Person, muted: boolean) => void;
 };
 
-export function PeoplePanel({ people, rooms, roomId, currentUserId, canModerate, privateMessagePreview, onOpenDialog, onMention, onOpenPrivate, onModerate, onReport, mutedPeople, onToggleMute, onChangeRoom, onOpenRooms }: PeoplePanelProps) {
-  return <aside className="people-panel">
-    <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{people.length}</span></div>
+export function PeoplePanel({ className = "", showMobileToggle = true, people, rooms, roomId, currentUserId, canModerate, privateMessagePreview, onOpenDialog, onMention, onOpenPrivate, onModerate, onReport, mutedPeople, onToggleMute, onChangeRoom, onOpenRooms }: PeoplePanelProps) {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => { setMobileOpen(false); }, [roomId]);
+  useEffect(() => { if (!showMobileToggle) setMobileOpen(false); }, [showMobileToggle]);
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setMobileOpen(false); };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileOpen]);
+  return <>
+    {showMobileToggle && <button type="button" className="mobile-people-trigger" aria-label="Открыть список участников" title="Участники" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><UsersRound size={19} /><span>{people.length}</span></button>}
+    {mobileOpen && <button type="button" className="mobile-people-backdrop" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)} />}
+    <aside className={"people-panel " + className + (mobileOpen ? " mobile-open" : "")} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("button")) setMobileOpen(false); }}>
+    <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{people.length}</span><button type="button" className="mobile-people-close" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
     <div className="people-list">
       {groups.map((group) => {
-        const members = people.filter((person) => person.gender === group.gender);
+        const members = people
+          .filter((person) => person.gender === group.gender)
+          .sort((left, right) => Number(right.id === currentUserId) - Number(left.id === currentUserId));
         if (members.length === 0) return null;
         return <section className="people-group" key={group.gender}>
           <div className="people-group-title"><span>{group.title}</span><small title={group.description}>{members.length}</small></div>
@@ -56,5 +100,5 @@ export function PeoplePanel({ people, rooms, roomId, currentUserId, canModerate,
     <div className="room-switcher"><div className="room-switcher-head"><span>Комнаты</span><button onClick={onOpenRooms}>все</button></div>
       {rooms.map((room) => <button className={"room-row " + (room.id === roomId ? "selected" : "")} key={room.id} onClick={() => onChangeRoom(room.id)}><span className={"room-dot " + room.tone} /><span>{room.name}</span><small>{room.online}</small></button>)}
     </div>
-  </aside>;
+  </aside></>;
 }

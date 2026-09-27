@@ -1,3 +1,4 @@
+import { assertNotInChaos } from "../moderation/chaos.guard";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, ReactionType, type Attachment, type Message, type MessageReaction, type Room } from "@prisma/client";
 import { randomUUID } from "node:crypto";
@@ -8,6 +9,7 @@ import { AttachmentsService } from "../attachments/attachments.service";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { EconomyService } from "../gifts/economy.service";
+import { cosmeticAppearance } from "../gifts/cosmetics";
 const MAX_ROOM_COVER_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_ROOM_COVER_BYTES = 2 * 1024 * 1024;
 type RoomCoverFile = { buffer: Buffer; mimetype: string; size: number };
@@ -129,13 +131,13 @@ export class ChatService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
     });
     const hasMore = messages.length > 50;
     const page = messages.slice(0, 50);
     return {
-      items: page.reverse().map((message) => this.toApiMessage(message, currentUserId)),
-      nextCursor: hasMore ? page[0]?.id ?? null : null,
+      items: [...page].reverse().map((message) => this.toApiMessage(message, currentUserId)),
+      nextCursor: hasMore ? page[page.length - 1]?.id ?? null : null,
     };
   }
 
@@ -148,7 +150,7 @@ export class ChatService {
       include: { attachments: true },
     });
     const source = (message: typeof messages[number]) => ({ messageId: message.id, author: message.authorName, createdAt: message.createdAt.toISOString() });
-    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment) })));
+    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment, message.roomId) })));
     const links = messages.flatMap((message) => Array.from(message.body.matchAll(/https?:\/\/[^\s<>"]+/g)).map((match) => ({ ...source(message), url: match[0] })));
     return { media, files: media.filter((item) => item.attachment.kind === "audio"), links };
   }
@@ -161,7 +163,7 @@ export class ChatService {
       include: { attachments: true },
     });
     const source = (message: typeof messages[number]) => ({ messageId: message.id, author: message.authorName, createdAt: message.createdAt.toISOString() });
-    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment) })));
+    const media = messages.flatMap((message) => message.attachments.map((attachment) => ({ ...source(message), attachment: this.attachments.toApi(attachment, message.roomId) })));
     const links = messages.flatMap((message) => Array.from(message.body.matchAll(/https?:\/\/[^\s<>"]+/g)).map((match) => ({ ...source(message), url: match[0] })));
     return { media, files: media.filter((item) => item.attachment.kind === "audio"), links };
   }
@@ -183,7 +185,7 @@ export class ChatService {
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 30,
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
     });
     return messages.map((message) => this.toApiMessage(message, currentUserId));
   }
@@ -192,7 +194,7 @@ export class ChatService {
     await this.assertRoom(roomId);
     const message = await this.prisma.message.findFirst({
       where: { id: messageId, roomId, deletedAt: null },
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
     });
     if (!message) throw new NotFoundException("Сообщение не найдено");
     return this.toApiMessage(message, currentUserId);
@@ -219,14 +221,21 @@ export class ChatService {
     authorName: string,
     attachmentId?: string,
     replyToId?: string,
+    adminVoice = false,
   ): Promise<ApiMessage> {
     await this.assertCanWrite(authorId);
+    await assertNotInChaos(this.prisma, authorId);
     if (!body.trim() && !attachmentId) throw new BadRequestException("Введите сообщение или прикрепите файл");
     await this.assertRoom(roomId);
+    if (adminVoice) {
+      if (!body.trim()) throw new BadRequestException("Введите текст для «Гласа админа»");
+      const author = await this.prisma.user.findUnique({ where: { id: authorId }, select: { role: true } });
+      if (author?.role !== "ADMIN" && author?.role !== "MODERATOR") throw new ForbiddenException("«Глас админа» доступен только администрации и модераторам");
+    }
     await this.assertReplyTarget(replyToId, { roomId });
 
     if (requestId) {
-      const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+      const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
       if (existing) {
         if (existing.authorId !== authorId || existing.roomId !== roomId) {
           throw new ConflictException("requestId уже использован");
@@ -242,6 +251,7 @@ export class ChatService {
         authorId,
         authorName,
         body: body.trim(),
+        adminVoice,
         requestId,
         replyToId,
       },
@@ -252,11 +262,11 @@ export class ChatService {
       await this.prisma.message.delete({ where: { id: message.id } });
       throw error;
     }
-    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
     await Promise.all([
       this.notifications.createReply(authorId, completed.id, replyToId),
       this.notifications.createMentions(authorId, completed.id, completed.body),
-      this.economy.awardForPublicMessage(authorId, completed.id, completed.body),
+      this.economy.awardForPublicMessage(authorId, completed.id, completed.body, completed.replyTo?.authorId ?? undefined),
     ]);
     return this.toApiMessage(completed, authorId);
   }
@@ -265,8 +275,9 @@ export class ChatService {
     await this.assertRoom(roomId);
     const message = await this.prisma.message.create({
       data: { roomId, authorId, authorName, body },
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true },
     });
+    await this.notifications.createMentions(authorId, message.id, body);
     return this.toApiMessage(message);
   }
 
@@ -282,7 +293,7 @@ export class ChatService {
     const users = await this.prisma.user.findMany({
       where: { deletedAt: null },
       orderBy: [{ status: "asc" }, { displayName: "asc" }],
-      include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 } },
+      include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 }, cosmetics: true },
     });
 
     return users.map((user) => ({
@@ -292,10 +303,12 @@ export class ChatService {
       status: user.status.toLowerCase() as ApiPerson["status"],
       gender: user.gender.toLowerCase() as ApiPerson["gender"],
       isBot: user.isBot || undefined,
+      isGuest: user.isGuest,
       role: user.role === "USER" ? undefined : user.role.toLowerCase(),
       room: user.memberships[0]?.roomId ?? "main",
       avatar: user.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarKey : user.displayName[0]?.toUpperCase() ?? "?",
       avatarThumbnail: user.avatarThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarThumbKey : undefined,
+      appearance: cosmeticAppearance(user.cosmetics),
     }));
   }
 
@@ -320,7 +333,7 @@ export class ChatService {
 
     const peerIds = heads.map((head) => head.peerId);
     const [messages, peers, unreadGroups] = await Promise.all([
-      this.prisma.message.findMany({ where: { id: { in: heads.map((head) => head.messageId) } }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } }),
+      this.prisma.message.findMany({ where: { id: { in: heads.map((head) => head.messageId) } }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } }),
       this.prisma.user.findMany({
         where: { id: { in: peerIds }, deletedAt: null },
         include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 } },
@@ -351,6 +364,7 @@ export class ChatService {
           room: peer.memberships[0]?.roomId ?? "main",
           avatar: peer.displayName[0]?.toUpperCase() ?? "?",
           gender: peer.gender.toLowerCase() as ApiPerson["gender"],
+          isGuest: peer.isGuest,
         },
         lastMessage: this.toApiMessage(message, userId),
         unread: unreadByPeer.get(peer.id) ?? 0,
@@ -381,13 +395,13 @@ export class ChatService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
     });
     const hasMore = messages.length > 50;
     const page = messages.slice(0, 50);
     return {
-      items: page.reverse().map((message) => this.toApiMessage(message, userId)),
-      nextCursor: hasMore ? page[0]?.id ?? null : null,
+      items: [...page].reverse().map((message) => this.toApiMessage(message, userId)),
+      nextCursor: hasMore ? page[page.length - 1]?.id ?? null : null,
     };
   }
 
@@ -407,7 +421,7 @@ export class ChatService {
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 30,
-      include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
     });
     return messages.map((message) => this.toApiMessage(message, userId));
   }
@@ -426,7 +440,7 @@ export class ChatService {
     await this.assertPeer(authorId, recipientId);
     await this.assertReplyTarget(replyToId, { participantIds: [authorId, recipientId] });
 
-    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
     if (existing) {
       if (existing.authorId !== authorId || existing.recipientId !== recipientId) {
         throw new ConflictException("requestId уже использован");
@@ -444,7 +458,7 @@ export class ChatService {
       await this.prisma.message.delete({ where: { id: message.id } });
       throw error;
     }
-    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
     await this.notifications.createReply(authorId, completed.id, replyToId);
     return this.toApiMessage(completed, authorId);
   }
@@ -571,7 +585,7 @@ export class ChatService {
     await unlink(join(process.cwd(), key.slice(1))).catch(() => undefined);
   }
 
-  private toApiMessage(message: Message & { author?: { avatarKey: string | null } | null; attachments?: Attachment[]; reactions?: MessageReaction[]; replyTo?: { id: string; authorId: string | null; authorName: string; createdAt: Date } | null }, currentUserId?: string): ApiMessage {
+  private toApiMessage(message: Message & { author?: { avatarKey: string | null; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> } | null; attachments?: Attachment[]; reactions?: MessageReaction[]; replyTo?: { id: string; authorId: string | null; authorName: string; createdAt: Date } | null }, currentUserId?: string): ApiMessage {
     const grouped = new Map<ApiReactionType, { count: number; mine: boolean }>();
     for (const reaction of message.reactions ?? []) {
       const type = reaction.type.toLowerCase() as ApiReactionType;
@@ -582,12 +596,14 @@ export class ChatService {
       id: message.id,
       authorId: message.authorId ?? undefined,
       author: message.authorName,
+      appearance: message.author?.cosmetics ? cosmeticAppearance(message.author.cosmetics) : undefined,
+      adminVoice: message.adminVoice || undefined,
       avatarUrl: message.author?.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + message.author.avatarKey : undefined,
       body: message.body,
       time: message.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       createdAt: message.createdAt.toISOString(),
       system: message.kind === "SYSTEM",
-      attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment)),
+      attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),
       reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
       replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: message.replyTo.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) } : undefined,
     };

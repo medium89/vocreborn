@@ -5,7 +5,8 @@ import { RateLimit } from "../security/rate-limit.decorator";
 import { AuthService } from "./auth.service";
 import { SESSION_COOKIE, type AuthenticatedRequest } from "./auth.types";
 import { LoginDto } from "./dto/login.dto";
-import { ChangePasswordDto } from "./dto/password.dto";
+import { EmailAddressDto, EmailPasswordResetDto, EmailTokenDto, SetEmailDto } from "./dto/email.dto";
+import { ChangePasswordDto, CreateRecoveryCodeDto, ResetPasswordDto } from "./dto/password.dto";
 import { RegisterDto } from "./dto/register.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { ProfileService } from "./profile.service";
@@ -36,6 +37,34 @@ export class AuthController {
     return { user: session.user };
   }
 
+  @Post("email/verify")
+  @HttpCode(200)
+  @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "ip" })
+  verifyEmail(@Body() input: EmailTokenDto) {
+    return this.auth.verifyEmail(input);
+  }
+
+  @Post("password/email/request")
+  @HttpCode(200)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "ip" })
+  requestEmailReset(@Body() input: EmailAddressDto) {
+    return this.auth.requestEmailReset(input);
+  }
+
+  @Post("password/email/reset")
+  @HttpCode(200)
+  @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "ip" })
+  resetPasswordByEmail(@Body() input: EmailPasswordResetDto) {
+    return this.auth.resetPasswordByEmail(input);
+  }
+
+  @Post("password/reset")
+  @HttpCode(200)
+  @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "ip" })
+  resetPassword(@Body() input: ResetPasswordDto) {
+    return this.auth.resetPassword(input);
+  }
+
   @Post("logout")
   @HttpCode(204)
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
@@ -62,6 +91,27 @@ export class MeController {
   async update(@Body() input: UpdateProfileDto, @Req() request: AuthenticatedRequest) {
     const profile = await this.profiles.update(request.user.id, input);
     return { user: { ...request.user, ...profile } };
+  }
+
+  @Post("recovery-code")
+  @HttpCode(200)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "session" })
+  createRecoveryCode(@Body() input: CreateRecoveryCodeDto, @Req() request: AuthenticatedRequest) {
+    return this.auth.createRecoveryCode(request.user.id, input);
+  }
+
+  @Post("email")
+  @HttpCode(200)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "session" })
+  setEmail(@Body() input: SetEmailDto, @Req() request: AuthenticatedRequest) {
+    return this.auth.setEmail(request.user.id, input);
+  }
+
+  @Post("email/resend")
+  @HttpCode(200)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "session" })
+  resendVerification(@Req() request: AuthenticatedRequest) {
+    return this.auth.resendVerification(request.user.id);
   }
 
   @Post("password")

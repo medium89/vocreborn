@@ -1,11 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { Gender } from "@prisma/client";
+import { DailyActivityAction, Gender } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import sharp from "sharp";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { EconomyService } from "../gifts/economy.service";
+import { cosmeticAppearance } from "../gifts/cosmetics";
+import type { Prisma } from "@prisma/client";
 import { NotificationType } from "@prisma/client";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -22,12 +25,13 @@ function hasValidImageSignature(file: AvatarFile) {
 
 @Injectable()
 export class ProfileService {
-  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
+  constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService, private readonly economy: EconomyService) {}
 
   async getPublicProfile(userId: string) {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, deletedAt: null },
       include: {
+        cosmetics: true,
         photoAlbums: { orderBy: { createdAt: "asc" }, include: { photos: { orderBy: { createdAt: "asc" } } } },
         receivedGifts: { orderBy: { createdAt: "desc" }, take: 100, include: { gift: true, sender: { select: { id: true, displayName: true } } } },
         communityMemberships: { where: { status: "APPROVED" }, include: { community: true } },
@@ -39,12 +43,54 @@ export class ProfileService {
     return {
       ...this.toProfile(user),
       albums: user.photoAlbums.map((album) => this.toAlbum(album)),
-      gifts: user.receivedGifts.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), message: item.message, gift: { id: item.gift.id, name: item.gift.name, description: item.gift.description, emoji: item.gift.emoji, price: item.gift.price }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null })),
+      gifts: user.receivedGifts.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), message: item.message, gift: { id: item.gift.id, name: item.giftName, description: item.giftDescription, emoji: item.giftEmoji, price: item.giftPrice, categoryId: item.gift.categoryId }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null })),
       communities: user.communityMemberships.map((membership) => ({ id: membership.community.id, name: membership.community.name, role: membership.role.toLowerCase() })),
       rooms: user.memberships.map((membership) => ({ id: membership.room.id, name: membership.room.name })),
       stats: { messages: user._count.messages, profilePosts: user._count.profilePosts },
     };
   }
+  async listFriends(userId: string) {
+    const exists = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { id: true } });
+    if (!exists) throw new NotFoundException("Пользователь не найден");
+    const select = { id: true, username: true, displayName: true, avatarKey: true, status: true, role: true, gender: true, deletedAt: true } as const;
+    const links = await this.prisma.friendship.findMany({
+      where: { OR: [{ userAId: userId }, { userBId: userId }] },
+      orderBy: { createdAt: "desc" },
+      include: { userA: { select }, userB: { select } },
+    });
+    const baseUrl = process.env.PUBLIC_API_URL ?? "http://localhost:3001";
+    return links.flatMap((link) => {
+      const friend = link.userAId === userId ? link.userB : link.userA;
+      if (friend.deletedAt) return [];
+      return [{
+        id: friend.id, username: friend.username, displayName: friend.displayName,
+        avatarUrl: friend.avatarKey ? baseUrl + friend.avatarKey : null,
+        status: friend.status.toLowerCase(), role: friend.role.toLowerCase(), gender: friend.gender.toLowerCase(),
+        friendsSince: link.createdAt.toISOString(),
+      }];
+    });
+  }
+
+  async addFriend(userId: string, friendId: string) {
+    if (userId === friendId) throw new BadRequestException("Нельзя добавить себя в друзья");
+    const friend = await this.prisma.user.findFirst({ where: { id: friendId, deletedAt: null }, select: { id: true } });
+    if (!friend) throw new NotFoundException("Пользователь не найден");
+    const [userAId, userBId] = [userId, friendId].sort();
+    await this.prisma.friendship.upsert({
+      where: { userAId_userBId: { userAId, userBId } },
+      create: { userAId, userBId },
+      update: {},
+    });
+    return { friendId, added: true };
+  }
+
+  async removeFriend(userId: string, friendId: string) {
+    if (userId === friendId) throw new BadRequestException("Нельзя удалить себя из друзей");
+    const [userAId, userBId] = [userId, friendId].sort();
+    await this.prisma.friendship.deleteMany({ where: { userAId, userBId } });
+    return { friendId, added: false };
+  }
+
 
   async update(userId: string, input: UpdateProfileDto) {
     const user = await this.prisma.user.update({
@@ -94,8 +140,9 @@ export class ProfileService {
   async createAlbum(userId: string, rawTitle: string) {
     const title = rawTitle.trim();
     if (title.length < 1 || title.length > 80) throw new BadRequestException("Название альбома должно содержать от 1 до 80 символов");
-    const count = await this.prisma.photoAlbum.count({ where: { userId } });
-    if (count >= 2) throw new BadRequestException("Пока можно создать не более двух фотоальбомов");
+    const [count, vip] = await Promise.all([this.prisma.photoAlbum.count({ where: { userId } }), this.prisma.userCosmetic.findUnique({ where: { userId_effectKey: { userId, effectKey: "vip" } } })]);
+    const limit = vip ? 5 : 2;
+    if (count >= limit) throw new BadRequestException("Можно создать не более " + limit + " фотоальбомов");
     const album = await this.prisma.photoAlbum.create({ data: { userId, title }, include: { photos: true } });
     return this.toAlbum(album);
   }
@@ -113,7 +160,9 @@ export class ProfileService {
     if (file.size > MAX_UPLOAD_BYTES) throw new BadRequestException("Исходное изображение должно быть не больше 10 МБ");
     const album = await this.prisma.photoAlbum.findFirst({ where: { id: albumId, userId }, include: { _count: { select: { photos: true } } } });
     if (!album) throw new NotFoundException("Фотоальбом не найден");
-    if (album._count.photos >= 10) throw new BadRequestException("В одном фотоальбоме пока может быть не более 10 фотографий");
+    const vip = await this.prisma.userCosmetic.findUnique({ where: { userId_effectKey: { userId, effectKey: "vip" } } });
+    const limit = vip ? 30 : 10;
+    if (album._count.photos >= limit) throw new BadRequestException("В одном фотоальбоме может быть не более " + limit + " фотографий");
     let image: Buffer; let thumbnail: Buffer;
     try {
       image = await sharp(file.buffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(1600, 1600, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82, effort: 5 }).toBuffer();
@@ -142,7 +191,8 @@ export class ProfileService {
     if (existing) { await this.prisma.photoLike.delete({ where: { id: existing.id } }); await this.prisma.notification.deleteMany({ where: { userId: photo.album.userId, actorId: userId, photoId, type: NotificationType.PHOTO_LIKE } }); return { liked: false }; }
     await this.prisma.photoLike.create({ data: { photoId, userId } });
     await this.notifications.createEvent({ userId: photo.album.userId, actorId: userId, type: NotificationType.PHOTO_LIKE, photoId });
-    return { liked: true };
+    const reward = photo.album.userId === userId ? null : await this.economy.awardDailyActivity(userId, DailyActivityAction.PHOTO_LIKE);
+    return { liked: true, reward };
   }
 
   async commentPhoto(userId: string, photoId: string, body: string) {
@@ -161,8 +211,8 @@ export class ProfileService {
   private toAlbum(album: { id: string; title: string; createdAt: Date; photos: Array<{ id: string; originalName: string; storageKey: string; thumbnailKey: string; size: number; createdAt: Date }> }) {
     return { id: album.id, title: album.title, createdAt: album.createdAt.toISOString(), photos: album.photos.map((photo) => this.toAlbumPhoto(photo)) };
   }
-  private toProfile(user: { id: string; username: string; displayName: string; bio: string | null; avatarKey: string | null; avatarThumbKey: string | null; role: string; status: string; gender: string; rating: number; createdAt: Date }) {
+  private toProfile(user: { id: string; username: string; displayName: string; bio: string | null; avatarKey: string | null; avatarThumbKey: string | null; role: string; status: string; gender: string; rating: number; createdAt: Date; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> }) {
     const baseUrl = process.env.PUBLIC_API_URL ?? "http://localhost:3001";
-    return { id: user.id, username: user.username, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null, avatarThumbnailUrl: user.avatarThumbKey ? baseUrl + user.avatarThumbKey : null, role: user.role.toLowerCase(), status: user.status.toLowerCase(), gender: user.gender.toLowerCase(), rating: user.rating, createdAt: user.createdAt.toISOString() };
+    return { id: user.id, username: user.username, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null, avatarThumbnailUrl: user.avatarThumbKey ? baseUrl + user.avatarThumbKey : null, role: user.role.toLowerCase(), status: user.status.toLowerCase(), gender: user.gender.toLowerCase(), rating: user.rating, createdAt: user.createdAt.toISOString(), appearance: cosmeticAppearance(user.cosmetics ?? []) };
   }
 }

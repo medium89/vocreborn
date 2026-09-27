@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties, type FormEventHandler } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEventHandler } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, AtSign, ChevronDown, Ellipsis, FileAudio, FileImage, Flag, LoaderCircle, Maximize2, Mic, Paperclip, Pause, Play, Reply, Search, Send, Smile, SmilePlus, Square, Trash2, Users, X } from "lucide-react";
+import { ArrowLeft, AtSign, ChevronDown, Ellipsis, FileAudio, FileImage, Flag, LoaderCircle, Maximize2, Megaphone, Mic, Moon, Paperclip, Pause, Play, Reply, Search, Send, Smile, SmilePlus, Square, Sun, Trash2, Users, X } from "lucide-react";
 import { API_URL, fetchDirectResources, fetchRoomMessage, fetchRoomResources, searchDirectMessages, searchRoomMessages } from "@/lib/chat-api";
-import type { Attachment, DirectConversation, Message, Person, ReactionType, Room, RoomResources } from "@/lib/chat-contract";
+import type { Attachment, CosmeticAppearance, DirectConversation, Message, Person, ReactionType, Room, RoomResources } from "@/lib/chat-contract";
 import { Avatar } from "./avatar";
+import { messagePreviewStyle } from "@/lib/message-preview-size";
+import { StyledMessageText, StyledName } from "./cosmetics";
+import { ComposerAppearanceMenu, ComposerMessageColorPicker, ComposerTextStyleToggles } from "./appearance-settings";
+import { useSiteTheme } from "@/lib/use-site-theme";
+import { DirectConversationTabs } from "./direct-conversation-tabs";
 
 const reactionOptions: Array<{ type: ReactionType; emoji: string; label: string }> = [
   { type: "like", emoji: "👍", label: "Нравится" },
@@ -22,10 +27,10 @@ const reactionByType = new Map(reactionOptions.map((item) => [item.type, item]))
 const composerEmojis = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","😘","😎","🤓","🤔","🤗","🤭","😴","😢","😭","😡","🤢","🥳","😮","😱","🤩","😈","👍","👎","👏","🙏","💪","👋","❤️","💔","🔥","✨","🎉","🎁","🎵","💬","🌿","☀️","🌙","⭐","✅","❌","💯","🚀","🍀","🌈","☕","🍕","🎮","📷","💻","⚡","🎂","🥂","😺","🐶","🦊","🐼","🌸","🌺","🖤","🤍","💚","💙","💜","🤝","✌️","👌","😌","😏","🙄","😬","🤪","🤫"];
 
 type ConversationProps = {
-  currentUserId?: string; room: Room; dialog: string | null; dialogId: string | null; directConversations: DirectConversation[]; onOpenDirect: (person: Person) => void; onDismissDirect: (personId: string) => void; messages: Message[]; draft: string; muted: boolean;
+  currentUserId?: string; canUseAdminVoice: boolean; adminVoice: boolean; onAdminVoiceChange: (value: boolean) => void; appearance?: CosmeticAppearance; onAppearanceChanged: (appearance: CosmeticAppearance) => void; room: Room; dialog: string | null; dialogId: string | null; directConversations: DirectConversation[]; onOpenDirect: (person: Person) => void; onDismissDirect: (personId: string) => void; messages: Message[]; draft: string; muted: boolean;
   attachment: Attachment | null; replyingTo: Message | null; uploadingAttachment: boolean;
-  canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; loadingOlder: boolean; notice: string;
-  onDraftChange: (value: string) => void; onSend: FormEventHandler<HTMLFormElement>; onLoadOlder: () => void;
+  canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; hasNewer: boolean; loadingOlder: boolean; notice: string;
+  onDraftChange: (value: string) => void; onSend: FormEventHandler<HTMLFormElement>; onLoadOlder: () => void; onShowLatest: () => void;
   onFileSelect: (file: File) => void; onRemoveAttachment: () => void;
   onDelete: (messageId: string) => void; onReply: (message: Message) => void; onCancelReply: () => void; onReport: (messageId: string, label: string) => void;
   onReact: (messageId: string, type: ReactionType) => Promise<void>; onExitDialog: () => void; onRevealMessage: (message: Message) => void; onNotice: (message: string) => void; mentionCandidates: Person[]; mentionFocusRequest: number;
@@ -47,7 +52,7 @@ function formatDuration(seconds: number) {
 function attachmentMeta(attachment: Attachment) {
   const expires = attachment.expiresAt ? new Date(attachment.expiresAt) : null;
   const expiry = expires && !Number.isNaN(expires.getTime())
-    ? "до " + expires.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" })
+    ? "до " + expires.toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })
     : "24 часа";
   return formatSize(attachment.size) + " · хранится " + expiry;
 }
@@ -99,7 +104,7 @@ function AudioAttachment({ attachment, source }: { attachment: Attachment; sourc
     <span className="attachment-copy">
       <strong>{voice ? "Голосовое сообщение" : attachment.originalName}</strong>
       <small>{formatDuration(position)} / {formatDuration(duration)} · {attachmentMeta(attachment)}</small>
-      <input className="audio-progress" type="range" min="0" max={duration > 0 ? duration : 1} step="0.01" value={duration > 0 ? Math.min(position, duration) : 0} aria-label="Позиция воспроизведения" style={{ "--audio-progress": (duration > 0 ? Math.min(100, position / duration * 100) : 0) + "%" } as CSSProperties} onChange={(event) => { const next = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = next; setPosition(next); }} />
+      <input className="audio-progress" type="range" min="0" max={duration > 0 ? duration : 1} step="0.01" value={duration > 0 ? Math.min(position, duration) : 0} aria-label="Позиция воспроизведения" style={{ "--audio-progress": (duration > 0 ? Math.min(100, position / duration * 100) : 0) + "%" } as CSSProperties} onChange={(event) => { const next = Number(event.target.value); durationProbeRef.current = false; if (audioRef.current) audioRef.current.currentTime = next; setPosition(next); }} />
     </span>
     <audio ref={audioRef} preload="metadata" src={source} onLoadedMetadata={(event) => detectDuration(event.currentTarget)} onDurationChange={(event) => syncDuration(event.currentTarget)} onProgress={(event) => syncDuration(event.currentTarget)} onCanPlay={(event) => detectDuration(event.currentTarget)} onTimeUpdate={(event) => { if (syncDuration(event.currentTarget) && !durationProbeRef.current) setPosition(event.currentTarget.currentTime); }} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setPosition(0); }} />
   </div>;
@@ -144,7 +149,8 @@ function RoomInfoModal({ room, onClose }: { room: Room; onClose: () => void }) {
   </div>;
 }
 
-export function Conversation({ currentUserId, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onFileSelect, onRemoveAttachment, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest }: ConversationProps) {
+export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest }: ConversationProps) {
+  const { theme, toggleTheme } = useSiteTheme();
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
   const deleteHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -164,6 +170,7 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
   const [frequentEmojis, setFrequentEmojis] = useState<string[]>([]);
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [contentTab, setContentTab] = useState<"chat" | "media" | "links">("chat");
+  const [contentMenuOpen, setContentMenuOpen] = useState(false);
   const [resources, setResources] = useState<RoomResources | null>(null);
   const [resourcesLoading, setResourcesLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -177,18 +184,34 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
     person.name.toLowerCase().includes(mentionQuery) || person.username?.toLowerCase().includes(mentionQuery)
   ).slice(0, 5) : [];
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    if (replyingTo && !muted) composerInputRef.current?.focus({ preventScroll: true });
+  }, [replyingTo, muted]);
+  useEffect(() => {
+    if (attachment && !muted) composerInputRef.current?.focus({ preventScroll: true });
+  }, [attachment, muted]);
   const emojiPickerRef = useRef<HTMLDivElement | null>(null);
   const emojiToggleRef = useRef<HTMLButtonElement | null>(null);
   const draftPreviewRef = useRef<HTMLDivElement | null>(null);
   const draftPreviewToggleRef = useRef<HTMLButtonElement | null>(null);
+  const contentMenuRef = useRef<HTMLDivElement | null>(null);
   const messagesRef = useRef<HTMLDivElement | null>(null);
+  const olderAnchorRef = useRef<{ id: string; top: number } | null>(null);
   const isNearLatestRef = useRef(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const canSend = !muted && !uploadingAttachment && Boolean(draft.trim() || attachment);
-  const emojiStorageKey = "aura:frequent-emojis:" + (currentUserId ?? "guest");
-  useEffect(() => { try { setFrequentEmojis(JSON.parse(localStorage.getItem(emojiStorageKey) ?? "[]").slice(0, 10)); } catch { setFrequentEmojis([]); } }, [emojiStorageKey]);
+  const emojiStorageKey = "tusova:frequent-emojis:" + (currentUserId ?? "guest");
+  useEffect(() => { try { const legacyKey = emojiStorageKey.replace("tusova:", "aura:"); const saved = localStorage.getItem(emojiStorageKey) ?? localStorage.getItem(legacyKey) ?? "[]"; setFrequentEmojis(JSON.parse(saved).slice(0, 10)); if (localStorage.getItem(legacyKey)) { localStorage.setItem(emojiStorageKey, saved); localStorage.removeItem(legacyKey); } } catch { setFrequentEmojis([]); } }, [emojiStorageKey]);
   function insertEmoji(emoji: string) { const field = composerInputRef.current; const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + emoji + draft.slice(end)); const next = [emoji, ...frequentEmojis.filter((item) => item !== emoji)].slice(0, 10); setFrequentEmojis(next); localStorage.setItem(emojiStorageKey, JSON.stringify(next)); setEmojiOpen(false); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + emoji.length, start + emoji.length); }); }
   useEffect(() => { if (!mentionFocusRequest) return; requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(draft.length, draft.length); }); }, [mentionFocusRequest, draft.length]);
+  useEffect(() => {
+    if (!contentMenuOpen) return;
+    const closeMenu = (event: MouseEvent) => { if (!contentMenuRef.current?.contains(event.target as Node)) setContentMenuOpen(false); };
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setContentMenuOpen(false); };
+    window.addEventListener("mousedown", closeMenu);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => { window.removeEventListener("mousedown", closeMenu); window.removeEventListener("keydown", closeOnEscape); };
+  }, [contentMenuOpen]);
 
   function updateLatestPosition() {
     const list = messagesRef.current;
@@ -199,12 +222,29 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
   }
 
   function jumpToLatest() {
+    if (hasNewer) { isNearLatestRef.current = true; onShowLatest(); return; }
     const list = messagesRef.current;
     if (!list) return;
+    list.scrollTop = list.scrollHeight;
     isNearLatestRef.current = true;
     setShowJumpToLatest(false);
-    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
   }
+
+  function requestOlder() {
+    const list = messagesRef.current;
+    const firstVisible = list && Array.from(list.querySelectorAll<HTMLElement>("[id^='message-']")).find((item) => item.getBoundingClientRect().bottom >= list.getBoundingClientRect().top);
+    olderAnchorRef.current = firstVisible ? { id: firstVisible.id, top: firstVisible.getBoundingClientRect().top } : null;
+    isNearLatestRef.current = false;
+    onLoadOlder();
+  }
+  useLayoutEffect(() => {
+    if (loadingOlder || !olderAnchorRef.current) return;
+    const list = messagesRef.current;
+    const anchor = olderAnchorRef.current;
+    const element = list?.querySelector<HTMLElement>("#" + CSS.escape(anchor.id));
+    if (list && element) list.scrollTop += element.getBoundingClientRect().top - anchor.top;
+    olderAnchorRef.current = null;
+  }, [loadingOlder, messages[0]?.id]);
 
   function jumpToMessage(messageId: string | number, message?: Message) {
     setContentTab("chat");
@@ -381,12 +421,17 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
   }
 
   function mentionAuthor(name: string) { const person = mentionCandidates.find((item) => item.name === name); const handle = person?.username ?? person?.name ?? name; onDraftChange(draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": "); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange((draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": ").length, (draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": ").length); }); }
+  function chooseContent(tab: "chat" | "media" | "links") { setContentTab(tab); setContentMenuOpen(false); }
+  function returnToRoomChat() { chooseContent("chat"); if (dialog) onExitDialog(); }
 
   return <section className="conversation">
     <div className={"conversation-head " + (dialog ? "dialog-head" : "room-head")}>
       {dialog ? <>
-        <div><span className="eyebrow">ЛИЧНЫЙ ДИАЛОГ</span><h2>{dialog}</h2></div>
-        <div className="head-actions"><button type="button" className="dialog-return" aria-label="Вернуться в общий чат" title="Вернуться в общий чат" onClick={onExitDialog}><ArrowLeft size={17} /></button><button aria-label="Поиск сообщений" title="Поиск сообщений" onClick={() => { setSearchOpen(true); setSearchQuery(""); }}><Search size={17} /></button></div>
+        <div className="dialog-heading">
+          <Avatar value={directConversations.find((conversation) => conversation.peer.id === dialogId)?.peer.avatar} name={dialog} className="dialog-avatar" />
+          <div className="dialog-heading-copy"><span className="eyebrow">ЛИЧНЫЙ ДИАЛОГ</span><h2>{dialog}</h2></div>
+        </div>
+        <div className="head-actions"><button type="button" className="dialog-return" aria-label="Вернуться в общий чат" title="Вернуться в общий чат" onClick={onExitDialog}><ArrowLeft size={17} /></button><button type="button" className={"chat-theme-button " + (theme === "dark" ? "active" : "")} onClick={toggleTheme} aria-label={theme === "dark" ? "Выключить ночной режим" : "Включить ночной режим"} title={theme === "dark" ? "Выключить ночной режим" : "Включить ночной режим"} aria-pressed={theme === "dark"}>{theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}</button><button aria-label="Поиск сообщений" title="Поиск сообщений" onClick={() => { setSearchOpen(true); setSearchQuery(""); }}><Search size={17} /></button><div className="content-menu" ref={contentMenuRef}><button type="button" aria-label="Разделы диалога" title="Разделы диалога" aria-expanded={contentMenuOpen} onClick={() => setContentMenuOpen((open) => !open)}><Ellipsis size={18} /></button>{contentMenuOpen && <div className="content-menu-popover" role="menu" aria-label="Разделы диалога">{(["chat", "media", "links"] as const).map((tab) => <button type="button" role="menuitemradio" aria-checked={contentTab === tab} className={contentTab === tab ? "active" : ""} key={tab} onClick={() => chooseContent(tab)}>{tab === "chat" ? "Чат" : tab === "media" ? "Медиа" : "Ссылки"}</button>)}</div>}</div></div>
       </> : <>
         <div className="room-heading">
           <RoomCover room={room} />
@@ -397,31 +442,31 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
         </div>
         <div className="room-head-actions">
           <span className="room-member-count" title="Сейчас в чате"><Users size={15} />{room.online} онлайн</span>
-          <div className="head-actions"><button aria-label="Поиск сообщений" title="Поиск сообщений" onClick={() => { setSearchOpen(true); setSearchQuery(""); }}><Search size={17} /></button><button aria-label="О комнате" title="О комнате" onClick={() => setRoomInfoOpen(true)}><Ellipsis size={18} /></button></div>
+          <div className="head-actions"><button type="button" className={"chat-theme-button " + (theme === "dark" ? "active" : "")} onClick={toggleTheme} aria-label={theme === "dark" ? "Выключить ночной режим" : "Включить ночной режим"} title={theme === "dark" ? "Выключить ночной режим" : "Включить ночной режим"} aria-pressed={theme === "dark"}>{theme === "dark" ? <Moon size={17} /> : <Sun size={17} />}</button><button aria-label="Поиск сообщений" title="Поиск сообщений" onClick={() => { setSearchOpen(true); setSearchQuery(""); }}><Search size={17} /></button><div className="content-menu" ref={contentMenuRef}><button type="button" aria-label="Разделы комнаты" title="Разделы комнаты" aria-expanded={contentMenuOpen} onClick={() => setContentMenuOpen((open) => !open)}><Ellipsis size={18} /></button>{contentMenuOpen && <div className="content-menu-popover" role="menu" aria-label="Разделы комнаты">{(["chat", "media", "links"] as const).map((tab) => <button type="button" role="menuitemradio" aria-checked={contentTab === tab} className={contentTab === tab ? "active" : ""} key={tab} onClick={() => chooseContent(tab)}>{tab === "chat" ? "Чат" : tab === "media" ? "Медиа" : "Ссылки"}</button>)}<span /><button type="button" role="menuitem" onClick={() => { setContentMenuOpen(false); setRoomInfoOpen(true); }}>О комнате</button></div>}</div></div>
         </div>
       </>}
     </div>
-    {dialog && <nav className="direct-tags" aria-label="Личные диалоги">{directConversations.map((conversation) => <span className={"direct-tag " + (conversation.peer.id === dialogId ? "active" : "")} key={conversation.peer.id}><button type="button" onClick={() => onOpenDirect(conversation.peer)}>{conversation.peer.name}{conversation.unread > 0 && <b>{conversation.unread > 99 ? "99+" : conversation.unread}</b>}</button><button type="button" className="direct-tag-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={() => conversation.peer.id && onDismissDirect(conversation.peer.id)}><X size={13} /></button></span>)}</nav>}
     {searchOpen && <div className="message-search-backdrop" onMouseDown={() => setSearchOpen(false)}><section className="message-search" onMouseDown={(event) => event.stopPropagation()}><div><strong>Поиск по всей истории</strong><button type="button" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X size={16} /></button></div><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Текст или имя автора" />{searchLoading ? <p className="message-search-state">Поиск…</p> : searchQuery.trim() && (searchResults.length ? <ul>{searchResults.map((message) => <li key={message.id}><button type="button" onClick={() => { setSearchOpen(false); jumpToMessage(message.id, message); }}><strong>{message.author}</strong><small>{message.time} · {message.body || "Вложение"}</small></button></li>)}</ul> : <p className="message-search-state">Ничего не найдено.</p>)}</section></div>}
-    <nav className="room-tabs" aria-label="Содержимое комнаты">{([["chat","Чат"],["media","Медиа"],["links","Ссылки"]] as const).map(([tab,label]) => <button type="button" key={tab} className={contentTab === tab ? "active" : ""} onClick={() => setContentTab(tab)}>{label}</button>)}</nav>
+    {(directConversations.length > 0 || contentTab !== "chat" || dialog) && <DirectConversationTabs conversations={directConversations} dialogId={dialogId} showReturn={contentTab !== "chat" || Boolean(dialog)} onReturn={returnToRoomChat} onOpen={onOpenDirect} onDismiss={onDismissDirect} />}
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
-      {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={onLoadOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
+      {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
       {messages.map((message) => message.system
-        ? <div className="system-message" key={message.id}>{message.body}</div>
-        : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted" : "")} key={message.id}>
+        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}>{message.body}</div>
+        : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.adminVoice ? "admin-voice " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted" : "")} key={message.id}>
           <Avatar value={message.avatarUrl} name={message.author} className="message-avatar" />
           <div className="message-content">
-            <div className="message-heading">{!dialog && !message.mine ? <button type="button" className="message-author-mention" title="Упомянуть в сообщении" onClick={() => mentionAuthor(message.author)}>{message.author}</button> : <strong>{message.author}</strong>}<time>{message.time}</time><span className="message-heading-reactions">{(message.reactions ?? []).map((reaction) => {
-                const option = reactionByType.get(reaction.type);
-                return option ? <button type="button" className={"reaction-pill " + (reaction.mine ? "mine" : "")} key={reaction.type} title={option.label} aria-label={option.label + ": " + reaction.count} onClick={() => typeof message.id === "string" && void react(message.id, reaction.type)}><span>{option.emoji}</span><b>{reaction.count}</b></button> : null;
-              })}</span></div>
+            <div className="message-heading">{!dialog && !message.mine ? <button type="button" className="message-author-mention" title="Упомянуть в сообщении" onClick={() => mentionAuthor(message.author)}><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></button> : <strong><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></strong>}<time>{message.time}</time></div>
             {(message.replyTo || message.body) && <div className="message-copy" title={message.body}>
               {message.replyTo && <button type="button" className="inline-reply" title={"Перейти к сообщению " + message.replyTo.author + " в " + message.replyTo.time} onClick={() => jumpToMessage(message.replyTo!.id)}><Reply size={10} /><b>{message.replyTo.author}</b><time>{message.replyTo.time}</time></button>}
-              {message.body && <span className="message-body">{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</span>}
+              {message.body && <span className="message-body">{message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
             </div>}
             <div className="message-extras">
               {(message.attachments ?? []).map((item) => <AttachmentCard key={item.id} attachment={item} onOpenImage={setImagePreview} />)}
             </div>
+            {(message.reactions?.length ?? 0) > 0 && <div className="message-reactions">{message.reactions?.map((reaction) => {
+              const option = reactionByType.get(reaction.type);
+              return option ? <button type="button" className={"reaction-pill " + (reaction.mine ? "mine" : "")} key={reaction.type} title={option.label} aria-label={option.label + ": " + reaction.count} onClick={() => typeof message.id === "string" && void react(message.id, reaction.type)}><span>{option.emoji}</span><b>{reaction.count}</b></button> : null;
+            })}</div>}
           </div>
           <div className="message-actions">
             {typeof message.id === "string" && <button type="button" className="reply-toggle" aria-label="Ответить на сообщение" title="Ответить на сообщение" onClick={() => onReply(message)}><Reply size={14} /></button>}
@@ -431,24 +476,33 @@ export function Conversation({ currentUserId, room, dialog, dialogId, directConv
             {canDelete && !dialog && typeof message.id === "string" && <button type="button" className={"delete-message " + (deleteHoldingId === message.id ? "holding" : "")} aria-label="Удалить сообщение: удерживайте две секунды" title="Удерживайте две секунды для удаления" onClick={(event) => event.preventDefault()} onContextMenu={(event) => event.preventDefault()} onPointerDown={(event) => { event.preventDefault(); startDeleteHold(message.id as string); }} onPointerUp={cancelDeleteHold} onPointerLeave={cancelDeleteHold} onPointerCancel={cancelDeleteHold} onKeyDown={(event) => { if ((event.key === "Enter" || event.key === " ") && !event.repeat) startDeleteHold(message.id as string); }} onKeyUp={(event) => { if (event.key === "Enter" || event.key === " ") cancelDeleteHold(); }}><Trash2 size={14} /></button>}
           </div>
         </article>)}
+      {hasNewer && <button className="load-older load-newer" disabled={loadingOlder} onClick={jumpToLatest}>Вернуться к новым сообщениям</button>}
     </div>
     {showJumpToLatest && contentTab === "chat" && <button type="button" className="jump-to-latest" onClick={jumpToLatest}><span>К новым сообщениям</span><ChevronDown size={16} /></button>}
     {contentTab !== "chat" && <section className={"room-resource-panel " + (dialog ? "direct-resources" : "")}>{resourcesLoading ? <p>Загрузка…</p> : contentTab === "links" ? (resources?.links.length ? resources.links.map((item) => <article key={item.messageId + item.url}><a href={item.url} target="_blank" rel="noreferrer"><strong>{item.author}</strong><span>{item.url}</span></a><button type="button" className="resource-jump" onClick={() => void revealRoomMessage(item.messageId)}>К сообщению</button></article>) : <p>{dialog ? "В личных сообщениях ссылок пока нет." : "Ссылок в этой комнате пока нет."}</p>) : (resources?.media?.length ? resources?.media?.map((item) => <article key={item.messageId + item.attachment.id}><AttachmentCard attachment={item.attachment} onOpenImage={setImagePreview} /><footer><small>{item.author} · {new Date(item.createdAt).toLocaleString("ru-RU")}</small><button type="button" className="resource-jump" onClick={() => void revealRoomMessage(item.messageId)}>К сообщению</button></footer></article>) : <p>{dialog ? "В личных сообщениях медиа пока нет." : "Медиа в этой комнате пока нет."}</p>)}</section>}
     {replyingTo && <div className="composer-reply"><Reply size={13} /><span>Ответ для <b>{replyingTo.author}</b> в {replyingTo.time}</span><button type="button" aria-label="Отменить ответ" title="Отменить ответ" onClick={onCancelReply}><X size={14} /></button></div>}
     {attachment && <div className="composer-file"><span>{attachment.kind === "image" ? <FileImage size={15} /> : <FileAudio size={15} />}{attachment.originalName}<small>готово к отправке · хранится 24 часа</small></span><button type="button" aria-label="Убрать вложение" onClick={onRemoveAttachment}><X size={15} /></button></div>}
     <form className="composer" onSubmit={onSend}>
+      <div className="composer-file-tools">
       <label className={"attach " + (uploadingAttachment ? "busy" : "")} aria-label="Прикрепить изображение или аудио" title="Прикрепить изображение или аудио">
         {uploadingAttachment ? <LoaderCircle className="spin" size={19} /> : <Paperclip size={19} />}
         <input type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/x-wav,audio/webm" disabled={muted || uploadingAttachment} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFileSelect(file); event.target.value = ""; }} />
       </label>
+      {currentUserId && <ComposerAppearanceMenu appearance={appearance} onSaved={onAppearanceChanged} />}
+      {currentUserId && <ComposerMessageColorPicker appearance={appearance} onSaved={onAppearanceChanged} />}
+      {currentUserId && <ComposerTextStyleToggles appearance={appearance} onSaved={onAppearanceChanged} />}
+      </div>
 <button className={"voice-record " + (recordingVoice ? "recording" : "")} type="button" aria-label={recordingVoice ? "Остановить запись" : "Записать голосовое"} title={recordingVoice ? "Остановить запись" : "Записать голосовое"} disabled={muted || uploadingAttachment} onClick={() => void toggleVoiceRecording()}>{recordingVoice ? <Square size={15} /> : <Mic size={18} />}</button>{recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
       <button ref={emojiToggleRef} className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} disabled={muted} onClick={() => setEmojiOpen((open) => !open)}><Smile size={18} /></button><button className="mention-toggle" type="button" aria-label="Упомянуть участника" title="Упомянуть участника" disabled={muted} onClick={() => { const field = composerInputRef.current; if (mentionButtonAt !== null && draft[mentionButtonAt] === "@") { onDraftChange(draft.slice(0, mentionButtonAt) + draft.slice(mentionButtonAt + 1)); setMentionButtonAt(null); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(mentionButtonAt, mentionButtonAt); }); return; } const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + "@" + draft.slice(end)); setMentionButtonAt(start); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + 1, start + 1); }); }}><AtSign size={17} /></button>
       {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Выбор смайла">{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></div>}
       {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.username ?? person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}{person.username && <small>{" @" + person.username}</small>}</span></button>)}</div>}
       <textarea ref={composerInputRef} value={draft} onChange={(event) => { setMentionButtonAt(null); onDraftChange(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} maxLength={1000} rows={2} disabled={muted} title="Ctrl + Alt + M — перейти к полю сообщения" placeholder={muted ? "Вы временно не можете писать" : "Написать в " + (dialog ? "личку" : "#" + room.name.toLowerCase()) + "…"} />
       <button ref={draftPreviewToggleRef} className="composer-expand" type="button" aria-label={draftPreviewOpen ? "Закрыть полный текст сообщения" : "Открыть полный текст сообщения"} title={draftPreviewOpen ? "Закрыть полный текст" : "Открыть полный текст"} aria-expanded={draftPreviewOpen} disabled={muted} onClick={() => setDraftPreviewOpen((open) => !open)}><Maximize2 size={15} /></button><button className="composer-clear" type="button" aria-label="Очистить текст сообщения" title="Очистить текст" disabled={muted || !draft} onClick={() => onDraftChange("")}><X size={15} /></button>
-      {draftPreviewOpen && <div ref={draftPreviewRef} className="composer-draft-preview" role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15} /></button></div><textarea autoFocus rows={8} value={draft} maxLength={1000} disabled={muted} onChange={(event) => onDraftChange(event.target.value)} placeholder="Написать сообщение…" /></div>}
-      <button className="send" type="submit" aria-label="Отправить сообщение" title="Отправить сообщение" disabled={!canSend}><Send size={16} /></button>
+      {draftPreviewOpen && <div ref={draftPreviewRef} className="composer-draft-preview" style={messagePreviewStyle(draft)} role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15} /></button></div><textarea autoFocus rows={8} value={draft} maxLength={1000} disabled={muted} onChange={(event) => onDraftChange(event.target.value)} placeholder="Написать сообщение…" /></div>}
+      <div className="composer-send-actions">
+        <button className="send" type="submit" aria-label="Отправить сообщение" title="Отправить сообщение" disabled={!canSend}><Send size={16} /></button>
+        {canUseAdminVoice && !dialog && <button type="button" role="checkbox" aria-checked={adminVoice} aria-label="Глас админа" className={"composer-admin-voice" + (adminVoice ? " active" : "")} title="Глас админа" disabled={muted} onClick={() => onAdminVoiceChange(!adminVoice)}><Megaphone size={16} strokeWidth={1.8} aria-hidden="true" /></button>}
+      </div>
     </form>
 
     {roomInfoOpen && <RoomInfoModal room={room} onClose={() => setRoomInfoOpen(false)} />}

@@ -4,7 +4,7 @@ import { CurrentUser } from "../auth/current-user.decorator";
 import { SessionGuard } from "../auth/session.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { RateLimit } from "../security/rate-limit.decorator";
-import { CreateReportDto, ReviewReportDto } from "./report.dto";
+import { ActOnReportDto, CreateReportDto, ReviewReportDto } from "./report.dto";
 import { ReportsService } from "./reports.service";
 
 @Controller()
@@ -34,6 +34,16 @@ export class ReportsController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return this.reports.review(user, reportId, input);
+  }
+
+  @Post("moderation/reports/:reportId/actions")
+  @RateLimit({ limit: 30, windowMs: 60 * 1000, key: "session" })
+  action(
+    @Param("reportId", new ParseUUIDPipe({ version: "4" })) reportId: string,
+    @Body() input: ActOnReportDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.reports.action(user, reportId, input);
   }
 
   @Get("moderation/audit")

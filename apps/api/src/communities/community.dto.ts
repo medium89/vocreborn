@@ -15,6 +15,17 @@ export class UpdateCommunityDto {
 
 export class CreateCommunityPostDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsString() @Length(1, 2000) body!: string;
+  @IsOptional() @IsString() topicId?: string;
+}
+
+export class CreateCommunityMessageDto {
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsOptional() @IsString() @MaxLength(2000) body?: string;
+  @IsOptional() @IsString() topicId?: string;
+  @IsOptional() @IsString() attachmentId?: string;
+}
+
+export class CreateCommunityTopicDto {
+  @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsString() @Length(2, 60) name!: string;
 }
 
 export class MembershipRoleDto {

@@ -23,7 +23,7 @@ export async function getMe() {
   return result.user;
 }
 
-export async function register(input: { username: string; displayName: string; password: string }) {
+export async function register(input: { username: string; email: string; displayName: string; password: string }) {
   const result = await authRequest<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(input),
@@ -73,5 +73,39 @@ export async function changePassword(currentPassword: string, newPassword: strin
     body: JSON.stringify({ currentPassword, newPassword }),
   });
   return result.user;
+}
+
+export async function createRecoveryCode(currentPassword: string) {
+  return authRequest<{ code: string; expiresAt: string }>("/api/me/recovery-code", {
+    method: "POST",
+    body: JSON.stringify({ currentPassword }),
+  });
+}
+
+export async function resetPassword(code: string, newPassword: string) {
+  return authRequest<{ ok: boolean }>("/api/auth/password/reset", {
+    method: "POST",
+    body: JSON.stringify({ code, newPassword }),
+  });
+}
+
+export function requestEmailPasswordReset(email: string) {
+  return authRequest<{ ok: boolean }>("/api/auth/password/email/request", { method: "POST", body: JSON.stringify({ email }) });
+}
+
+export function resetPasswordByEmail(token: string, newPassword: string) {
+  return authRequest<{ ok: boolean }>("/api/auth/password/email/reset", { method: "POST", body: JSON.stringify({ token, newPassword }) });
+}
+
+export function verifyEmail(token: string) {
+  return authRequest<{ ok: boolean }>("/api/auth/email/verify", { method: "POST", body: JSON.stringify({ token }) });
+}
+
+export function setAccountEmail(email: string, currentPassword: string) {
+  return authRequest<{ ok: boolean; alreadyVerified: boolean }>("/api/me/email", { method: "POST", body: JSON.stringify({ email, currentPassword }) });
+}
+
+export function resendEmailVerification() {
+  return authRequest<{ ok: boolean }>("/api/me/email/resend", { method: "POST" });
 }
 

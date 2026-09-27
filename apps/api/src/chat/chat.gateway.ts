@@ -172,7 +172,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     if (!this.allowAction(client, user.id, "message", 60, 10 * 1000)) return;
 
-    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId);
+    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice);
     const payload = { roomId: input.roomId, message, requestId: input.requestId };
     this.server.to(input.roomId).emit("message:created", payload);
     return payload;
@@ -218,6 +218,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const room = "user:" + userId;
     this.server.to(room).emit("moderation:changed", payload);
     if (disconnect) setTimeout(() => this.server.in(room).disconnectSockets(true), 0);
+  }
+
+  notifyChaos(userId: string, chaosUntil: string | null, actorName?: string) {
+    this.server.to("user:" + userId).emit("chaos:changed", { chaosUntil, actorName });
   }
 
   notifyMessageDeleted(roomId: string, messageId: string) {

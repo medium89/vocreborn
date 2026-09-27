@@ -12,9 +12,10 @@ import { ObservabilityModule } from "./observability/observability.module";
 import { ProfilePostsModule } from "./profile-posts/profile-posts.module";
 import { ReportsModule } from "./reports/reports.module";
 import { SecurityModule } from "./security/security.module";
+import { SupportModule } from "./support/support.module";
 
 @Module({
-  imports: [DatabaseModule, ObservabilityModule, SecurityModule, AuthModule, AttachmentsModule, ChatModule, BotsModule, CommunitiesModule, GiftsModule, ProfilePostsModule, ReportsModule, AdminModule],
+  imports: [DatabaseModule, ObservabilityModule, SecurityModule, AuthModule, AttachmentsModule, ChatModule, BotsModule, CommunitiesModule, GiftsModule, ProfilePostsModule, ReportsModule, SupportModule, AdminModule],
   controllers: [HealthController],
 })
 export class AppModule {}

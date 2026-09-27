@@ -31,6 +31,23 @@ export class ModerationController {
     return result;
   }
 
+  @Post("moderation/chaos")
+  async imposeChaos(@Body() input: MuteUserDto, @CurrentUser() actor: AuthenticatedUser) {
+    const result = await this.moderation.imposeChaos(actor, input);
+    this.gateway.notifyChaos(result.userId, result.chaosUntil, actor.displayName);
+    return result;
+  }
+
+  @Delete("moderation/chaos/:userId")
+  async removeChaos(
+    @Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    const result = await this.moderation.removeChaos(actor, userId);
+    this.gateway.notifyChaos(result.userId, null, actor.displayName);
+    return result;
+  }
+
   @Post("moderation/bans")
   async ban(@Body() input: BanUserDto, @CurrentUser() actor: AuthenticatedUser) {
     const result = await this.moderation.ban(actor, input);

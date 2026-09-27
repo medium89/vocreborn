@@ -9,7 +9,7 @@ import type { BanUserDto, MuteUserDto } from "./moderation.dto";
 export class ModerationService {
   constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
 
-  async mute(actor: AuthenticatedUser, input: MuteUserDto) {
+  async mute(actor: AuthenticatedUser, input: MuteUserDto, reportId?: string) {
     const target = await this.assertTarget(actor, input.userId);
     if (target.role !== "USER" && actor.role !== "admin") {
       throw new ForbiddenException("Модератор не может ограничить администратора или модератора");
@@ -26,6 +26,7 @@ export class ModerationService {
           actorId: actor.id,
           action: "MUTE",
           targetUserId: target.id,
+          reportId,
           details: { durationMinutes: input.durationMinutes, reason: input.reason || null },
         },
       });
@@ -47,7 +48,46 @@ export class ModerationService {
     return { userId, mutedUntil: null };
   }
 
-  async ban(actor: AuthenticatedUser, input: BanUserDto) {
+  async imposeChaos(actor: AuthenticatedUser, input: MuteUserDto, reportId?: string) {
+    const target = await this.assertTarget(actor, input.userId);
+    if (target.role !== "USER" && actor.role !== "admin") {
+      throw new ForbiddenException("Модератор не может ограничить администратора или модератора");
+    }
+    const expiresAt = new Date(Date.now() + input.durationMinutes * 60_000);
+    await this.prisma.$transaction(async (prisma) => {
+      await prisma.chaos.updateMany({
+        where: { userId: target.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
+      await prisma.chaos.create({
+        data: { userId: target.id, moderatorId: actor.id, reason: input.reason, expiresAt },
+      });
+      await prisma.moderationAudit.create({
+        data: {
+          actorId: actor.id,
+          action: "CHAOS",
+          targetUserId: target.id,
+          reportId,
+          details: { durationMinutes: input.durationMinutes, reason: input.reason || null },
+        },
+      });
+    });
+    return { userId: target.id, chaosUntil: expiresAt.toISOString() };
+  }
+
+  async removeChaos(actor: AuthenticatedUser, userId: string) {
+    const target = await this.assertTarget(actor, userId);
+    if (target.role !== "USER" && actor.role !== "admin") {
+      throw new ForbiddenException("Модератор не может снять ограничение с администратора или модератора");
+    }
+    await this.prisma.$transaction([
+      this.prisma.chaos.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } }),
+      this.prisma.moderationAudit.create({ data: { actorId: actor.id, action: "UNCHAOS", targetUserId: userId } }),
+    ]);
+    return { userId, chaosUntil: null };
+  }
+
+  async ban(actor: AuthenticatedUser, input: BanUserDto, reportId?: string) {
     this.requireAdmin(actor);
     const target = await this.assertTarget(actor, input.userId);
     const expiresAt = input.durationMinutes ? new Date(Date.now() + input.durationMinutes * 60_000) : null;
@@ -64,6 +104,7 @@ export class ModerationService {
           actorId: actor.id,
           action: "BAN",
           targetUserId: target.id,
+          reportId,
           details: { durationMinutes: input.durationMinutes || null, reason: input.reason || null },
         },
       });
@@ -86,7 +127,7 @@ export class ModerationService {
     return { userId, banned: false };
   }
 
-  async deletePublicMessage(actor: AuthenticatedUser, messageId: string) {
+  async deletePublicMessage(actor: AuthenticatedUser, messageId: string, reportId?: string) {
     this.requireModerator(actor);
     const message = await this.prisma.message.findUnique({ where: { id: messageId }, include: { author: true } });
     if (!message || message.deletedAt) throw new NotFoundException("Сообщение не найдено");
@@ -106,6 +147,7 @@ export class ModerationService {
           action: "MESSAGE_DELETE",
           targetUserId: message.authorId,
           messageId: message.id,
+          reportId,
           details: { roomId: message.roomId },
         },
       });

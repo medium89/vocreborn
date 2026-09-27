@@ -74,6 +74,16 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.attachment.update({ where: { id: attachment.id }, data: { messageId } });
   }
 
+  async attachToCommunityMessage(userId: string, attachmentId: string | undefined, messageId: string) {
+    if (!attachmentId) return;
+    const attachment = await this.prisma.attachment.findUnique({ where: { id: attachmentId } });
+    if (!attachment || this.isExpired(attachment)) throw new NotFoundException("Вложение не найдено или срок хранения истёк");
+    if (attachment.uploaderId !== userId) throw new ForbiddenException("Нельзя прикрепить чужой файл");
+    if (attachment.messageId || attachment.profilePostId || attachment.communityMessageId) throw new BadRequestException("Вложение уже прикреплено");
+    if (attachment.status === "REJECTED") throw new BadRequestException("Вложение отклонено");
+    await this.prisma.attachment.update({ where: { id: attachment.id }, data: { communityMessageId: messageId } });
+  }
+
   async removeForProfilePost(profilePostId: string) {
     const attachment = await this.prisma.attachment.findUnique({ where: { profilePostId } });
     if (attachment) await this.deleteAttachment(attachment);
@@ -81,13 +91,13 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
 
   async listPending(actor: AuthenticatedUser) {
     this.requireModerator(actor);
-    const items = await this.prisma.attachment.findMany({ where: { status: "PENDING", createdAt: { gte: new Date(Date.now() - DAY_MS) } }, orderBy: { createdAt: "asc" }, include: { uploader: { select: { id: true, username: true, displayName: true } }, message: { select: { id: true, body: true } } } });
-    return items.map((item) => ({ ...this.toApi(item), uploader: item.uploader, message: item.message }));
+    const items = await this.prisma.attachment.findMany({ where: { status: "PENDING", createdAt: { gte: new Date(Date.now() - DAY_MS) } }, orderBy: { createdAt: "asc" }, include: { uploader: { select: { id: true, username: true, displayName: true } }, message: { select: { id: true, body: true, roomId: true } } } });
+    return items.map((item) => ({ ...this.toApi(item, item.message?.roomId), uploader: item.uploader, message: item.message }));
   }
 
   async review(actor: AuthenticatedUser, id: string, status: "APPROVED" | "REJECTED") {
     this.requireModerator(actor);
-    const attachment = await this.prisma.attachment.findUnique({ where: { id } });
+    const attachment = await this.prisma.attachment.findUnique({ where: { id }, include: { message: { select: { roomId: true } } } });
     if (!attachment) throw new NotFoundException("Вложение не найдено");
     const updated = await this.prisma.$transaction(async (prisma) => {
       const value = await prisma.attachment.update({ where: { id }, data: { status, reviewedAt: new Date() } });
@@ -95,19 +105,19 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
       return value;
     });
     if (status === "REJECTED") await this.deleteFiles(updated);
-    return this.toApi(updated);
+    return this.toApi(updated, attachment.message?.roomId);
   }
 
   async readContent(actor: AuthenticatedUser, id: string, preview = false) {
-    const attachment = await this.prisma.attachment.findUnique({ where: { id } });
+    const attachment = await this.prisma.attachment.findUnique({ where: { id }, include: { message: { select: { roomId: true } } } });
     if (!attachment) throw new NotFoundException("Вложение не найдено");
-    if (this.isExpired(attachment)) {
+    if (this.isExpired(attachment, attachment.message?.roomId)) {
       await this.deleteAttachment(attachment);
       throw new NotFoundException("Срок хранения вложения истёк");
     }
     const privileged = actor.role === "admin" || actor.role === "moderator";
-    if (attachment.status !== "APPROVED" && attachment.uploaderId !== actor.id && !privileged) throw new ForbiddenException("Вложение ещё не прошло проверку");
     if (attachment.status === "REJECTED") throw new NotFoundException("Вложение отклонено");
+    if (attachment.status !== "APPROVED" && attachment.uploaderId !== actor.id && !privileged) throw new ForbiddenException("Вложение ещё не прошло проверку");
     const key = preview ? attachment.previewStorageKey : attachment.storageKey;
     if (!key) throw new NotFoundException("Миниатюра не найдена");
     try {
@@ -119,13 +129,13 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
   }
 
   async cleanupExpired() {
-    const expired = await this.prisma.attachment.findMany({ where: { createdAt: { lt: new Date(Date.now() - DAY_MS) } } });
+    const expired = await this.prisma.attachment.findMany({ where: { profilePostId: null, communityMessageId: null, createdAt: { lt: new Date(Date.now() - DAY_MS) }, OR: [{ messageId: null }, { message: { is: { roomId: { not: null } } } }] } });
     for (const attachment of expired) await this.deleteAttachment(attachment);
     return expired.length;
   }
 
-  toApi(attachment: Attachment) {
-    return { id: attachment.id, kind: attachment.kind.toLowerCase() as "image" | "audio", status: attachment.status.toLowerCase() as "pending" | "approved" | "rejected", mimeType: attachment.mimeType, originalName: attachment.originalName, size: attachment.size, url: "/api/attachments/" + attachment.id + "/content", previewUrl: attachment.previewStorageKey ? "/api/attachments/" + attachment.id + "/preview" : undefined, createdAt: attachment.createdAt.toISOString(), expiresAt: new Date(attachment.createdAt.getTime() + DAY_MS).toISOString() };
+  toApi(attachment: Attachment, roomId?: string | null) {
+    return { id: attachment.id, kind: attachment.kind.toLowerCase() as "image" | "audio", status: attachment.status.toLowerCase() as "pending" | "approved" | "rejected", mimeType: attachment.mimeType, originalName: attachment.originalName, size: attachment.size, url: "/api/attachments/" + attachment.id + "/content", previewUrl: attachment.previewStorageKey ? "/api/attachments/" + attachment.id + "/preview" : undefined, createdAt: attachment.createdAt.toISOString(), expiresAt: this.expiresAfterDay(attachment, roomId) ? new Date(attachment.createdAt.getTime() + DAY_MS).toISOString() : undefined };
   }
 
   private generatedName(kind: AttachmentKind, extension: string) {
@@ -136,7 +146,14 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
     return (kind === "IMAGE" ? "picture_" : "audio_") + timestamp + "_" + suffix + extension;
   }
 
-  private isExpired(attachment: Attachment) { return attachment.createdAt.getTime() + DAY_MS <= Date.now(); }
+  private expiresAfterDay(attachment: Attachment, roomId?: string | null) {
+    if (attachment.profilePostId || attachment.communityMessageId) return false;
+    if (attachment.messageId) return roomId !== null;
+    return true;
+  }
+  private isExpired(attachment: Attachment, roomId?: string | null) {
+    return this.expiresAfterDay(attachment, roomId) && attachment.createdAt.getTime() + DAY_MS <= Date.now();
+  }
   private async deleteFiles(attachment: Attachment) { await unlink(this.filePath(attachment.storageKey)).catch(() => undefined); if (attachment.previewStorageKey) await unlink(this.filePath(attachment.previewStorageKey)).catch(() => undefined); }
   private async deleteAttachment(attachment: Attachment) { await this.deleteFiles(attachment); await this.prisma.attachment.delete({ where: { id: attachment.id } }).catch(() => undefined); }
   private filePath(storageKey: string) { return join(process.cwd(), "storage", "attachments", storageKey); }

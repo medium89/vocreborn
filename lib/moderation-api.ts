@@ -15,6 +15,12 @@ export function muteUser(userId: string, durationMinutes: number, reason?: strin
 export function unmuteUser(userId: string) {
   return moderationRequest<{ userId: string; mutedUntil: null }>("/api/moderation/mutes/" + encodeURIComponent(userId), { method: "DELETE" });
 }
+export function imposeChaos(userId: string, durationMinutes: number, reason?: string) {
+  return moderationRequest<{ userId: string; chaosUntil: string }>("/api/moderation/chaos", { method: "POST", body: JSON.stringify({ userId, durationMinutes, reason: reason || undefined }) });
+}
+export function removeChaos(userId: string) {
+  return moderationRequest<{ userId: string; chaosUntil: null }>("/api/moderation/chaos/" + encodeURIComponent(userId), { method: "DELETE" });
+}
 export function banUser(userId: string, durationMinutes?: number, reason?: string) {
   return moderationRequest<{ userId: string; banned: true; expiresAt: string | null }>("/api/moderation/bans", { method: "POST", body: JSON.stringify({ userId, durationMinutes, reason: reason || undefined }) });
 }

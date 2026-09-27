@@ -11,7 +11,7 @@ import { NotificationsModule } from "../notifications/notifications.module";
 
 @Module({
   imports: [AuthModule, AttachmentsModule, NotificationsModule, GiftsModule],
-  exports: [ChatGateway, ChatService],
+  exports: [ChatGateway, ChatService, ModerationService],
   controllers: [ChatController, UsersController, DirectController, ReactionsController, ModerationController],
   providers: [ChatService, ChatGateway, ModerationService],
 })

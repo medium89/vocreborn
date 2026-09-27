@@ -48,10 +48,12 @@ export type ApiMessage = {
   id: string | number;
   authorId?: string;
   author: string;
+  appearance?: Record<string, Record<string, string | boolean>>;
   avatarUrl?: string;
   body: string;
   time: string;
   createdAt?: string;
+  adminVoice?: boolean;
   mine?: boolean;
   system?: boolean;
   attachments: ApiAttachment[];
@@ -69,7 +71,9 @@ export type ApiPerson = {
   room: string;
   avatar: string;
   isBot?: boolean;
+  isGuest: boolean;
   avatarThumbnail?: string;
+  appearance?: Record<string, Record<string, string | boolean>>;
 };
 
 export type DirectConversation = {

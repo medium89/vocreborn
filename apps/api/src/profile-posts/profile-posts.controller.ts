@@ -12,8 +12,8 @@ export class ProfilePostsController {
   constructor(private readonly posts: ProfilePostsService) {}
 
   @Get("users/:userId/profile-posts")
-  list(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string) {
-    return this.posts.list(userId);
+  list(@Param("userId", new ParseUUIDPipe({ version: "4" })) userId: string, @CurrentUser() actor: AuthenticatedUser) {
+    return this.posts.list(userId, actor.id);
   }
 
   @Post("users/:userId/profile-posts")
@@ -24,6 +24,15 @@ export class ProfilePostsController {
     @CurrentUser() actor: AuthenticatedUser,
   ) {
     return this.posts.create(userId, actor, input.body, input.parentId, input.attachmentId);
+  }
+
+  @Post("profile-posts/:id/like")
+  @RateLimit({ limit: 60, windowMs: 60 * 1000, key: "session" })
+  like(
+    @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
+  ) {
+    return this.posts.toggleLike(id, actor);
   }
 
   @Delete("profile-posts/:id")

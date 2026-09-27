@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsString, Length, Matches } from "class-validator";
+import { IsEmail, IsString, Length, Matches } from "class-validator";
 
 export class RegisterDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim().toLowerCase() : value)
@@ -8,6 +8,11 @@ export class RegisterDto {
     message: "Логин: 3–32 символа, латиница, цифры и подчёркивание",
   })
   username!: string;
+
+  @Transform(({ value }) => typeof value === "string" ? value.trim().toLowerCase() : value)
+  @IsEmail()
+  @Length(3, 254)
+  email!: string;
 
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
   @IsString()

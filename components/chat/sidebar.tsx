@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/chat-contract";
-import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, CircleHelp, Gift, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Moon, Settings, ShieldCheck, Sun, UsersRound } from "lucide-react";
+import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, CircleHelp, Coins, Gift, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Moon, Settings, ShieldCheck, Sun, UserRound, UsersRound } from "lucide-react";
 import { Avatar } from "./avatar";
+import { useSiteTheme } from "@/lib/use-site-theme";
+
+const SHOW_DIRECTS_NAV = false;
 
 type SidebarProps = {
   user: AuthUser | null;
   unreadDirects: number;
   unreadNotifications: number;
-  directActive: boolean;
+  unreadChatMessages: number;
+  activeSection: "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin";
   onOpenProfile: () => void;
   onSetStatus: (status: "online" | "dnd") => void;
   onLogout: () => void;
@@ -18,40 +22,92 @@ type SidebarProps = {
   onOpenNotifications: () => void;
   onOpenRooms: () => void;
   onOpenCommunities: () => void;
+  communityChatName: string | null;
+  onOpenCommunityChat: () => void;
   onOpenGifts: () => void;
+  communityBadge: number;
+  shopBadge: number;
   onOpenReports: () => void;
   onOpenAdmin: () => void;
   onNotice: (message: string) => void;
 };
 
-export function Sidebar({ user, unreadDirects, unreadNotifications, directActive, onOpenProfile, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, onOpenCommunities, onOpenGifts, onOpenReports, onOpenAdmin, onNotice }: SidebarProps) {
+function CreditBalance({ credits, mobile = false, onOpenStore }: { credits: number; mobile?: boolean; onOpenStore: () => void }) {
+  const [displayed, setDisplayed] = useState(credits);
+  const [change, setChange] = useState<{ id: number; delta: number } | null>(null);
+  const previous = useRef(credits);
+  const displayedRef = useRef(credits);
+  const changeId = useRef(0);
+
+  useEffect(() => {
+    const before = previous.current;
+    if (before === credits) return;
+    previous.current = credits;
+    const delta = credits - before;
+    const id = ++changeId.current;
+    setChange({ id, delta });
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const start = displayedRef.current;
+    let frame = 0;
+    if (reducedMotion) {
+      displayedRef.current = credits;
+      setDisplayed(credits);
+    } else {
+      const started = performance.now();
+      const duration = Math.min(1000, 520 + Math.abs(delta) * 18);
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - started) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const value = Math.round(start + (credits - start) * eased);
+        displayedRef.current = value;
+        setDisplayed(value);
+        if (progress < 1) frame = window.requestAnimationFrame(tick);
+      };
+      frame = window.requestAnimationFrame(tick);
+    }
+    const timer = window.setTimeout(() => setChange((current) => current?.id === id ? null : current), 1600);
+    return () => { window.cancelAnimationFrame(frame); window.clearTimeout(timer); };
+  }, [credits]);
+
+  return <button type="button" onClick={onOpenStore} aria-label={"Открыть магазин. Кредиты: " + credits.toLocaleString("ru-RU")} className={"rail-credits" + (mobile ? " rail-credits-mobile" : "") + (change ? change.delta > 0 ? " is-gaining" : " is-spending" : "")} title={"Кредиты: " + credits.toLocaleString("ru-RU")}>
+    <span className="rail-credits-icon" aria-hidden="true"><Coins size={19} /></span>
+    <span className="rail-credits-copy"><small>Кредиты</small><strong aria-hidden="true">{displayed.toLocaleString("ru-RU")}</strong></span>
+    {change && <span key={change.id} className="rail-credits-delta" aria-hidden="true">{change.delta > 0 ? "+" : "−"}{Math.abs(change.delta).toLocaleString("ru-RU")}</span>}
+    <ChevronRight className="rail-credits-arrow" size={15} aria-hidden="true" />
+    <span className="visually-hidden" aria-live="polite">Кредиты: {credits.toLocaleString("ru-RU")}</span>
+  </button>;
+}
+
+export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenGifts, onOpenReports, onOpenAdmin, onNotice }: SidebarProps) {
   const name = user?.displayName ?? "Гость";
   const canModerate = user?.role === "admin" || user?.role === "moderator";
   const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => { setCollapsed(window.localStorage.getItem("aura-sidebar-collapsed") === "true"); }, []);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const saved = window.localStorage.getItem("aura-theme") === "dark" ? "dark" : "light";
-    setTheme(saved);
-    document.documentElement.dataset.theme = saved;
-  }, []);
-  function toggleTheme() {
-    const next = theme === "light" ? "dark" : "light";
-    setTheme(next); document.documentElement.dataset.theme = next; window.localStorage.setItem("aura-theme", next);
-  }
-  function toggleCollapsed() { setCollapsed((current) => { const next = !current; window.localStorage.setItem("aura-sidebar-collapsed", String(next)); return next; }); }
+  useEffect(() => { const key = "tusova-sidebar-collapsed"; const legacyKey = "aura-sidebar-collapsed"; const saved = window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey); setCollapsed(saved === "true"); if (saved !== null) window.localStorage.setItem(key, saved); window.localStorage.removeItem(legacyKey); }, []);
+  const { theme, toggleTheme } = useSiteTheme();
+  function toggleCollapsed() { setCollapsed((current) => { const next = !current; window.localStorage.setItem("tusova-sidebar-collapsed", String(next)); return next; }); }
   return <aside className={"rail " + (collapsed ? "collapsed" : "")}>
-    <div className="brand"><span className="brand-mark logo-mark"><img src="/brand/aura-logo.png" alt="" /></span><span>AURA</span><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
-    <button className="me" onClick={onOpenProfile} aria-label="Открыть профиль"><Avatar value={user?.avatarUrl} name={name} className="admin" /><span><strong>{name}</strong><small>{user ? "в сети" : "вход не выполнен"}</small></span><Settings className="dots" size={16} /></button>
-    {user && <div className="profile-quick-actions" aria-label="Быстрые действия профиля"><button type="button" className={"profile-quick-action online " + (user.status === "online" ? "selected" : "")} aria-label="В сети" title="В сети" onClick={() => onSetStatus("online")}><CircleDot size={16} /><span>В сети</span></button><button type="button" className={"profile-quick-action dnd " + (user.status === "dnd" ? "selected" : "")} aria-label="Не беспокоить" title="Не беспокоить" onClick={() => onSetStatus("dnd")}><BellOff size={16} /><span>Не беспокоить</span></button><button type="button" className="profile-quick-action logout" aria-label="Выйти из профиля" title="Выйти" onClick={onLogout}><LogOut size={16} /><span>Выйти</span></button></div>}
+    <div className="brand"><span className="tusova-rail-brand"><img className="tusova-rail-wordmark" src="/brand/tusova-header-logo.png" alt="TUSOVA" /><img className="tusova-rail-owl" src="/brand/tusova-note-owl.png" alt="TUSOVA" /></span></div>
+    <section className="rail-account" aria-label="Ваш профиль">
+      <div className="rail-account-head">
+        <button type="button" className="rail-account-profile" onClick={onOpenProfile} aria-label="Открыть профиль">
+          <span className="rail-account-avatar"><Avatar value={user?.avatarUrl} name={name} /></span>
+          <span className="rail-account-identity"><strong title={name}>{name}</strong><small className={"status-" + (user?.status ?? "offline")}><i aria-hidden="true" />{!user ? "не в сети" : user.status === "dnd" ? "не беспокоить" : user.status === "away" ? "нет на месте" : user.status === "offline" ? "не в сети" : "в сети"}</small></span>
+        </button>
+      </div>
+    {user && <CreditBalance key={user.id} credits={user.credits} onOpenStore={onOpenGifts} />}
+    {user && <div className="profile-quick-actions" aria-label="Быстрые действия профиля"><button type="button" className={"profile-quick-action online " + (user.status === "online" ? "selected" : "")} aria-label="В сети" title="В сети" onClick={() => onSetStatus("online")}><CircleDot size={16} /></button><button type="button" className={"profile-quick-action dnd " + (user.status === "dnd" ? "selected" : "")} aria-label="Не беспокоить" title="Не беспокоить" onClick={() => onSetStatus("dnd")}><BellOff size={16} /></button><button type="button" className="profile-quick-action settings" aria-label="Настройки профиля" title="Настройки" onClick={onOpenProfile}><Settings size={16} /></button><button type="button" className="profile-quick-action logout" aria-label="Выйти из профиля" title="Выйти" onClick={onLogout}><LogOut size={16} /></button></div>}
+    </section>
     <nav className="rail-nav">
-      <button className={"rail-link " + (directActive ? "" : "active")} onClick={onOpenChat}><MessageCircle size={18} /><span>Чат</span></button>
-      <button className={"rail-link " + (directActive ? "active" : "")} onClick={user ? onOpenDirects : () => onNotice("Войдите, чтобы открыть личку.")}><MessagesSquare size={18} /><span>Личка</span>{unreadDirects > 0 && <b className="direct-unread-count">{unreadDirects > 99 ? "99+" : unreadDirects}</b>}</button>
-      <button className="rail-link" onClick={user ? onOpenNotifications : () => onNotice("Войдите, чтобы открыть уведомления.")}><Bell size={18} /><span>Уведомления</span>{unreadNotifications > 0 && <b>{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</button>
-      <button className="rail-link" onClick={onOpenCommunities}><UsersRound size={18} /><span>Сообщества</span></button>
-      <button className="rail-link" onClick={onOpenGifts}><Gift size={18} /><span>Подарки</span></button>
-      {canModerate && <section className="rail-admin" aria-label="Административные функции"><span>УПРАВЛЕНИЕ</span><button className="rail-link" onClick={onOpenReports}><ShieldCheck size={18} /><span>Модерация</span></button>{user?.role === "admin" && <button className="rail-link" onClick={onOpenAdmin}><LayoutDashboard size={18} /><span>Управление</span></button>}</section>}
+      {user && <button type="button" className="rail-link rail-mobile-profile" onClick={onOpenProfile} aria-label="Мой профиль" title="Мой профиль"><UserRound size={18} /><span>Профиль</span></button>}
+      <button className={"rail-link " + (activeSection === "chat" ? "active" : "")} onClick={onOpenChat}><MessageCircle size={18} /><span>Чат</span>{unreadChatMessages > 0 && <b className="direct-unread-count">{unreadChatMessages > 99 ? "99+" : unreadChatMessages}</b>}</button>
+      {SHOW_DIRECTS_NAV && <button className={"rail-link " + (activeSection === "directs" ? "active" : "")} onClick={user ? onOpenDirects : () => onNotice("Войдите, чтобы открыть личку.")}><MessagesSquare size={18} /><span>Личка</span>{unreadDirects > 0 && <b className="direct-unread-count">{unreadDirects > 99 ? "99+" : unreadDirects}</b>}</button>}
+      {communityChatName && <button className={"rail-link " + (activeSection === "community-chat" ? "active" : "")} onClick={onOpenCommunityChat}><MessagesSquare size={18} /><span>{communityChatName}</span></button>}
+      <button className={"rail-link " + (activeSection === "notifications" ? "active" : "")} onClick={user ? onOpenNotifications : () => onNotice("Войдите, чтобы открыть уведомления.")}><Bell size={18} /><span>Уведомления</span>{unreadNotifications > 0 && <b className="direct-unread-count">{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</button>
+      <button className={"rail-link " + (activeSection === "communities" ? "active" : "")} onClick={onOpenCommunities}><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b className="direct-unread-count">{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>
+      <button className={"rail-link " + (activeSection === "store" ? "active" : "")} onClick={onOpenGifts}><Gift size={18} /><span>Магазин</span>{shopBadge > 0 && <b className="direct-unread-count">{shopBadge > 99 ? "99+" : shopBadge}</b>}</button>
+      {canModerate && <section className="rail-admin" aria-label="Административные функции"><span>УПРАВЛЕНИЕ</span><button className={"rail-link " + (activeSection === "reports" ? "active" : "")} onClick={onOpenReports}><ShieldCheck size={18} /><span>Модерация</span></button>{user?.role === "admin" && <button className={"rail-link " + (activeSection === "admin" ? "active" : "")} onClick={onOpenAdmin}><LayoutDashboard size={18} /><span>Управление</span></button>}</section>}
+      {user && <CreditBalance key={user.id} credits={user.credits} mobile onOpenStore={onOpenGifts} />}
     </nav>
-    <div className="rail-bottom"><button className="icon-button" aria-label={theme === "light" ? "Включить тёмную тему" : "Включить светлую тему"} title={theme === "light" ? "Тёмная тема" : "Светлая тема"} onClick={toggleTheme}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button><button className="icon-button" aria-label="Справка" title="Справка" onClick={() => onNotice("Справка по первой версии появится позже.")}><CircleHelp size={17} /></button></div>
+    <div className="rail-bottom"><button className="icon-button" aria-label={theme === "light" ? "Включить тёмную тему" : "Включить светлую тему"} title={theme === "light" ? "Тёмная тема" : "Светлая тема"} onClick={toggleTheme}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button><button className="icon-button" aria-label="Справка" title="Справка" onClick={() => { window.location.href = "/help"; }}><CircleHelp size={17} /></button><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
   </aside>;
 }
