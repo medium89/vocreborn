@@ -1968,3 +1968,193 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .profile-post-image-button .profile-post-image{display:block;max-width:100%}
 @media(max-width:760px){.profile-friends-grid,.profile-friends-grid.all{grid-template-columns:repeat(2,minmax(0,1fr))}.aura-profile-identity h2{font-size:25px}}
 @media(min-width:701px){.composer-draft-preview{width:min(var(--preview-width,540px),calc(100vw - 96px))}.composer .composer-draft-preview textarea{height:min(var(--preview-height,160px),50vh);min-height:0;max-height:50vh;resize:none}}
+
+/* Chat dialogs and embedded pages use the same night palette as the room. */
+:root[data-theme="dark"] {
+  --dialog-surface: #16251b;
+  --dialog-raised: #203127;
+  --dialog-hover: #2c4130;
+  --dialog-border: #40533e;
+  --dialog-text: #f1f2e7;
+  --dialog-muted: #b5c5b1;
+}
+:root[data-theme="dark"] :is(.modal, .profile-collection-viewer, .profile-photo-viewer, .cosmetic-settings-dialog, .gift-send-modal) {
+  background: var(--dialog-surface);
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.profile-settings-nav, .gift-store-page .gift-store-nav, .gift-store-nav) {
+  background: linear-gradient(180deg, #15251a, #101e16);
+  border-color: var(--dialog-border);
+}
+:root[data-theme="dark"] :is(.profile-settings-link, .gift-store-nav button) { color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.profile-settings-link small, .profile-settings-content header p, .profile-settings-identity>small, .gift-store-nav button:disabled) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.profile-settings-link.active, .gift-store-nav button.active) {
+  background: #344b2b;
+  color: #ebf6bb;
+}
+:root[data-theme="dark"] :is(.profile-settings-link:hover:not(.active), .gift-store-nav button:hover:not(.active)) { background: var(--dialog-hover); }
+:root[data-theme="dark"] .profile-settings-summary {
+  background: linear-gradient(110deg, #223329, #1a2a20);
+  border-color: var(--dialog-border);
+}
+:root[data-theme="dark"] .profile-settings-summary .profile-avatar { box-shadow: 0 0 0 5px #223329, 0 0 0 6px var(--dialog-border); }
+:root[data-theme="dark"] :is(.profile-settings-identity>span, .profile-name-hint, .profile-bio-field small) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.profile-field, .profile-field-locked, .profile-alert-settings .profile-tab-alert-option, .profile-recovery-panel) {
+  background: #1b2b21;
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.profile-field input, .profile-field textarea, .profile-field select, .profile-gender-trigger) { color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.profile-field input::placeholder, .profile-field textarea::placeholder) { color: var(--dialog-muted); }
+:root[data-theme="dark"] .profile-settings-footer { background: #15241a; border-color: var(--dialog-border); }
+:root[data-theme="dark"] .modal .action-button:not(.secondary):not(.danger) { color: #17240e; }
+:root[data-theme="dark"] .action-button.secondary { background: #2a3a2d; color: var(--dialog-text); }
+:root[data-theme="dark"] .action-button.secondary:hover:not(:disabled) { background: #354a36; color: #fffbe9; }
+:root[data-theme="dark"] :is(.modal-room, .direct-row, .presence-actions button, .auth-tabs, .auth-tabs button.active, .gift-recipient select, .gift-catalog article, .gift-inventory>div, .profile-collection-viewer>header button, .profile-photo-viewer>button) {
+  background: var(--dialog-raised);
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.modal-room:hover, .direct-row:hover, .presence-actions button:hover:not(.selected)) { background: var(--dialog-hover); }
+:root[data-theme="dark"] :is(.moderation-modal label, .room-form label, .security-form label, .report-form label, .profile-form label, .gift-recipient, .gift-send-modal>label) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.moderation-modal select, .moderation-modal input, .room-form input, .room-form select, .security-form input, .report-form select, .report-form textarea, .report-card input, .gift-send-modal input, .gift-send-modal textarea, .gift-recipient-results, .gift-recipient-results button) {
+  background: #1b2b21;
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.recovery-codes, .report-card blockquote, .security-message, .reports-module .report-outcome) { background: #263a29; border-color: var(--dialog-border); color: #e2edce; }
+:root[data-theme="dark"] .report-actions button { background: #2a3b2c; color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.aura-profile-bio, .aura-profile-facts span, .aura-showcase-card, .aura-gift-card, .aura-profile-wall .profile-post, .aura-post-form>input, .profile-post-attach, .profile-friend-card, .aura-profile-friends) {
+  background: var(--dialog-raised);
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.aura-gift-card:hover, .profile-friend-card:hover, .aura-profile-actions .profile-add-friend) { background: var(--dialog-hover); border-color: #789653; color: #e9f3ce; }
+:root[data-theme="dark"] :is(.aura-profile-identity p, .aura-profile-identity small, .aura-profile-facts span, .aura-gift-card small, .aura-wall-heading small, .aura-showcase-card>header small) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.aura-gift-card>span, .aura-album-card, .profile-collection-viewer>header button, .profile-photo-viewer footer button) { background: #2a3d2b; }
+:root[data-theme="dark"] .aura-empty-collection { border-color: var(--dialog-border); }
+:root[data-theme="dark"] .cosmetic-settings-dialog>header { border-color: var(--dialog-border); }
+:root[data-theme="dark"] :is(.cosmetic-settings-dialog header button, .cosmetic-settings-dialog input:not([type=checkbox]), .cosmetic-settings-dialog select) { background: var(--dialog-raised); border-color: var(--dialog-border); color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.cosmetic-settings-dialog form>label, .cosmetic-settings-dialog .cosmetic-color-pair label) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.notifications-module .notification-row, .notifications-module .notification-row.unread, .community-card, .community-chat-messages article, .community-chat-form, .community-post-form, .gift-store-page .gift-store-modal, .gift-store-page .gift-balance-cards article, .gift-store-page .gift-catalog-grid article, .gift-store-page .gift-search, .gift-store-page .gift-store-credit) {
+  background: var(--dialog-raised);
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] :is(.notifications-module .notification-row:hover, .community-chat-messages article.mine, .gift-store-page .gift-catalog-grid article:hover) { background: var(--dialog-hover); }
+:root[data-theme="dark"] :is(.gift-store-page .gift-store-credit strong, .gift-store-page .gift-balance-cards strong, .gift-store-page .gift-catalog-grid strong) { color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.gift-store-page .gift-store-credit small, .gift-store-page .gift-catalog-grid small) { color: var(--dialog-muted); }
+:root[data-theme="dark"] .gift-store-page .gift-emoji { background: #304431; border-color: var(--dialog-border); box-shadow: none; }
+:root[data-theme="dark"] :is(.gift-store-page .gift-search input, .community-chat-form input, .community-post-form input, .aura-post-form>input) { color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.gift-store-page .gift-search input::placeholder, .community-chat-form input::placeholder, .community-post-form input::placeholder, .aura-post-form>input::placeholder) { color: var(--dialog-muted); }
+:root[data-theme="dark"] :is(.avatar-preview, .gift-store-page .gift-pages button, .gift-store-page .gift-category-pill, .community-chat-messages, .notification-icon) {
+  background: var(--dialog-raised);
+  border-color: var(--dialog-border);
+  color: var(--dialog-text);
+}
+:root[data-theme="dark"] .avatar-preview-hint { color: var(--dialog-muted); }
+:root[data-theme="dark"] .gift-store-page .gift-catalog-grid b { background: #344929; color: #dceca6; }
+
+/* Mobile chat: keep the composer to one row and move auxiliary actions into a menu. */
+.composer-mobile-tools,.rail-mobile-people,.rail-mobile-logout{display:none}
+@media(max-width:850px){
+  .rail .rail-mobile-people,.rail .rail-mobile-logout{display:flex}
+  .rail .rail-mobile-logout{color:#f0b0a6}
+  .rail .rail-mobile-logout:hover,.rail .rail-mobile-logout:focus-visible{background:#653e34;color:#fff1eb}
+}
+@media(max-width:700px){
+  .composer:not(.community-chat-page-composer){display:grid;grid-template-columns:38px minmax(0,1fr) 38px;grid-template-rows:auto;align-items:center;gap:5px;padding:5px 7px;min-height:56px}
+  .composer:not(.community-chat-page-composer)>.composer-mobile-tools{display:block;grid-column:1;grid-row:1}
+  .composer:not(.community-chat-page-composer)>.composer-file-tools,
+  .composer:not(.community-chat-page-composer)>.voice-record,
+  .composer:not(.community-chat-page-composer)>.emoji-toggle,
+  .composer:not(.community-chat-page-composer)>.mention-toggle,
+  .composer:not(.community-chat-page-composer)>.composer-expand,
+  .composer:not(.community-chat-page-composer)>.composer-clear{display:none!important}
+  .composer:not(.community-chat-page-composer)>textarea{grid-column:2;grid-row:1;min-width:0;width:100%;margin:0;padding:7px 4px;font-size:14px}
+  .composer:not(.community-chat-page-composer)>.composer-send-actions{grid-column:3;grid-row:1;align-self:center;margin:0}
+  .composer:not(.community-chat-page-composer)>.voice-meter{grid-column:1/-1;grid-row:2}
+  .composer .composer-mobile-tools-trigger{display:grid;place-items:center;width:38px;height:38px;padding:0;border-radius:10px;background:var(--brand-soft);color:#62852f;font-size:16px}
+  .composer-mobile-tools-trigger[aria-expanded="true"]{box-shadow:inset 0 0 0 1px var(--brand)}
+  .composer-mobile-tools-menu{position:absolute;z-index:40;left:0;bottom:calc(100% + 8px);display:grid;gap:2px;width:min(320px,calc(100vw - 24px));max-height:min(65dvh,440px);overflow-y:auto;padding:8px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);box-shadow:0 16px 38px #14251c50}
+  .composer .composer-mobile-tools-menu>button,.composer .composer-mobile-tool-file{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;margin:0;padding:7px 10px;border:0;border-radius:8px;background:transparent;color:var(--ink);font-size:12px;text-align:left;cursor:pointer}
+  .composer .composer-mobile-tools-menu>button:hover,.composer .composer-mobile-tool-file:hover{background:var(--brand-soft)}
+  .composer .composer-mobile-tools-menu>button:disabled{opacity:.45;cursor:not-allowed}
+  .composer-mobile-tool-file input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+  .composer-mobile-appearance{display:grid;gap:2px;margin-top:3px;padding:5px 0 0;border-top:1px solid var(--line)}
+  .composer-mobile-appearance>div{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:3px 10px;border-radius:8px}
+  .composer-mobile-appearance>div>span{color:var(--ink);font-size:12px}
+  .composer-mobile-appearance .composer-appearance-row,.composer-mobile-appearance .composer-message-color-row,.composer-mobile-appearance .composer-text-style-toggles{display:flex;position:static;gap:4px}
+  .composer-mobile-appearance .composer-text-style-toggles{margin-left:4px}
+  .composer:not(.community-chat-page-composer) .composer-draft-preview{grid-column:1/-1}
+  :root[data-theme="dark"] .composer .composer-mobile-tools-trigger{background:#2b402a;color:#e1edae}
+  :root[data-theme="dark"] .composer-mobile-tools-menu{background:#1b2b21;border-color:#405137;color:#f1f2e7}
+}
+
+/* Mobile catalog header keeps the return button next to the title. */
+@media(max-width:620px){
+  .community-catalog .communities-list-head{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px;margin:-28px -18px 18px;padding:12px 18px}
+  .community-catalog .community-catalog-actions{display:contents}
+  .community-catalog .back-to-chat-button{grid-column:2;grid-row:1;min-height:38px;padding:0 10px}
+  .community-catalog .community-create{grid-column:1/-1;grid-row:2;width:100%}
+  :root[data-theme="dark"] .community-catalog .back-to-chat-button{background:#263a2b;border:1px solid #567448;color:#e5efcb}
+  :root[data-theme="dark"] .community-catalog .back-to-chat-button:hover{background:#365138;color:#f5f5df}
+}
+
+/* The shop has later light gradients; override those explicitly on phones. */
+@media(max-width:700px){
+  :root[data-theme="dark"] .gift-store-page,
+  :root[data-theme="dark"] .gift-store-page .gift-store-modal,
+  :root[data-theme="dark"] .gift-store-page .gift-store-categories,
+  :root[data-theme="dark"] .gift-store-page .gift-store-main{background:#0d1912;color:#f1f2e7;border-color:#405137}
+  :root[data-theme="dark"] .gift-store-page .gift-catalog-grid article{background:#203127;border-color:#405137;color:#f1f2e7;box-shadow:none}
+  :root[data-theme="dark"] .gift-store-page .gift-catalog-grid article:hover{background:#2c4130;border-color:#789653}
+  :root[data-theme="dark"] .gift-store-page .gift-catalog-grid strong{color:#f1f2e7}
+  :root[data-theme="dark"] .gift-store-page .gift-catalog-grid small{color:#b5c5b1}
+  :root[data-theme="dark"] .gift-store-page .gift-emoji{background:#304431;border-color:#405137;box-shadow:none}
+  :root[data-theme="dark"] .gift-store-page .cosmetic-product-placeholder{background:radial-gradient(circle at 30% 20%,#4a6842,#2b432e 62%,#203426);color:#cce58f}
+  :root[data-theme="dark"] .gift-store-page .gift-search{background:#1b2b21;border-color:#405137;color:#b5c5b1}
+  :root[data-theme="dark"] .gift-store-page .gift-search input{color:#f1f2e7}
+  :root[data-theme="dark"] .gift-store-page .gift-search input::placeholder{color:#a9b9a6}
+  :root[data-theme="dark"] .gift-store-page .gift-catalog-grid button:disabled{background:#2b392e;border-color:#405137;color:#aab9a8;opacity:1}
+  :root[data-theme="dark"] .gift-store-page .back-to-chat-button{background:#263a2b;border:1px solid #567448;color:#e5efcb}
+}
+
+/* Five profile sections fit beside the close button on narrow screens. */
+@media(max-width:700px){
+  .profile-settings-backdrop{align-items:start;overflow-y:auto}
+  .profile-settings-modal{max-height:calc(100dvh - 76px);overflow-y:auto}
+  .profile-settings-nav{padding:12px 52px 12px 12px}
+  .profile-settings-links{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0}
+  .profile-settings-link{min-width:0;min-height:44px;padding:6px 0;border-radius:10px}
+  .profile-settings-link svg{flex:0 0 auto;width:21px;height:21px}
+  .profile-settings-link span{display:grid;position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .profile-settings-modal>.modal-close{top:12px;right:12px;z-index:3;width:36px;height:44px;color:var(--muted)}
+  :root[data-theme="dark"] .profile-settings-modal,
+  :root[data-theme="dark"] .profile-settings-content,
+  :root[data-theme="dark"] .profile-settings-content header,
+  :root[data-theme="dark"] .profile-settings-fields{background:#16251b;color:#f1f2e7}
+  :root[data-theme="dark"] .profile-settings-nav{background:#15251a;border-color:#40533e}
+  :root[data-theme="dark"] .profile-settings-link{color:#c8d8c5;background:transparent}
+  :root[data-theme="dark"] .profile-settings-link.active{background:#344b2b;color:#e7f3bc}
+  :root[data-theme="dark"] .profile-settings-modal>.modal-close{color:#c2d1be;background:#25382a}
+  :root[data-theme="dark"] .profile-settings-summary{background:linear-gradient(120deg,#22372a,#1c2e22);border-color:#40533e;color:#f1f2e7}
+  :root[data-theme="dark"] .profile-settings-identity strong{color:#f1f2e7}
+  :root[data-theme="dark"] .profile-settings-summary .profile-photo-button{background:#344b2b;color:#e7f3bc}
+  :root[data-theme="dark"] .profile-settings-fields>label{color:#e6eddb}
+  :root[data-theme="dark"] .profile-field,
+  :root[data-theme="dark"] .profile-field-locked{background:#203127;border-color:#40533e;color:#f1f2e7}
+  :root[data-theme="dark"] .profile-field input,
+  :root[data-theme="dark"] .profile-field textarea,
+  :root[data-theme="dark"] .profile-field select{background:transparent;color:#f1f2e7}
+  :root[data-theme="dark"] .profile-name-readonly{color:#e5eddd}
+  :root[data-theme="dark"] .profile-settings-footer{background:#15241a;border-color:#40533e}
+}
+
+@media(max-width:850px){
+  .people-panel.mobile-open .panel-title{align-items:center;gap:12px}
+  .people-panel.mobile-open .panel-title>div{min-width:0}
+  .people-panel.mobile-open .panel-title h3{margin-top:0;white-space:nowrap}
+  .people-panel.mobile-open .online-count{flex:0 0 auto;margin-left:0}
+}

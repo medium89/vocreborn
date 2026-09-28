@@ -1115,6 +1115,7 @@ export default function Home() {
         communityChatName={myCommunity?.name ?? null}
         onOpenCommunityChat={() => { if (!myCommunity) return; leaveFullScreenSections(); setCommunityChatOpen(true); }}
         onOpenCommunities={() => user ? openOverlay(setCommunitiesOpen) : showNotice("Войдите, чтобы открыть сообщества.")}
+        onOpenPeople={() => window.dispatchEvent(new Event("tusova:open-mobile-people"))}
         onOpenGifts={openGifts}
         onOpenReports={() => openOverlay(setReportsOpen)}
         onOpenAdmin={() => openOverlay(setAdminOpen)}

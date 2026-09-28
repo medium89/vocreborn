@@ -75,13 +75,18 @@ export function PeoplePanel({ className = "", showMobileToggle = true, people, r
   useEffect(() => { setMobileOpen(false); }, [roomId]);
   useEffect(() => { if (!showMobileToggle) setMobileOpen(false); }, [showMobileToggle]);
   useEffect(() => {
+    if (!showMobileToggle) return;
+    const openFromNavigation = () => setMobileOpen(true);
+    window.addEventListener("tusova:open-mobile-people", openFromNavigation);
+    return () => window.removeEventListener("tusova:open-mobile-people", openFromNavigation);
+  }, [showMobileToggle]);
+  useEffect(() => {
     if (!mobileOpen) return;
     const closeOnEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setMobileOpen(false); };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [mobileOpen]);
   return <>
-    {showMobileToggle && <button type="button" className="mobile-people-trigger" aria-label="Открыть список участников" title="Участники" aria-expanded={mobileOpen} onClick={() => setMobileOpen(true)}><UsersRound size={19} /><span>{people.length}</span></button>}
     {mobileOpen && <button type="button" className="mobile-people-backdrop" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)} />}
     <aside className={"people-panel " + className + (mobileOpen ? " mobile-open" : "")} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("button")) setMobileOpen(false); }}>
     <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{people.length}</span><button type="button" className="mobile-people-close" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>

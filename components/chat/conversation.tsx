@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEventHandler } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, AtSign, ChevronDown, Ellipsis, FileAudio, FileImage, Flag, LoaderCircle, Maximize2, Megaphone, Mic, Moon, Paperclip, Pause, Play, Reply, Search, Send, Smile, SmilePlus, Square, Sun, Trash2, Users, X } from "lucide-react";
+import { ArrowLeft, AtSign, ChevronDown, Ellipsis, FileAudio, FileImage, Flag, LoaderCircle, Maximize2, Megaphone, Mic, Moon, Paperclip, Pause, Play, Reply, Search, Send, Settings2, Smile, SmilePlus, Square, Sun, Trash2, Users, X } from "lucide-react";
 import { API_URL, fetchDirectResources, fetchRoomMessage, fetchRoomResources, searchDirectMessages, searchRoomMessages } from "@/lib/chat-api";
 import type { Attachment, CosmeticAppearance, DirectConversation, Message, Person, ReactionType, Room, RoomResources } from "@/lib/chat-contract";
 import { Avatar } from "./avatar";
@@ -166,6 +166,8 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [imagePreview, setImagePreview] = useState<Attachment | null>(null);
   const [roomInfoOpen, setRoomInfoOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
+  const mobileToolsRef = useRef<HTMLDivElement | null>(null);
   const [mentionButtonAt, setMentionButtonAt] = useState<number | null>(null);
   const [frequentEmojis, setFrequentEmojis] = useState<string[]>([]);
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
@@ -203,6 +205,19 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const emojiStorageKey = "tusova:frequent-emojis:" + (currentUserId ?? "guest");
   useEffect(() => { try { const legacyKey = emojiStorageKey.replace("tusova:", "aura:"); const saved = localStorage.getItem(emojiStorageKey) ?? localStorage.getItem(legacyKey) ?? "[]"; setFrequentEmojis(JSON.parse(saved).slice(0, 10)); if (localStorage.getItem(legacyKey)) { localStorage.setItem(emojiStorageKey, saved); localStorage.removeItem(legacyKey); } } catch { setFrequentEmojis([]); } }, [emojiStorageKey]);
   function insertEmoji(emoji: string) { const field = composerInputRef.current; const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + emoji + draft.slice(end)); const next = [emoji, ...frequentEmojis.filter((item) => item !== emoji)].slice(0, 10); setFrequentEmojis(next); localStorage.setItem(emojiStorageKey, JSON.stringify(next)); setEmojiOpen(false); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + emoji.length, start + emoji.length); }); }
+  function toggleMentionAtCursor() { const field = composerInputRef.current; if (mentionButtonAt !== null && draft[mentionButtonAt] === "@") { onDraftChange(draft.slice(0, mentionButtonAt) + draft.slice(mentionButtonAt + 1)); setMentionButtonAt(null); requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(mentionButtonAt, mentionButtonAt); }); return; } const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + "@" + draft.slice(end)); setMentionButtonAt(start); requestAnimationFrame(() => { field?.focus(); field?.setSelectionRange(start + 1, start + 1); }); }
+  useEffect(() => {
+    if (!mobileToolsOpen) return;
+    const outside = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest(".composer-appearance-popup, .composer-message-color-popup, .cosmetic-settings-backdrop")) return;
+      if (!mobileToolsRef.current?.contains(target as Node)) setMobileToolsOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMobileToolsOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
+  }, [mobileToolsOpen]);
   useEffect(() => { if (!mentionFocusRequest) return; requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(draft.length, draft.length); }); }, [mentionFocusRequest, draft.length]);
   useEffect(() => {
     if (!contentMenuOpen) return;
@@ -483,6 +498,23 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     {replyingTo && <div className="composer-reply"><Reply size={13} /><span>Ответ для <b>{replyingTo.author}</b> в {replyingTo.time}</span><button type="button" aria-label="Отменить ответ" title="Отменить ответ" onClick={onCancelReply}><X size={14} /></button></div>}
     {attachment && <div className="composer-file"><span>{attachment.kind === "image" ? <FileImage size={15} /> : <FileAudio size={15} />}{attachment.originalName}<small>готово к отправке · хранится 24 часа</small></span><button type="button" aria-label="Убрать вложение" onClick={onRemoveAttachment}><X size={15} /></button></div>}
     <form className="composer" onSubmit={onSend}>
+      <div className="composer-mobile-tools" ref={mobileToolsRef}>
+        <button type="button" className="composer-mobile-tools-trigger" aria-label="Действия и настройки сообщения" title="Действия и настройки" aria-expanded={mobileToolsOpen} onClick={() => setMobileToolsOpen((open) => !open)}><Settings2 size={20} /></button>
+        {mobileToolsOpen && <div className="composer-mobile-tools-menu" role="group" aria-label="Действия и настройки сообщения">
+          <label className="composer-mobile-tool-file"><Paperclip size={17} />Прикрепить файл<input type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/x-wav,audio/webm" disabled={muted || uploadingAttachment} onChange={(event) => { const file = event.target.files?.[0]; if (file) onFileSelect(file); event.target.value = ""; setMobileToolsOpen(false); }} /></label>
+          <button type="button" disabled={muted || uploadingAttachment} onClick={() => void toggleVoiceRecording()}>{recordingVoice ? <Square size={17} /> : <Mic size={17} />}{recordingVoice ? "Остановить запись" : "Голосовое сообщение"}</button>
+          <button type="button" disabled={muted} onClick={() => { setEmojiOpen(true); setMobileToolsOpen(false); }}><Smile size={17} />Смайлы</button>
+          <button type="button" disabled={muted} onClick={() => { toggleMentionAtCursor(); setMobileToolsOpen(false); }}><AtSign size={17} />Упомянуть участника</button>
+          <button type="button" disabled={muted} onClick={() => { setDraftPreviewOpen(true); setMobileToolsOpen(false); }}><Maximize2 size={17} />Сообщение целиком</button>
+          <button type="button" disabled={muted || !draft} onClick={() => { onDraftChange(""); setMobileToolsOpen(false); }}><X size={17} />Очистить сообщение</button>
+          {canUseAdminVoice && !dialog && <button type="button" role="checkbox" aria-checked={adminVoice} disabled={muted} onClick={() => onAdminVoiceChange(!adminVoice)}><Megaphone size={17} />Глас админа {adminVoice ? "включён" : "выключен"}</button>}
+          {currentUserId && <div className="composer-mobile-appearance">
+            <div><span>Оформление</span><ComposerAppearanceMenu appearance={appearance} onSaved={onAppearanceChanged} /></div>
+            <div><span>Цвет ника и сообщений</span><ComposerMessageColorPicker appearance={appearance} onSaved={onAppearanceChanged} /></div>
+            {(appearance?.boldText || appearance?.italicText) && <div><span>Стиль текста</span><ComposerTextStyleToggles appearance={appearance} onSaved={onAppearanceChanged} /></div>}
+          </div>}
+        </div>}
+      </div>
       <div className="composer-file-tools">
       <label className={"attach " + (uploadingAttachment ? "busy" : "")} aria-label="Прикрепить изображение или аудио" title="Прикрепить изображение или аудио">
         {uploadingAttachment ? <LoaderCircle className="spin" size={19} /> : <Paperclip size={19} />}
@@ -493,7 +525,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
       {currentUserId && <ComposerTextStyleToggles appearance={appearance} onSaved={onAppearanceChanged} />}
       </div>
 <button className={"voice-record " + (recordingVoice ? "recording" : "")} type="button" aria-label={recordingVoice ? "Остановить запись" : "Записать голосовое"} title={recordingVoice ? "Остановить запись" : "Записать голосовое"} disabled={muted || uploadingAttachment} onClick={() => void toggleVoiceRecording()}>{recordingVoice ? <Square size={15} /> : <Mic size={18} />}</button>{recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
-      <button ref={emojiToggleRef} className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} disabled={muted} onClick={() => setEmojiOpen((open) => !open)}><Smile size={18} /></button><button className="mention-toggle" type="button" aria-label="Упомянуть участника" title="Упомянуть участника" disabled={muted} onClick={() => { const field = composerInputRef.current; if (mentionButtonAt !== null && draft[mentionButtonAt] === "@") { onDraftChange(draft.slice(0, mentionButtonAt) + draft.slice(mentionButtonAt + 1)); setMentionButtonAt(null); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(mentionButtonAt, mentionButtonAt); }); return; } const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + "@" + draft.slice(end)); setMentionButtonAt(start); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + 1, start + 1); }); }}><AtSign size={17} /></button>
+      <button ref={emojiToggleRef} className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} disabled={muted} onClick={() => setEmojiOpen((open) => !open)}><Smile size={18} /></button><button className="mention-toggle" type="button" aria-label="Упомянуть участника" title="Упомянуть участника" disabled={muted} onClick={toggleMentionAtCursor}><AtSign size={17} /></button>
       {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Выбор смайла">{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></div>}
       {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.username ?? person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}{person.username && <small>{" @" + person.username}</small>}</span></button>)}</div>}
       <textarea ref={composerInputRef} value={draft} onChange={(event) => { setMentionButtonAt(null); onDraftChange(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} maxLength={1000} rows={2} disabled={muted} title="Ctrl + Alt + M — перейти к полю сообщения" placeholder={muted ? "Вы временно не можете писать" : "Написать в " + (dialog ? "личку" : "#" + room.name.toLowerCase()) + "…"} />
