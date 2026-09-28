@@ -57,6 +57,15 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     sessionRevocation: SessionRevocationService,
     notifications: NotificationsService,
   ) {
+    chat.subscribeMessages(({ roomId, recipientId, authorId, requestId, message }) => {
+      if (!this.server) return;
+      if (roomId) {
+        this.server.to(roomId).emit("message:created", { roomId, message, requestId });
+      } else if (recipientId) {
+        this.server.to("user:" + authorId).emit("direct:created", { peerId: recipientId, message, requestId });
+        this.server.to("user:" + recipientId).emit("direct:created", { peerId: authorId, message, requestId });
+      }
+    });
     sessionRevocation.subscribe((userId) => {
       if (this.server) setTimeout(() => this.server.in("user:" + userId).disconnectSockets(true), 0);
     });
@@ -174,7 +183,6 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice);
     const payload = { roomId: input.roomId, message, requestId: input.requestId };
-    this.server.to(input.roomId).emit("message:created", payload);
     return payload;
   }
 
@@ -189,9 +197,6 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     const message = await this.chat.createDirectMessage(input.recipientId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId);
     const senderPayload = { peerId: input.recipientId, message, requestId: input.requestId };
-    const recipientPayload = { peerId: user.id, message, requestId: input.requestId };
-    this.server.to("user:" + user.id).emit("direct:created", senderPayload);
-    this.server.to("user:" + input.recipientId).emit("direct:created", recipientPayload);
     return senderPayload;
   }
 

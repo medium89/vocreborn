@@ -16,6 +16,7 @@
     "lint:api": "npm --prefix apps/api run lint",
     "lint:all": "npm run lint && npm run lint:api",
     "test:integration": "npm --prefix apps/api run test:integration",
+    "test:realtime": "npm --prefix apps/api run test:realtime",
     "test:avatar": "node scripts/test-avatar-crop.cjs",
     "db:up": "docker compose -f infra/docker-compose.yml up -d postgres mailpit",
     "db:down": "docker compose -f infra/docker-compose.yml down",

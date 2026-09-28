@@ -25,6 +25,16 @@ import type { ApiMessage, ApiPerson, ApiReactionType, ApiRoom, DirectConversatio
 
 @Injectable()
 export class ChatService {
+  private readonly messageListeners = new Set<(event: {
+    roomId?: string; recipientId?: string; authorId: string; requestId?: string; message: ApiMessage;
+  }) => void>();
+
+  subscribeMessages(listener: (event: {
+    roomId?: string; recipientId?: string; authorId: string; requestId?: string; message: ApiMessage;
+  }) => void) {
+    this.messageListeners.add(listener);
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly attachments: AttachmentsService,
@@ -279,6 +289,9 @@ export class ChatService {
     if (roomId === "main" && process.env.TUSOVA_QUIZ_ENABLED === "true") {
       await this.prisma.message.update({ where: { id: completed.id }, data: { quizAcceptedAt: new Date() } });
     }
+    for (const listener of this.messageListeners) {
+      listener({ roomId, authorId, requestId, message: this.toApiMessage(completed) });
+    }
     return this.toApiMessage(completed, authorId);
   }
 
@@ -462,9 +475,25 @@ export class ChatService {
       return this.toApiMessage(existing);
     }
 
+    let created = true;
     const message = await this.prisma.message.create({
       data: { recipientId, authorId, authorName, body: body.trim(), requestId, replyToId },
+    }).catch(async (error: unknown) => {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+      const duplicate = await this.prisma.message.findUnique({ where: { requestId } });
+      if (!duplicate || duplicate.authorId !== authorId || duplicate.recipientId !== recipientId) {
+        throw new ConflictException("requestId уже использован");
+      }
+      created = false;
+      return duplicate;
     });
+    if (!created) {
+      const duplicate = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: {
+        author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } },
+        attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } },
+      } });
+      return this.toApiMessage(duplicate, authorId);
+    }
     try {
       await this.attachments.attachToMessage(authorId, attachmentId, message.id);
     } catch (error) {
@@ -473,6 +502,9 @@ export class ChatService {
     }
     const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
     await this.notifications.createReply(authorId, completed.id, replyToId);
+    for (const listener of this.messageListeners) {
+      listener({ recipientId, authorId, requestId, message: this.toApiMessage(completed) });
+    }
     return this.toApiMessage(completed, authorId);
   }
 

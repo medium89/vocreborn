@@ -119,7 +119,7 @@ button{transition:background-color .16s ease,color .16s ease,transform .16s ease
 
 
 /* Этап 1 референса Aura: сообщения с аватарами и карточки вложений. */
-.messages{padding-top:12px}
+.messages{flex:1;padding:18px 15px 18px 40px}
 .message,.message.mine{
   position:relative;
   display:grid;
