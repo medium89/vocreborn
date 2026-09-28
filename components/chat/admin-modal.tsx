@@ -1,88 +1,73 @@
 "use client";
-
-import { useEffect, useState } from "react";
-import { StyledSelect } from "./styled-select";
-import { Check, FileAudio, FileImage, Flag, LayoutGrid, RefreshCw, Search, Shield, Trash2, Users, X } from "lucide-react";
-import { setRadioDj } from "@/lib/radio-api";
+import { useEffect, useState, type ComponentProps } from "react";
+import { Check, FileAudio, FileImage, Flag, LayoutGrid, RefreshCw, Search, Shield, Users, X, Coins, Radio, Bot, Headset, ScrollText, Server, MessageSquare, Settings2, Pencil } from "lucide-react";
 import { API_URL } from "@/lib/chat-api";
 import { BackToChatButton } from "./back-to-chat-button";
 import { SupportTicketsPanel } from "./support-tickets-panel";
 import { QuizAdminPanel } from "./quiz-admin-panel";
-import type { AdminOverview, AdminUser, PendingAttachment, UserRole } from "@/lib/chat-contract";
-import { deactivateAdminUser, fetchAdminOverview, fetchAdminUsers, fetchPendingAttachments, reviewAttachment, setAdminUserRole } from "@/lib/social-api";
+import { AdminSettingsPanel } from "./admin-settings-panel";
+import { AdminAnnouncementPanel, AdminContentPanel } from "./admin-content-panels";
+import { AdminEconomyLedger, AdminRadioPanel, AdminSystemPanel } from "./admin-operational-panels";
+import { UserEditorPage } from "./user-editor-page";
+import { RoomsModal } from "./modals";
+import { ReportsModal } from "./reports-modal";
+import { StoreEditorPage } from "./store-editor-page";
+import type { AdminOverview, AdminUser, PendingAttachment, AuthUser, Person, Room } from "@/lib/chat-contract";
+import { fetchAdminOverview, fetchAdminUsers, fetchPendingAttachments, reviewAttachment } from "@/lib/social-api";
+import { banUser, imposeChaos, muteUser, removeChaos, unbanUser, unmuteUser } from "@/lib/moderation-api";
 
-const roleLabels: Record<UserRole, string> = { user: "Участник", moderator: "Модератор", admin: "Администратор" };
+const tabs = [
+  { id: "overview", label: "Обзор", icon: LayoutGrid }, { id: "users", label: "Пользователи", icon: Users },
+  { id: "rooms", label: "Комнаты", icon: LayoutGrid }, { id: "communication", label: "Общение", icon: MessageSquare },
+  { id: "materials", label: "Материалы", icon: FileImage }, { id: "moderation", label: "Модерация", icon: Shield },
+  { id: "economy", label: "Экономика", icon: Coins }, { id: "radio", label: "Радио", icon: Radio },
+  { id: "bots", label: "Боты", icon: Bot }, { id: "support", label: "Поддержка", icon: Headset },
+  { id: "audit", label: "Журнал", icon: ScrollText }, { id: "system", label: "Система", icon: Server },
+] as const;
+type Tab = typeof tabs[number]["id"];
+type Props = { user: AuthUser; rooms: Room[]; onSaveRoom: ComponentProps<typeof RoomsModal>["onSaveRoom"]; onChangeRoom: (id: string) => void; onOpenRadio: () => void; onUsersChanged: () => void; onBackToChat: () => void };
 
-export function AdminModal({ onOpenRooms, onOpenReports, onBackToChat }: { onOpenRooms: () => void; onOpenReports: () => void; onBackToChat: () => void }) {
-  const [overview, setOverview] = useState<AdminOverview | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
-  const [tab, setTab] = useState<"users" | "attachments" | "quiz">("users");
-  const [search, setSearch] = useState("");
-  const [usersRefresh, setUsersRefresh] = useState(0);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [djBusy, setDjBusy] = useState<string | null>(null);
-  async function changeDj(id: string, enabled: boolean) {
-    setDjBusy(id); setError("");
-    try { await setRadioDj(id, enabled); setUsersRefresh(value => value + 1); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось изменить права DJ"); }
-    finally { setDjBusy(null); }
-  }
-  async function load() {
-    setError("");
-    try {
-      const [nextOverview, nextAttachments] = await Promise.all([fetchAdminOverview(), fetchPendingAttachments()]);
-      setOverview(nextOverview); setAttachments(nextAttachments);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось загрузить управление"); }
-  }
+export function AdminModal({ user: actor, rooms, onSaveRoom, onChangeRoom, onOpenRadio, onUsersChanged, onBackToChat }: Props) {
+  const [overview, setOverview] = useState<AdminOverview | null>(null), [users, setUsers] = useState<AdminUser[]>([]), [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [tab, setTab] = useState<Tab>("overview"), [selectedUser, setSelectedUser] = useState<Person | null>(null);
+  const [search, setSearch] = useState(""), [usersRefresh, setUsersRefresh] = useState(0), [usersLoading, setUsersLoading] = useState(false), [error, setError] = useState("");
+  const [economyTab, setEconomyTab] = useState<"rewards" | "store" | "ledger">("rewards");
+  async function load() { setError(""); try { const [stats, files] = await Promise.all([fetchAdminOverview(), fetchPendingAttachments()]); setOverview(stats); setAttachments(files); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось загрузить управление"); } }
   useEffect(() => { void load(); }, []);
   useEffect(() => {
-    let cancelled = false;
-    setUsersLoading(true);
-    const timer = window.setTimeout(() => {
-      void fetchAdminUsers(search).then((nextUsers) => {
-        if (!cancelled) { setUsers(nextUsers); setUsersLoading(false); }
-      }).catch((reason) => {
-        if (!cancelled) { setError(reason instanceof Error ? reason.message : "Не удалось найти пользователей"); setUsersLoading(false); }
-      });
-    }, search.trim() ? 300 : 0);
+    if (tab !== "users") return;
+    let cancelled = false; setUsersLoading(true);
+    const timer = window.setTimeout(() => { void fetchAdminUsers(search).then(next => { if (!cancelled) { setUsers(next); setUsersLoading(false); } }).catch(cause => { if (!cancelled) { setError(cause.message); setUsersLoading(false); } }); }, search.trim() ? 300 : 0);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [search, usersRefresh]);
-
-  async function changeRole(id: string, role: UserRole) {
-    try { await setAdminUserRole(id, role); setUsersRefresh((value) => value + 1); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось изменить роль"); }
+  }, [tab, search, usersRefresh]);
+  async function review(id: string, status: "APPROVED" | "REJECTED") { try { await reviewAttachment(id, status); await load(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось проверить вложение"); } }
+  function changed() { setUsersRefresh(value => value + 1); onUsersChanged(); void load(); }
+  function editUser(user: AdminUser) { setSelectedUser({ id: user.id, username: user.username, name: user.displayName, role: user.role, status: user.status, gender: "unspecified", room: "", avatar: "", isDj: user.isDj }); }
+  async function moderate(action: "mute" | "unmute" | "chaos" | "unchaos" | "ban" | "unban", duration: number, reason: string) {
+    if (!selectedUser?.id) return;
+    const id = selectedUser.id;
+    if (action === "mute") await muteUser(id, duration, reason); else if (action === "unmute") await unmuteUser(id);
+    else if (action === "chaos") await imposeChaos(id, duration, reason); else if (action === "unchaos") await removeChaos(id);
+    else if (action === "ban") await banUser(id, duration, reason); else await unbanUser(id);
+    changed();
   }
-  async function deactivate(user: AdminUser) {
-    if (!window.confirm("Отключить аккаунт @" + user.username + "? Все его сеансы будут завершены.")) return;
-    try { await deactivateAdminUser(user.id); await load(); setUsersRefresh((value) => value + 1); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось отключить аккаунт"); }
-  }
-  async function review(id: string, status: "APPROVED" | "REJECTED") {
-    try { await reviewAttachment(id, status); await load(); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : "Не удалось проверить вложение"); }
-  }
-
-  const cards = overview ? [
-    ["Пользователи", overview.users], ["Комнаты", overview.rooms], ["Сообщения", overview.messages],
-    ["Открытые жалобы", overview.openReports], ["Вложения на проверке", overview.pendingAttachments], ["Сообщения профилей", overview.profilePosts],
-  ] as const : [];
-
-  return <section className="management-module admin-module">
-    <header className="management-module-head"><div className="page-heading"><span className="page-heading-icon"><LayoutGrid size={19} /></span><div className="page-heading-copy"><span className="eyebrow">НАСТРОЙКИ ЧАТА</span><h2>Управление</h2></div></div><BackToChatButton onClick={onBackToChat} /></header>
-    <div className="management-module-body">
-    <div className="admin-stats">{cards.map(([label, value]) => <article key={label}><strong>{value}</strong><span>{label}</span></article>)}</div>
-    <div className="admin-shortcuts"><button onClick={onOpenRooms}><LayoutGrid size={15} />Комнаты</button><button onClick={onOpenReports}><Flag size={15} />Жалобы и журнал</button><button onClick={() => { void load(); setUsersRefresh((value) => value + 1); }}><RefreshCw size={15} />Обновить</button></div>
-
-    <div className="auth-tabs"><button className={tab === "users" ? "active" : ""} onClick={() => setTab("users")}><Users size={14} />Пользователи</button><button className={tab === "attachments" ? "active" : ""} onClick={() => setTab("attachments")}><Shield size={14} />Вложения <b>{attachments.length}</b></button><button className={tab === "quiz" ? "active" : ""} onClick={() => setTab("quiz")}>Викторины</button></div>
-    {error && <div className="auth-error">{error}</div>}
-    {tab === "quiz" ? <QuizAdminPanel /> : tab === "users" ? <div className="admin-users-section">
-      <label className="admin-user-search"><Search size={17} aria-hidden /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Поиск по нику или имени во всей базе" aria-label="Поиск пользователей" /></label>
-      <p className="admin-users-caption">{search.trim() ? "Результаты поиска по всем пользователям" : "Сейчас в чате: онлайн, отошли и не беспокоить"}</p>
-      <div className="admin-users">{usersLoading ? <p className="direct-empty">Ищем пользователей…</p> : users.length === 0 ? <p className="direct-empty">{search.trim() ? "Ничего не найдено." : "Сейчас никого нет в чате."}</p> : users.map((user) => <article key={user.id}><div><strong>{user.displayName}</strong><small>@{user.username} · {user.status === "offline" ? "не в сети" : "в сети"} · сообщений: {user._count.messages} · жалоб: {user._count.reportsReceived}</small><label className="admin-dj-switch"><input type="checkbox" checked={Boolean(user.isDj)} disabled={djBusy !== null} onChange={event => void changeDj(user.id, event.target.checked)} />DJ — музыкальный эфир</label></div><StyledSelect aria-label={"Роль " + user.displayName} value={user.role} onChange={(event) => void changeRole(user.id, event.target.value as UserRole)}>{Object.entries(roleLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</StyledSelect><button className="danger-icon" disabled={user.role === "admin"} aria-label={"Отключить " + user.displayName} title="Отключить аккаунт" onClick={() => void deactivate(user)}><Trash2 size={15} /></button></article>)}</div>
-    </div>
-    : <div className="admin-attachments">{attachments.length === 0 ? <p className="direct-empty">Все вложения проверены.</p> : attachments.map((item) => { const Icon = item.kind === "image" ? FileImage : FileAudio; return <article key={item.id}><Icon size={18} /><div><strong>{item.originalName}</strong><small>{item.uploader.displayName} · {(item.size / 1024).toFixed(0)} КБ · {item.mimeType}</small></div><a href={API_URL + item.url} target="_blank" rel="noreferrer">Открыть</a><button className="approve" title="Разрешить" onClick={() => void review(item.id, "APPROVED")}><Check size={15} /></button><button className="danger-icon" title="Отклонить" onClick={() => void review(item.id, "REJECTED")}><X size={15} /></button></article>; })}</div>}
+  const cards = overview ? [["Пользователи", overview.users], ["Комнаты", overview.rooms], ["Сообщения", overview.messages], ["Открытые жалобы", overview.openReports], ["Вложения на проверке", overview.pendingAttachments], ["Сообщения профилей", overview.profilePosts]] as const : [];
+  return <section className="management-module admin-module admin-workspace">
+    <header className="management-module-head"><div className="page-heading"><span className="page-heading-icon"><Settings2 size={19} /></span><div className="page-heading-copy"><span className="eyebrow">НАСТРОЙКИ ЧАТА</span><h2>Управление</h2></div></div><BackToChatButton onClick={onBackToChat} /></header>
+    <nav className="admin-section-tabs" aria-label="Разделы администрирования">{tabs.map(({ id, label, icon: Icon }) => <button type="button" key={id} aria-current={tab === id ? "page" : undefined} className={tab === id ? "active" : ""} onClick={() => { setTab(id); setSelectedUser(null); setError(""); }}><Icon size={16} /><span>{label}</span></button>)}</nav>
+    <div className="management-module-body admin-workspace-body">
+      {error && <p className="auth-error" role="alert">{error}</p>}
+      {tab === "overview" && <><div className="admin-stats">{cards.map(([label, value]) => <article key={label}><strong>{value}</strong><span>{label}</span></article>)}</div><div className="admin-shortcuts"><button onClick={() => setTab("users")}><Users size={15} />Найти пользователя</button><button onClick={() => setTab("moderation")}><Flag size={15} />Жалобы</button><button onClick={() => void load()}><RefreshCw size={15} />Обновить</button></div><section className="admin-panel"><h3>Все инструменты — в разделах выше</h3><p>Профиль, кредиты, роли, DJ, VIP и ограничения находятся в карточке пользователя. При пустом поиске видны только присутствующие в чате; поиск работает по всей базе, максимум 100 результатов.</p><p>Изменения настроек и действия администрации записываются в журнал. Доступ к личной переписке пользователей здесь не предоставляется.</p></section></>}
+      {tab === "users" && (selectedUser ? <UserEditorPage key={selectedUser.id} person={selectedUser} actor={actor} onBack={() => setSelectedUser(null)} onChanged={changed} onModerate={moderate} backLabel="К пользователям" /> : <div className="admin-users-section"><label className="admin-user-search"><Search size={17} /><input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Поиск по нику или имени во всей базе" aria-label="Поиск пользователей" /></label><p className="admin-users-caption">{search.trim() ? "Поиск по всей базе · до 100 результатов. Уточните запрос, если пользователей больше." : "Сейчас в чате: онлайн, отошли и не беспокоить"}</p><div className="admin-users admin-users-editable">{usersLoading ? <p>Загрузка…</p> : !users.length ? <p>Пользователи не найдены.</p> : users.map(user => <article key={user.id}><div><strong>{user.displayName}</strong><small>@{user.username} · {user.status === "offline" ? "не в сети" : "в сети"} · {user.role === "admin" ? "администратор" : user.role === "moderator" ? "модератор" : "участник"}{user.isDj ? " · DJ" : ""}</small></div><button className="action-button secondary" onClick={() => editUser(user)}><Pencil size={15} />Редактировать</button></article>)}</div></div>)}
+      {tab === "rooms" && <RoomsModal embedded rooms={rooms} user={actor} onChangeRoom={onChangeRoom} onSaveRoom={onSaveRoom} onClose={onBackToChat} />}
+      {tab === "communication" && <><AdminSettingsPanel title="Правила общения" keys={["maxMessageLength", "slowModeSeconds", "allowLinks", "allowUserRooms"]} /><AdminAnnouncementPanel /></>}
+      {tab === "materials" && <><AdminContentPanel /><AdminSettingsPanel title="Новые вложения" keys={["imageMaxMb", "audioMaxMb"]} /><section className="admin-panel"><h3>Проверка вложений</h3><p>Удаление по сроку относится только к вложениям общего чата. Вложения лички, профилей и сообществ не удаляются по этому сроку.</p><div className="admin-attachments">{!attachments.length ? <p>Все вложения проверены.</p> : attachments.map(item => { const Icon = item.kind === "image" ? FileImage : FileAudio; return <article key={item.id}><Icon size={18} /><div><strong>{item.originalName}</strong><small>{item.uploader.displayName} · {(item.size / 1024).toFixed(0)} КБ</small></div><a href={API_URL + item.url} target="_blank" rel="noreferrer">Открыть</a><button title="Разрешить" onClick={() => void review(item.id, "APPROVED")}><Check size={15} /></button><button title="Отклонить" onClick={() => void review(item.id, "REJECTED")}><X size={15} /></button></article>; })}</div></section></>}
+      {(tab === "moderation" || tab === "audit") && <ReportsModal key={tab} initialTab={tab === "audit" ? "audit" : "reports"} canBan onBackToChat={onBackToChat} />}
+      {tab === "economy" && <><div className="admin-shortcuts">{([["rewards", "Награды"], ["store", "Магазин"], ["ledger", "Операции"]] as const).map(([id,label]) => <button aria-pressed={economyTab === id} key={id} onClick={() => setEconomyTab(id)}>{label}</button>)}</div>{economyTab === "rewards" ? <AdminSettingsPanel title="Кредиты и ежедневные награды" keys={["initialCredits", "firstMessageReward", "firstReplyReward", "profileCommentReward", "photoLikeReward", "profilePostLikeReward"]} /> : economyTab === "store" ? <StoreEditorPage onBack={() => setEconomyTab("rewards")} onBackToChat={onBackToChat} /> : <AdminEconomyLedger />}</>}
+      {tab === "radio" && <AdminRadioPanel onStudio={onOpenRadio} />}
+      {tab === "bots" && <><section className="admin-panel"><h3>Сервисные боты</h3><p>Ниже — импорт тем, расписание, награды, подсказки и управление викториной. Тестовые собеседники включаются только локальной конфигурацией, в production они запрещены. ИИ-помощник пока не подключён: нужны база знаний и выбранный провайдер.</p></section><QuizAdminPanel /></>}
+      {tab === "support" && <SupportTicketsPanel />}
+      {tab === "system" && <><AdminSettingsPanel title="Регистрация и обслуживание" keys={["registrationOpen", "maintenance"]} /><AdminSystemPanel /></>}
     </div>
   </section>;
 }

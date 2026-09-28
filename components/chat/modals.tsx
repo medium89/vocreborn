@@ -16,6 +16,7 @@ const roleLabels = { user: "УЧАСТНИК", moderator: "МОДЕРАТОР", 
 
 type RoomInput = { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; coverFile: File | null };
 type RoomsModalProps = {
+  embedded?: boolean;
   rooms: Room[];
   user: AuthUser | null;
   onChangeRoom: (roomId: string) => void;
@@ -23,7 +24,7 @@ type RoomsModalProps = {
   onClose: () => void;
 };
 
-export function RoomsModal({ rooms, user, onChangeRoom, onSaveRoom, onClose }: RoomsModalProps) {
+export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSaveRoom, onClose }: RoomsModalProps) {
   const [editingId, setEditingId] = useState("");
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -63,9 +64,9 @@ export function RoomsModal({ rooms, user, onChangeRoom, onSaveRoom, onClose }: R
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal rooms-modal" onClick={(event) => event.stopPropagation()}>
-        <button className="modal-close" aria-label="Закрыть" title="Закрыть" onClick={onClose}><X size={19} /></button>
+    <div className={embedded ? "admin-rooms-panel" : "modal-backdrop"} onClick={embedded ? undefined : onClose}>
+      <div className={embedded ? "rooms-modal admin-rooms-content" : "modal rooms-modal"} onClick={(event) => event.stopPropagation()}>
+        {!embedded && <button className="modal-close" aria-label="Закрыть" title="Закрыть" onClick={onClose}><X size={19} /></button>}
         <h2>Комнаты</h2>
         <div className="rooms-scroll">
           {rooms.map((room) => (

@@ -8,7 +8,7 @@ import { BackToChatButton } from "./back-to-chat-button";
 
 const statusLabels: Record<ReportStatus, string> = { OPEN: "Открыта", REVIEWED: "Проверяется", DISMISSED: "Отклонена", ACTIONED: "Приняты меры" };
 const reasonLabels = { SPAM: "Спам", HARASSMENT: "Оскорбления", IMPERSONATION: "Выдача себя за другого", ILLEGAL: "Запрещённый материал", OTHER: "Другое" } as const;
-const actionLabels: Record<string, string> = { REPORT_REVIEWED: "Жалоба взята в работу", REPORT_DISMISSED: "Жалоба отклонена", REPORT_ACTIONED: "По жалобе приняты меры", MUTE: "Запрещена отправка сообщений", CHAOS: "Назначен Хаос", UNCHAOS: "Хаос снят", UNMUTE: "Ограничение снято", BAN: "Аккаунт заблокирован", UNBAN: "Блокировка снята", MESSAGE_DELETE: "Сообщение удалено", ATTACHMENT_APPROVE: "Вложение разрешено", ATTACHMENT_REJECT: "Вложение отклонено", ROLE_CHANGE: "Роль изменена", USER_DEACTIVATE: "Аккаунт отключён", PROFILE_POST_DELETE: "Сообщение профиля удалено" };
+const actionLabels: Record<string, string> = { REPORT_REVIEWED: "Жалоба взята в работу", REPORT_DISMISSED: "Жалоба отклонена", REPORT_ACTIONED: "По жалобе приняты меры", MUTE: "Запрещена отправка сообщений", CHAOS: "Назначен Хаос", UNCHAOS: "Хаос снят", UNMUTE: "Ограничение снято", BAN: "Аккаунт заблокирован", UNBAN: "Блокировка снята", MESSAGE_DELETE: "Сообщение удалено", ATTACHMENT_APPROVE: "Вложение разрешено", ATTACHMENT_REJECT: "Вложение отклонено", ROLE_CHANGE: "Роль изменена", USER_DEACTIVATE: "Аккаунт отключён", USER_EDIT: "Профиль изменён", CREDITS_ADJUST: "Изменены кредиты", CHAT_SETTINGS: "Настройки чата изменены", SESSIONS_REVOKE: "Сеансы завершены", COSMETIC_ADMIN: "Изменено оформление", PROFILE_POST_DELETE: "Сообщение профиля удалено" };
 const measureLabels: Record<ReportAction, string> = {
   DELETE_MESSAGE: "Удалить сообщение",
   MUTE_HOUR: "Запретить писать на час",
@@ -17,8 +17,8 @@ const measureLabels: Record<ReportAction, string> = {
   BAN_DAY: "Заблокировать на сутки",
 };
 
-export function ReportsModal({ onBackToChat, canBan }: { onBackToChat: () => void; canBan: boolean }) {
-  const [tab, setTab] = useState<"reports" | "audit">("reports");
+export function ReportsModal({ onBackToChat, canBan, initialTab = "reports" }: { onBackToChat: () => void; canBan: boolean; initialTab?: "reports" | "audit" }) {
+  const [tab, setTab] = useState<"reports" | "audit">(initialTab);
   const [reports, setReports] = useState<Report[]>([]);
   const [audit, setAudit] = useState<AuditEntry[]>([]);
   const [resolution, setResolution] = useState<Record<string, string>>({});
@@ -100,7 +100,7 @@ export function ReportsModal({ onBackToChat, canBan }: { onBackToChat: () => voi
             </div>
           </> : <p className="report-outcome">{report.resolution || "Решение не указано"}{report.handledBy ? " · " + report.handledBy.displayName : ""}</p>}
         </article>;
-      })}</div> : <div className="audit-list">{audit.length === 0 ? <p>Журнал пуст.</p> : audit.map((entry) => <article key={entry.id}><div><b>{actionLabels[entry.action] ?? "Действие модератора"}</b><time>{new Date(entry.createdAt).toLocaleString("ru-RU")}</time></div><small>{entry.actor.displayName}{entry.targetUser ? " → " + entry.targetUser.displayName : ""}</small></article>)}</div>}
+      })}</div> : <div className="audit-list">{audit.length === 0 ? <p>Журнал пуст.</p> : audit.map((entry) => <article key={entry.id}><div><b>{actionLabels[entry.action] ?? "Действие модератора"}</b><time>{new Date(entry.createdAt).toLocaleString("ru-RU")}</time></div><small>{entry.actor.displayName}{entry.targetUser ? " → " + entry.targetUser.displayName : ""}</small>{entry.details != null && <details className="audit-details"><summary>Подробности операции</summary><pre>{JSON.stringify(entry.details, null, 2)}</pre></details>}</article>)}</div>}
     </div>
   </section>;
 }

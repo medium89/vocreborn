@@ -110,6 +110,7 @@ enum NotificationType {
 }
 
 enum EconomyEntryType {
+  ADMIN_ADJUSTMENT
   QUIZ_REWARD
   RADIO_RESERVE
   RADIO_REFUND
@@ -949,4 +950,11 @@ model QuizPublication {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([deliveredAt,createdAt])
   @@map("quiz_publications")
+}
+
+model ChatSetting {
+  id String @id @default("main")
+  settings Json @default("{}")
+  version Int @default(0)
+  updatedAt DateTime @updatedAt
 }

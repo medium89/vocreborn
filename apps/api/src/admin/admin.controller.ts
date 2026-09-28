@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Gender, UserRole } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsIn, IsInt, IsString, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
+import { IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SessionGuard } from "../auth/session.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -38,10 +38,58 @@ class UpdateUserDto {
   credits?: number;
 }
 
+class CosmeticDto {
+  @IsString() effectKey!: string;
+  @IsIn(["grant", "revoke"]) action!: "grant" | "revoke";
+  @IsString() @Length(2, 500) reason!: string;
+}
+class SettingsDto {
+  @IsObject() settings!: Record<string, unknown>;
+  @IsInt() @Min(0) version!: number;
+  @IsString() @Length(1, 500) reason!: string;
+}
+class AnnouncementDto {
+  @IsString() @Length(1, 1000) body!: string;
+  @IsUUID("4") requestId!: string;
+}
+class CreditAdjustmentDto {
+  @IsIn(["add", "remove", "set"]) mode!: "add" | "remove" | "set";
+  @IsInt() @Min(0) @Max(2147483647) amount!: number;
+  @IsString() @Length(2, 500) reason!: string;
+  @IsUUID("4") requestId!: string;
+}
 @Controller("admin")
 @UseGuards(SessionGuard)
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
+
+  @Get("settings")
+  settings(@CurrentUser() actor: AuthenticatedUser) { return this.admin.settings(actor); }
+
+  @Patch("settings")
+  saveSettings(@CurrentUser() actor: AuthenticatedUser, @Body() input: SettingsDto) { return this.admin.saveSettings(actor, input); }
+
+  @Get("system")
+  system(@CurrentUser() actor: AuthenticatedUser) { return this.admin.system(actor); }
+
+  @Get("content")
+  content(@CurrentUser() actor: AuthenticatedUser, @Query("q") query?: string) { return this.admin.content(actor, query); }
+
+  @Post("announcements")
+  @RateLimit({ limit: 10, windowMs: 60000, key: "session" })
+  announce(@CurrentUser() actor: AuthenticatedUser, @Body() input: AnnouncementDto) { return this.admin.announce(actor, input); }
+
+  @Get("economy")
+  economy(@CurrentUser() actor: AuthenticatedUser, @Query("userId") userId?: string, @Query("cursor") cursor?: string) { return this.admin.economy(actor, userId, cursor); }
+
+  @Post("users/:id/credits")
+  adjustCredits(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @CurrentUser() actor: AuthenticatedUser, @Body() input: CreditAdjustmentDto) { return this.admin.adjustCredits(actor, id, input); }
+
+  @Post("users/:id/cosmetics")
+  cosmetics(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @CurrentUser() actor: AuthenticatedUser, @Body() input: CosmeticDto) { return this.admin.cosmetics(actor, id, input); }
+
+  @Post("users/:id/sessions/revoke")
+  revokeSessions(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @CurrentUser() actor: AuthenticatedUser) { return this.admin.revokeSessions(actor, id); }
 
   @Get("overview")
   overview(@CurrentUser() actor: AuthenticatedUser) { return this.admin.overview(actor); }

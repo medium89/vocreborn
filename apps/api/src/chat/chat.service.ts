@@ -1,3 +1,4 @@
+import { ChatSettingsService } from "../settings/chat-settings.service";
 import { assertNotInChaos } from "../moderation/chaos.guard";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { Prisma, ReactionType, type Attachment, type Message, type MessageReaction, type Room } from "@prisma/client";
@@ -40,6 +41,7 @@ export class ChatService {
     private readonly attachments: AttachmentsService,
     private readonly notifications: NotificationsService,
     private readonly economy: EconomyService,
+    private readonly settings: ChatSettingsService,
   ) {}
 
   async listRooms(): Promise<ApiRoom[]> {
@@ -48,6 +50,8 @@ export class ChatService {
   }
 
   async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string }) {
+    const [{ settings }, actor] = await Promise.all([this.settings.read(), this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })]);
+    if (actor?.role !== "ADMIN" && (!settings.allowUserRooms || settings.maintenance)) throw new ForbiddenException("Создание комнат отключено администратором");
     const position = await this.prisma.room.count();
     const room = await this.prisma.room.create({
       data: {
@@ -255,8 +259,23 @@ export class ChatService {
       }
     }
 
+    const policy = await this.settings.assertMessage(authorId, body);
     let created = true;
-    const message = await this.prisma.message.create({
+    const message = await this.prisma.$transaction(async tx => {
+      // Per-user/room DB lock also covers parallel HTTP and Socket.IO sends.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${authorId + ":" + roomId}, 0))`;
+      if (requestId) {
+        const retry = await tx.message.findUnique({ where: { requestId } });
+        if (retry) {
+          if (retry.authorId !== authorId || retry.roomId !== roomId) throw new ConflictException("requestId уже использован");
+          created = false; return retry;
+        }
+      }
+      if (policy.slowModeSeconds > 0) {
+        const last = await tx.message.findFirst({ where: { authorId, roomId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+        if (last && last.createdAt.getTime() + policy.slowModeSeconds * 1000 > Date.now()) throw new ForbiddenException("Медленный режим: подождите " + policy.slowModeSeconds + " секунд между сообщениями");
+      }
+      return tx.message.create({
       data: {
         roomId,
         authorId,
@@ -266,6 +285,7 @@ export class ChatService {
         requestId,
         replyToId,
       },
+      });
     }).catch(async (error: unknown) => {
       if (!requestId || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
       const existing = await this.prisma.message.findUnique({ where: { requestId } });
@@ -475,6 +495,7 @@ export class ChatService {
       return this.toApiMessage(existing);
     }
 
+    await this.settings.assertMessage(authorId, body);
     let created = true;
     const message = await this.prisma.message.create({
       data: { recipientId, authorId, authorName, body: body.trim(), requestId, replyToId },

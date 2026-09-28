@@ -4,6 +4,7 @@ import type { Gender, UserRole, UserStatus } from "@/lib/chat-contract";
 export type EditableUser = {
   id: string; username: string; displayName: string; bio: string | null; gender: Gender;
   isDj: boolean;
+  cosmetics: Array<{ effectKey: string; settings: Record<string, unknown> }>;
   role: UserRole; status: UserStatus; rating: number; credits: number;
   avatarUrl: string | null; isGuest: boolean; isBot: boolean; createdAt: string; updatedAt: string;
   _count: { messages: number; profilePosts: number; reportsReceived: number };

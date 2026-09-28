@@ -1,3 +1,4 @@
+import { ChatSettingsService } from "../settings/chat-settings.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Algorithm, hash, verify } from "@node-rs/argon2";
 import { Prisma } from "@prisma/client";
@@ -23,9 +24,12 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly sessionRevocation: SessionRevocationService,
     private readonly email: EmailService,
+    private readonly settings: ChatSettingsService,
   ) {}
 
   async register(input: RegisterDto) {
+    const { settings } = await this.settings.read();
+    if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
     if (input.username.toLowerCase() === "tusova_quiz") throw new BadRequestException("Это служебное имя бота");
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
@@ -39,6 +43,7 @@ export class AuthService {
           passwordHash,
           status: "OFFLINE",
           role: "USER",
+          credits: settings.initialCredits,
         },
       });
     } catch (error) {

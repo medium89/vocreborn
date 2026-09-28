@@ -16,6 +16,7 @@
     "test:integration": "npm run build && node --test test/api.integration.test.mjs",
     "test:realtime": "npm run build && node --test test/realtime.integration.test.mjs",
     "test:moderation": "npm run build && node --test test/moderation-immunity.integration.test.mjs",
+    "test:admin": "npm run build && node --test test/admin.integration.test.mjs",
     "test:radio": "npm run build && node --test test/radio.integration.test.mjs",
     "test:quiz": "npm run build && node --test test/quiz.rules.test.mjs test/quiz.integration.test.mjs"
   },

@@ -1,3 +1,4 @@
+import { ChatSettingsService } from "../settings/chat-settings.service";
 import { Injectable, Logger } from "@nestjs/common";
 import { DailyActivityAction, EconomyEntryType, Prisma } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
@@ -13,7 +14,7 @@ const DAILY_REWARDS: Record<DailyActivityAction, { credits: number; entryType: E
 @Injectable()
 export class EconomyService {
   private readonly logger = new Logger(EconomyService.name);
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: ChatSettingsService) {}
 
   async awardForPublicMessage(userId: string, messageId: string, body: string, replyToAuthorId?: string) {
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -64,7 +65,10 @@ export class EconomyService {
   }
 
   private async grant(tx: Prisma.TransactionClient, userId: string, action: DailyActivityAction): Promise<DailyReward | null> {
-    const reward = DAILY_REWARDS[action];
+    const { settings } = await this.settings.read(tx);
+    const rewardKeys = { FIRST_MESSAGE: "firstMessageReward", FIRST_REPLY: "firstReplyReward", PROFILE_COMMENT: "profileCommentReward", PHOTO_LIKE: "photoLikeReward", PROFILE_POST_LIKE: "profilePostLikeReward" } as const;
+    const reward = { ...DAILY_REWARDS[action], credits: settings[rewardKeys[action]] };
+    if (reward.credits === 0) return null;
     const day = utcDay(new Date());
     const created = await tx.dailyActivityReward.createMany({
       data: { userId, action, day, credits: reward.credits },

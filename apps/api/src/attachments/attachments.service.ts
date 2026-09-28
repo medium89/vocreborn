@@ -1,3 +1,4 @@
+import { ChatSettingsService } from "../settings/chat-settings.service";
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import type { Attachment, AttachmentKind } from "@prisma/client";
 import { randomBytes } from "node:crypto";
@@ -23,7 +24,7 @@ const formats: Record<string, { extension: string; kind: AttachmentKind; maxSize
 @Injectable()
 export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
   private cleanupTimer: ReturnType<typeof setInterval> | undefined;
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly settings: ChatSettingsService) {}
 
   onModuleInit() {
     void this.cleanupExpired();
@@ -39,7 +40,9 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
     if (!file) throw new BadRequestException("Файл не передан");
     const format = formats[file.mimetype];
     if (!format) throw new BadRequestException("Разрешены только PNG, JPEG, WebP, MP3, OGG, WAV и WebM");
-    if (file.size > format.maxSize) throw new BadRequestException(format.kind === "IMAGE" ? "Изображение должно быть не больше 5 МБ" : "Аудио должно быть не больше 8 МБ");
+    const { settings } = await this.settings.read();
+    const maxMb = format.kind === "IMAGE" ? settings.imageMaxMb : settings.audioMaxMb;
+    if (file.size > Math.min(format.maxSize, maxMb * 1024 * 1024)) throw new BadRequestException("Файл должен быть не больше " + maxMb + " МБ");
     if (!this.signatureMatches(file.mimetype, file.buffer)) throw new BadRequestException("Содержимое файла не соответствует заявленному формату");
 
     const directory = join(process.cwd(), "storage", "attachments");
