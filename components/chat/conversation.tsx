@@ -27,6 +27,7 @@ const reactionByType = new Map(reactionOptions.map((item) => [item.type, item]))
 const composerEmojis = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","😘","😎","🤓","🤔","🤗","🤭","😴","😢","😭","😡","🤢","🥳","😮","😱","🤩","😈","👍","👎","👏","🙏","💪","👋","❤️","💔","🔥","✨","🎉","🎁","🎵","💬","🌿","☀️","🌙","⭐","✅","❌","💯","🚀","🍀","🌈","☕","🍕","🎮","📷","💻","⚡","🎂","🥂","😺","🐶","🦊","🐼","🌸","🌺","🖤","🤍","💚","💙","💜","🤝","✌️","👌","😌","😏","🙄","😬","🤪","🤫"];
 
 type ConversationProps = {
+  radioControlsRef?: (element: HTMLDivElement | null) => void;
   currentUserId?: string; canUseAdminVoice: boolean; adminVoice: boolean; onAdminVoiceChange: (value: boolean) => void; appearance?: CosmeticAppearance; onAppearanceChanged: (appearance: CosmeticAppearance) => void; room: Room; dialog: string | null; dialogId: string | null; directConversations: DirectConversation[]; onOpenDirect: (person: Person) => void; onDismissDirect: (personId: string) => void; messages: Message[]; draft: string; muted: boolean;
   attachment: Attachment | null; replyingTo: Message | null; uploadingAttachment: boolean;
   canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; hasNewer: boolean; loadingOlder: boolean; notice: string;
@@ -150,7 +151,7 @@ function RoomInfoModal({ room, onClose }: { room: Room; onClose: () => void }) {
   </div>;
 }
 
-export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest }: ConversationProps) {
+export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
   const { theme, toggleTheme } = useSiteTheme();
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
@@ -483,6 +484,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
         </div>
       </>}
     </div>
+    <div className="room-radio-controls" ref={radioControlsRef} />
     {searchOpen && <div className="message-search-backdrop" onMouseDown={() => setSearchOpen(false)}><section className="message-search" onMouseDown={(event) => event.stopPropagation()}><div><strong>Поиск по всей истории</strong><button type="button" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X size={16} /></button></div><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Текст или имя автора" />{searchLoading ? <p className="message-search-state">Поиск…</p> : searchQuery.trim() && (searchResults.length ? <ul>{searchResults.map((message) => <li key={message.id}><button type="button" onClick={() => { setSearchOpen(false); jumpToMessage(message.id, message); }}><strong>{message.author}</strong><small>{message.time} · {message.body || "Вложение"}</small></button></li>)}</ul> : <p className="message-search-state">Ничего не найдено.</p>)}</section></div>}
     {(directConversations.length > 0 || contentTab !== "chat" || dialog) && <DirectConversationTabs conversations={directConversations} dialogId={dialogId} showReturn={contentTab !== "chat" || Boolean(dialog)} onReturn={returnToRoomChat} onOpen={onOpenDirect} onDismiss={onDismissDirect} />}
     <div className={"conversation-message-area" + (contentTab === "chat" ? "" : " tab-hidden")}>

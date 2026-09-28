@@ -648,8 +648,7 @@ html,body{height:100%;overflow:hidden}.shell{height:100dvh;min-height:0;overflow
 @media(max-width:850px){.community-chat-page{display:flex;flex-direction:column;height:auto;min-height:100%;overflow:visible}.community-chat-people-panel{display:none}.community-chat-main{min-height:calc(100dvh - 120px)}.community-chat-page-messages{padding-left:16px;padding-right:16px}.community-chat-page-composer,.community-composer-file{margin-left:16px;margin-right:16px}.community-chat-page-composer{margin-bottom:12px}.community-chat-error{position:static;margin:10px 16px}}
 
 /* Message navigation controls share one compact visual language. */
-.jump-to-latest{gap:6px;padding:7px 12px;border:0;border-radius:9px;background:#eef2ec;color:#71807a;font-size:12px;font-weight:400;box-shadow:none}
-.jump-to-latest:hover{background:#eef2ec;border-color:transparent;color:#71807a}
+.jump-to-latest{z-index:12;color:#557026;background:#f8fcec;border:1px solid #c9df91;border-radius:10px;align-items:center;gap:6px;padding:8px 12px;font-size:11px;font-weight:800;display:flex;position:absolute;bottom:110px;left:50%;transform:translate(-50%);box-shadow:0 8px 22px #53672a26}
 .jump-to-latest:active:not(:disabled){transform:translateX(-50%);background:#dfe7dc;color:#64736c}
 
 /* Community topic creation form. */
@@ -2183,7 +2182,6 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 :root[data-theme="dark"] .person-name-dj{color:#d6b4ff}
 .radio-dj-toggle{display:flex!important;align-items:center;gap:10px;margin:16px 0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-soft);color:var(--ink);font-size:13px}
 .radio-dj-toggle input{accent-color:#9560d5;flex:0 0 auto}
-.app:has(>.radio-player){display:flex;flex-direction:column}.app:has(>.radio-player)>.layout{flex:1;min-height:0;height:auto}
 :root[data-theme="dark"] .radio-tabs button{background:#26382c;color:#eaf0dd}:root[data-theme="dark"] .radio-tabs button.active{background:#553b70;color:#ead9ff}
 .radio-player{display:flex;align-items:center;gap:10px;flex:0 0 auto;min-width:0;padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--line)}
 .radio-listen,.radio-order-link{display:flex;align-items:center;gap:6px;flex:0 0 auto;padding:8px 10px;border-radius:9px;background:#eee4ff;color:#7246ae;font-size:12px;font-weight:600}
@@ -2353,3 +2351,33 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
   .people-panel.mobile-open .panel-title h3{margin-top:0;white-space:nowrap}
   .people-panel.mobile-open .online-count{flex:0 0 auto;margin-left:0}
 }
+
+/* Desktop composer spacing; retain the compact mobile layout and dark palette. */
+@media(min-width:851px){
+  .composer,.shell .composer{
+    border:1px solid var(--line);
+    background:#fff;
+    border-radius:14px;
+    align-items:center;
+    margin:0 15px 0px 42px;
+    padding:5px 7px 5px 12px;
+    display:flex;
+  }
+}
+
+/* Radio belongs below the room heading, not above the whole application. */
+.room-radio-controls:empty{display:none}
+.room-radio-controls{flex:0 0 auto;min-width:0;padding:0 15px 0 40px}
+.radio-room-player{flex-wrap:wrap;gap:8px;min-height:42px;padding:6px 0;background:transparent;border:0}
+.radio-room-player .radio-listen{padding:6px 9px;border:1px solid var(--line);font-size:11px}
+.radio-room-player .radio-listen span{max-width:none;white-space:nowrap}
+.radio-room-player .radio-listen:disabled{background:transparent;color:var(--muted)}
+.radio-room-player .radio-song-order{width:auto;min-height:30px;padding:6px 11px;border:1px solid #ceb5ef;background:linear-gradient(135deg,#f0e7ff,#e8d9fa);color:#70429d;font-size:11px;font-weight:600;box-shadow:0 3px 10px #8453b512;transition:background .16s ease,box-shadow .16s ease}
+.radio-room-player .radio-song-order span{display:inline;white-space:nowrap}
+.radio-room-player .radio-song-order:hover{background:linear-gradient(135deg,#e8d7ff,#dbc4f5);box-shadow:0 4px 13px #8453b526}
+.radio-room-player .radio-order-link:not(.radio-song-order){margin-left:auto}
+.radio-room-player .radio-now{flex:1 1 160px;font-size:11px}
+.radio-player-error{flex-basis:100%;color:var(--muted);font-size:11px}
+:root[data-theme="dark"] .radio-room-player .radio-song-order{border-color:#8e62b8;background:linear-gradient(135deg,#49305f,#342842);color:#ecd9ff}
+:root[data-theme="dark"] .radio-room-player .radio-song-order:hover{background:linear-gradient(135deg,#5b3b77,#443154)}
+@media(max-width:850px){.room-radio-controls{padding:0 8px}.radio-room-player{gap:6px}.radio-room-player .radio-song-order{padding:6px 9px}.radio-room-player .radio-now{flex-basis:100%;order:3}.radio-room-player .radio-volume{margin-left:auto}}

@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Headphones, Music2, Pause, Play, Radio } from "lucide-react";
 import { getRadioStatus, type RadioStatus } from "@/lib/radio-api";
 import type { AuthUser } from "@/lib/chat-contract";
 
-export function RadioPlayer({ user, onOpen }: { user: AuthUser; onOpen: (mode: "requests" | "studio") => void }) {
+export function RadioPlayer({ user, onOpen, controlsTarget }: { user: AuthUser; onOpen: (mode: "requests" | "studio") => void; controlsTarget: HTMLElement | null }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [state, setState] = useState<RadioStatus | null>(null);
   const [playing, setPlaying] = useState(false);
@@ -42,12 +43,13 @@ export function RadioPlayer({ user, onOpen }: { user: AuthUser; onOpen: (mode: "
     catch { setError("Не удалось подключиться. Нажмите, чтобы попробовать снова"); setPlaying(false); }
   }
   if (!state?.enabled) return null;
-  return <section className="radio-player" aria-label="Радио TUSOVA">
-    <audio ref={audio} preload="none" onError={() => { setError("Эфир прерван. Подключитесь ещё раз"); setPlaying(false); }} />
-    <button type="button" className="radio-listen" disabled={!state.live} onClick={() => void toggle()} aria-label={playing ? "Остановить эфир" : "Слушать эфир"}>{playing ? <Pause size={17} /> : <Play size={17} />}<span>{playing ? "Эфир" : state.live ? "Слушать эфир" : "Эфир офлайн"}</span></button>
-    <span className="radio-now"><b>{state.live && <i>LIVE</i>} {state.host?.displayName ?? "TUSOVA Radio"}</b><small>{error || (state.track ? state.track.artist + " — " + state.track.title : "Музыка нашей тусовы")}</small></span>
+  const controls = <section className={"radio-player radio-room-player" + (state.live ? " is-live" : "")} aria-label="Радио TUSOVA">
+    <button type="button" className="radio-listen" disabled={!state.live} onClick={() => void toggle()} aria-label={playing ? "Остановить эфир" : state.live ? "Слушать эфир" : "Эфир офлайн"}>{playing ? <Pause size={15} /> : state.live ? <Play size={15} /> : <Radio size={15} />}<span>{playing ? "В эфире" : state.live ? "Слушать эфир" : "Эфир офлайн"}</span></button>
+    <button type="button" className="radio-order-link radio-song-order" onClick={() => onOpen("requests")}><Music2 size={15} /><span>Заказать песню</span></button>
+    {state.live && <span className="radio-now"><b><i>LIVE</i> {state.host?.displayName ?? "TUSOVA Radio"}</b><small>{state.track ? state.track.artist + " — " + state.track.title : "Музыка нашей тусовы"}</small></span>}
     {playing && <label className="radio-volume"><span className="visually-hidden">Громкость эфира</span><input type="range" min="0" max="1" step=".05" value={volume} onChange={event => setVolume(Number(event.target.value))} /></label>}
-    <button type="button" className="radio-order-link" onClick={() => onOpen("requests")} title="Заказать песню"><Music2 size={17} /><span>Заказать песню</span></button>
     {(user.isDj || user.role === "admin") && <button type="button" className="radio-order-link" onClick={() => onOpen("studio")} title="Студия DJ" aria-label="Студия DJ"><Headphones size={17} /><span>Студия</span></button>}
+    {error && <small className="radio-player-error" role="status">{error}</small>}
   </section>;
+  return <><audio ref={audio} hidden preload="none" onError={() => { setError("Эфир прерван. Подключитесь ещё раз"); setPlaying(false); }} />{controlsTarget && createPortal(controls, controlsTarget)}</>;
 }
