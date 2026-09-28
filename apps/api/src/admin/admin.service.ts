@@ -37,7 +37,7 @@ export class AdminService {
           : { status: { in: ["ONLINE", "AWAY", "DND"] as const } }),
       },
       orderBy: { createdAt: "desc" },
-      select: { id: true, username: true, displayName: true, role: true, status: true, createdAt: true, _count: { select: { messages: true, reportsReceived: true } } },
+      select: { id: true, username: true, displayName: true, role: true, isDj: true, status: true, createdAt: true, _count: { select: { messages: true, reportsReceived: true } } },
     });
     return users.map((user) => ({ ...user, role: user.role.toLowerCase(), status: user.status.toLowerCase(), createdAt: user.createdAt.toISOString() }));
   }
@@ -47,7 +47,7 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: {
-        id: true, username: true, displayName: true, bio: true, gender: true, role: true, status: true,
+        id: true, username: true, displayName: true, bio: true, gender: true, role: true, isDj: true, status: true,
         rating: true, credits: true, avatarKey: true, isGuest: true, isBot: true, createdAt: true, updatedAt: true,
         _count: { select: { messages: true, profilePosts: true, reportsReceived: true } },
       },

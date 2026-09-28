@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import type { Gender, Person, Room } from "@/lib/chat-contract";
-import { BellOff, BellRing, Crown, Flag, MessageCircle, Shield, ShieldCheck, Star, UserRound, UsersRound, X } from "lucide-react";
+import { BellOff, BellRing, Headphones, Crown, Flag, MessageCircle, Shield, ShieldCheck, Star, UserRound, UsersRound, X } from "lucide-react";
 import { Avatar } from "./avatar";
 
 type PrivateMessagePreview = { peerId: string; text: string };
@@ -25,15 +25,15 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
   const isSelf = person.id === currentUserId;
   const role = person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
-  const avatarRole = role ?? (isVip ? "vip" : null);
+  const avatarRole = person.isDj ? "dj" : role ?? (isVip ? "vip" : null);
   return <div className="person">
     <span className={"presence person-presence " + person.status} />
     <span className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
       <button type="button" className="person-avatar-button" aria-label={"Открыть профиль " + person.name} onClick={() => onClick(person)}>
         <Avatar value={person.avatar} previewUrl={person.avatarThumbnail} previewHint="Нажмите, чтобы открыть профиль" name={person.name} className={person.status} />
       </button>
-      {avatarRole && <span className={"person-avatar-role person-avatar-role-" + avatarRole} title={avatarRole === "admin" ? "Администратор" : avatarRole === "moderator" ? "Модератор" : "VIP"} aria-hidden="true">
-        {avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
+      {avatarRole && <span className={"person-avatar-role person-avatar-role-" + avatarRole} title={avatarRole === "admin" ? "Администратор" : avatarRole === "moderator" ? "Модератор" : avatarRole === "dj" ? "DJ" : "VIP"} aria-hidden="true">
+        {avatarRole === "dj" ? <Headphones size={11} /> : avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
       </span>}
       {visiblePreview && !isSelf && <button type="button" className={"private-message-preview " + (isPreviewLeaving ? "is-leaving" : "")} data-testid="private-message-preview" aria-label={"Открыть личное сообщение от " + person.name} onClick={(event) => { event.stopPropagation(); onOpenPrivate(person); }}>
         <MessageCircle size={15} /><span><small>Личное сообщение</small><strong>{visiblePreview}</strong></span>
@@ -46,7 +46,9 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     </button>
     <div className="person-lower">
       <span className="person-role-badges">
-        {!role && !isVip && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
+        {person.isDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
+        {person.isBot && person.username === "tusova_quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
+        {!role && !isVip && !person.isDj && !person.isBot && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>

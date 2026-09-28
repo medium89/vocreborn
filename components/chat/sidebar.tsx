@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/chat-contract";
-import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, CircleHelp, Coins, Gift, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Moon, Settings, ShieldCheck, Sun, UserRound, UsersRound } from "lucide-react";
+import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, CircleHelp, Coins, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Moon, Settings, ShieldCheck, Sun, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
 import { Avatar } from "./avatar";
 import { useSiteTheme } from "@/lib/use-site-theme";
 
@@ -13,7 +13,7 @@ type SidebarProps = {
   unreadDirects: number;
   unreadNotifications: number;
   unreadChatMessages: number;
-  activeSection: "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin";
+  activeSection: "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin" | "radio";
   onOpenProfile: () => void;
   onSetStatus: (status: "online" | "dnd") => void;
   onLogout: () => void;
@@ -30,6 +30,7 @@ type SidebarProps = {
   shopBadge: number;
   onOpenReports: () => void;
   onOpenAdmin: () => void;
+  onOpenRadio: () => void;
   onNotice: (message: string) => void;
 };
 
@@ -79,10 +80,11 @@ function CreditBalance({ credits, mobile = false, onOpenStore }: { credits: numb
   </button>;
 }
 
-export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenReports, onOpenAdmin, onNotice }: SidebarProps) {
+export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenReports, onOpenAdmin, onOpenRadio, onNotice }: SidebarProps) {
   const name = user?.displayName ?? "Гость";
   const canModerate = user?.role === "admin" || user?.role === "moderator";
   const [collapsed, setCollapsed] = useState(false);
+  const logoutDialogRef = useRef<HTMLDialogElement | null>(null);
   useEffect(() => { const key = "tusova-sidebar-collapsed"; const legacyKey = "aura-sidebar-collapsed"; const saved = window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey); setCollapsed(saved === "true"); if (saved !== null) window.localStorage.setItem(key, saved); window.localStorage.removeItem(legacyKey); }, []);
   const { theme, toggleTheme } = useSiteTheme();
   function toggleCollapsed() { setCollapsed((current) => { const next = !current; window.localStorage.setItem("tusova-sidebar-collapsed", String(next)); return next; }); }
@@ -100,17 +102,28 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
     </section>
     <nav className="rail-nav">
       {user && <button type="button" className="rail-link rail-mobile-profile" onClick={onOpenProfile} aria-label="Мой профиль" title="Мой профиль"><UserRound size={18} /><span>Профиль</span></button>}
-      {user && <button type="button" className="rail-link rail-mobile-logout" onClick={onLogout} aria-label="Выйти из чата" title="Выйти из чата"><LogOut size={18} /><span>Выйти</span></button>}
       <button className={"rail-link " + (activeSection === "chat" ? "active" : "")} onClick={onOpenChat}><MessageCircle size={18} /><span>Чат</span>{unreadChatMessages > 0 && <b className="direct-unread-count">{unreadChatMessages > 99 ? "99+" : unreadChatMessages}</b>}</button>
-      {(activeSection === "chat" || activeSection === "community-chat") && <button type="button" className="rail-link rail-mobile-people" onClick={onOpenPeople} aria-label="Кто в чате" title="Кто в чате"><UsersRound size={18} /><span>Кто в чате</span></button>}
+      {(activeSection === "chat" || activeSection === "community-chat") && <button type="button" className="rail-link rail-mobile-people" onClick={onOpenPeople} aria-label="Кто в чате" title="Кто в чате"><UserRoundSearch size={18} /><span>Кто в чате</span></button>}
       {SHOW_DIRECTS_NAV && <button className={"rail-link " + (activeSection === "directs" ? "active" : "")} onClick={user ? onOpenDirects : () => onNotice("Войдите, чтобы открыть личку.")}><MessagesSquare size={18} /><span>Личка</span>{unreadDirects > 0 && <b className="direct-unread-count">{unreadDirects > 99 ? "99+" : unreadDirects}</b>}</button>}
       {communityChatName && <button className={"rail-link " + (activeSection === "community-chat" ? "active" : "")} onClick={onOpenCommunityChat}><MessagesSquare size={18} /><span>{communityChatName}</span></button>}
       <button className={"rail-link " + (activeSection === "notifications" ? "active" : "")} onClick={user ? onOpenNotifications : () => onNotice("Войдите, чтобы открыть уведомления.")}><Bell size={18} /><span>Уведомления</span>{unreadNotifications > 0 && <b className="direct-unread-count">{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</button>
-      <button className={"rail-link " + (activeSection === "communities" ? "active" : "")} onClick={onOpenCommunities}><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b className="direct-unread-count">{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>
+      <button className={"rail-link " + (activeSection === "communities" ? "active" : "")} onClick={onOpenCommunities} aria-label="Сообщества" title="Сообщества"><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b className="direct-unread-count">{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>
       <button className={"rail-link " + (activeSection === "store" ? "active" : "")} onClick={onOpenGifts}><Gift size={18} /><span>Магазин</span>{shopBadge > 0 && <b className="direct-unread-count">{shopBadge > 99 ? "99+" : shopBadge}</b>}</button>
+      <button type="button" className={"rail-link " + (activeSection === "radio" ? "active" : "")} onClick={onOpenRadio} aria-label="Радио TUSOVA" title="Радио TUSOVA"><Headphones size={18} /><span>Радио</span></button>
       {canModerate && <section className="rail-admin" aria-label="Административные функции"><span>УПРАВЛЕНИЕ</span><button className={"rail-link " + (activeSection === "reports" ? "active" : "")} onClick={onOpenReports}><ShieldCheck size={18} /><span>Модерация</span></button>{user?.role === "admin" && <button className={"rail-link " + (activeSection === "admin" ? "active" : "")} onClick={onOpenAdmin}><LayoutDashboard size={18} /><span>Управление</span></button>}</section>}
       {user && <CreditBalance key={user.id} credits={user.credits} mobile onOpenStore={onOpenGifts} />}
     </nav>
+    {user && <button type="button" className="rail-link rail-mobile-logout" onClick={() => logoutDialogRef.current?.showModal()} aria-label="Выйти из чата" title="Выйти из чата"><LogOut size={18} /><span>Выйти</span></button>}
+    <dialog ref={logoutDialogRef} className="logout-confirm" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-description" onClick={(event) => { if (event.target === event.currentTarget) logoutDialogRef.current?.close(); }}>
+      <section>
+        <h2 id="logout-confirm-title">Выйти из чата?</h2>
+        <p id="logout-confirm-description">Вы точно хотите выйти из своего аккаунта?</p>
+        <div className="logout-confirm-actions">
+          <button type="button" autoFocus onClick={() => logoutDialogRef.current?.close()}>Отмена</button>
+          <button type="button" className="logout-confirm-submit" onClick={() => { logoutDialogRef.current?.close(); onLogout(); }}>Выйти</button>
+        </div>
+      </section>
+    </dialog>
     <div className="rail-bottom"><button className="icon-button" aria-label={theme === "light" ? "Включить тёмную тему" : "Включить светлую тему"} title={theme === "light" ? "Тёмная тема" : "Светлая тема"} onClick={toggleTheme}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button><button className="icon-button" aria-label="Справка" title="Справка" onClick={() => { window.location.href = "/help"; }}><CircleHelp size={17} /></button><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
   </aside>;
 }

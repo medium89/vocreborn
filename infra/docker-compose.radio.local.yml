@@ -1,0 +1,30 @@
+services:
+  radio-worker:
+    build:
+      context: ..
+      dockerfile: infra/radio/worker.Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    ports:
+      - "127.0.0.1:3006:8090"
+    environment:
+      RADIO_WORKER_TOKEN: ${RADIO_WORKER_TOKEN:?Set RADIO_WORKER_TOKEN}
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:?Set ICECAST_SOURCE_PASSWORD}
+      RADIO_STORAGE_DIR: /radio-files
+    volumes:
+      - ../apps/api/storage/radio:/radio-files:ro
+    depends_on:
+      - icecast
+  icecast:
+    build:
+      context: ..
+      dockerfile: infra/radio/icecast.Dockerfile
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.5
+    ports:
+      - "127.0.0.1:3005:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:?Set ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:?Set ICECAST_ADMIN_PASSWORD}

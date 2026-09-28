@@ -45,6 +45,8 @@ export type ReactionUpdate = {
   participantIds?: string[];
 };
 export type ApiMessage = {
+  quizKind?: string;
+  quizRoundId?: string;
   id: string | number;
   authorId?: string;
   author: string;
@@ -62,6 +64,7 @@ export type ApiMessage = {
 };
 
 export type ApiPerson = {
+  isDj?: boolean;
   id: string;
   username: string;
   name: string;

@@ -7,8 +7,8 @@ type AvatarProps = {
 };
 
 export function Avatar({ value, name, className = "", previewUrl, previewHint }: AvatarProps) {
-  const image = value?.startsWith("http://") || value?.startsWith("https://");
-  const preview = previewUrl?.startsWith("http://") || previewUrl?.startsWith("https://");
+  const image = value?.startsWith("http://") || value?.startsWith("https://") || value?.startsWith("blob:");
+  const preview = previewUrl?.startsWith("http://") || previewUrl?.startsWith("https://") || previewUrl?.startsWith("blob:");
   return (
     <span className={"avatar " + className}>
       {image ? <img src={value ?? undefined} alt="" /> : value || name[0]?.toUpperCase() || "?"}

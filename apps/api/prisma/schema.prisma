@@ -110,6 +110,10 @@ enum NotificationType {
 }
 
 enum EconomyEntryType {
+  QUIZ_REWARD
+  RADIO_RESERVE
+  RADIO_REFUND
+  RADIO_CHARGE
   MESSAGE_RATING
   DAILY_ACTIVITY_CREDIT
   DAILY_FIRST_MESSAGE
@@ -144,6 +148,7 @@ model User {
   avatarKey       String?           @map("avatar_key") @db.VarChar(255)
   avatarThumbKey  String?           @map("avatar_thumb_key") @db.VarChar(255)
   role            UserRole          @default(USER)
+  isDj            Boolean           @default(false) @map("is_dj")
   status          UserStatus        @default(OFFLINE)
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
@@ -193,6 +198,10 @@ model User {
   supportTickets SupportTicket[]
   friendshipsAsA Friendship[] @relation("FriendshipUserA")
   friendshipsAsB Friendship[] @relation("FriendshipUserB")
+  radioRequests RadioRequest[]
+  radioUploads RadioUpload[]
+  radioBroadcasts RadioBroadcast[]
+  quizWins QuizRound[]
 
   @@map("users")
 }
@@ -289,6 +298,9 @@ model RoomMembership {
 }
 
 model Message {
+  quizKind String? @map("quiz_kind") @db.VarChar(16)
+  quizRoundId String? @map("quiz_round_id") @db.Uuid
+  quizAcceptedAt DateTime? @map("quiz_accepted_at")
   id          String            @id @default(uuid()) @db.Uuid
   authorId    String?           @map("author_id") @db.Uuid
   authorName  String            @map("author_name") @db.VarChar(64)
@@ -318,6 +330,7 @@ model Message {
   @@index([authorId, recipientId, createdAt(sort: Desc)])
   @@index([recipientId, readAt, createdAt(sort: Desc)])
   @@index([replyToId])
+  @@index([roomId, quizAcceptedAt, id])
   @@map("messages")
 }
 
@@ -736,11 +749,82 @@ model EconomyEntry {
   balanceAfter  Int              @map("balance_after")
   messageId     String?          @unique @map("message_id") @db.Uuid
   giftId        String?          @map("gift_id") @db.VarChar(64)
+  referenceKey  String?          @unique @map("reference_key") @db.VarChar(100)
   createdAt     DateTime         @default(now()) @map("created_at")
   user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt(sort: Desc)])
   @@map("economy_entries")
+}
+
+enum RadioRequestStatus {
+  WAITING
+  ACCEPTED
+  PLAYING
+  COMPLETED
+  REJECTED
+  CANCELLED
+  EXPIRED
+}
+
+enum RadioPayment {
+  HELD
+  CHARGED
+  REFUNDED
+}
+
+model RadioBroadcast {
+  id String @id @default("main") @db.VarChar(32)
+  hostId String? @map("host_id") @db.Uuid
+  epoch String? @db.Uuid
+  accepting Boolean @default(false)
+  price Int @default(5)
+  currentId String? @map("current_id") @db.Uuid
+  startedAt DateTime? @map("started_at")
+  host User? @relation(fields: [hostId], references: [id], onDelete: SetNull)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("radio_broadcasts")
+}
+
+model RadioUpload {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  storageKey String? @map("storage_key") @db.VarChar(64)
+  originalName String @map("original_name") @db.VarChar(150)
+  size Int
+  mimeType String @map("mime_type") @db.VarChar(80)
+  duration Float
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request RadioRequest?
+  @@index([expiresAt])
+  @@map("radio_uploads")
+}
+
+model RadioRequest {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  epoch String @db.Uuid
+  idempotencyKey String @map("idempotency_key") @db.Uuid
+  artist String @db.VarChar(120)
+  title String @db.VarChar(160)
+  note String @default("") @db.VarChar(500)
+  studio Boolean @default(false)
+  price Int
+  payment RadioPayment @default(HELD)
+  status RadioRequestStatus @default(WAITING)
+  decision String @default("") @db.VarChar(300)
+  uploadId String? @unique @map("upload_id") @db.Uuid
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  upload RadioUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  @@unique([userId, idempotencyKey])
+  @@index([epoch, status, createdAt])
+  @@index([expiresAt])
+  @@map("radio_requests")
 }
 
 
@@ -756,4 +840,113 @@ model DailyActivityReward {
   @@unique([userId, action, day])
   @@index([userId, day])
   @@map("daily_activity_rewards")
+}
+
+model QuizConfig {
+  id String @id @default("main") @db.VarChar(32)
+  enabled Boolean @default(false)
+  paused Boolean @default(false)
+  timezone String @default("Asia/Barnaul") @db.VarChar(64)
+  windows Json @default("[{\"days\":[0,1,2,3,4,5,6],\"start\":\"00:00\",\"end\":\"24:00\"}]")
+  intervalSeconds Int @default(300) @map("interval_seconds")
+  durationSeconds Int @default(90) @map("duration_seconds")
+  hint1Seconds Int @default(30) @map("hint1_seconds")
+  hint2Seconds Int @default(60) @map("hint2_seconds")
+  reward Int @default(5)
+  minOnline Int @default(2) @map("min_online")
+  dailyQuestions Int @default(200) @map("daily_questions")
+  dailyBudget Int @default(1000) @map("daily_budget")
+  playerDailyWins Int @default(10) @map("player_daily_wins")
+  playerDailyCredits Int @default(50) @map("player_daily_credits")
+  noRepeatHours Int @default(24) @map("no_repeat_hours")
+  randomOrder Boolean @default(false) @map("random_order")
+  recycle Boolean @default(true)
+  excludedUserIds String[] @map("excluded_user_ids") @db.Uuid
+  activeRoundId String? @map("active_round_id") @db.Uuid
+  nextAt DateTime? @map("next_at")
+  lastReason String? @map("last_reason") @db.VarChar(200)
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("quiz_config")
+}
+
+model QuizTheme {
+  id String @id @default(uuid()) @db.Uuid
+  externalId String @unique @map("external_id") @db.VarChar(64)
+  title String @db.VarChar(120)
+  revision Int @default(1)
+  enabled Boolean @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  questions QuizQuestion[]
+  @@map("quiz_themes")
+}
+
+model QuizQuestion {
+  id String @id @default(uuid()) @db.Uuid
+  themeId String @map("theme_id") @db.Uuid
+  externalId String @map("external_id") @db.VarChar(64)
+  position Int
+  question String @db.VarChar(1000)
+  answer String @db.VarChar(100)
+  acceptedAnswers String[] @map("accepted_answers")
+  askedCount Int @default(0) @map("asked_count")
+  lastAskedAt DateTime? @map("last_asked_at")
+  theme QuizTheme @relation(fields:[themeId],references:[id],onDelete:Cascade)
+  @@unique([themeId,externalId])
+  @@index([lastAskedAt,askedCount])
+  @@map("quiz_questions")
+}
+
+model QuizRound {
+  id String @id @default(uuid()) @db.Uuid
+  themeId String @map("theme_id") @db.Uuid
+  questionId String @map("question_id") @db.Uuid
+  themeTitle String @map("theme_title") @db.VarChar(120)
+  revision Int
+  question String @db.VarChar(1000)
+  answer String @db.VarChar(100)
+  acceptedAnswers String[] @map("accepted_answers")
+  hintPositions Int[] @map("hint_positions")
+  hintsSent Int @default(0) @map("hints_sent")
+  hint1At DateTime @map("hint1_at")
+  hint2At DateTime @map("hint2_at")
+  startedAt DateTime @map("started_at")
+  endsAt DateTime @map("ends_at")
+  finishedAt DateTime? @map("finished_at")
+  status String @default("ACTIVE") @db.VarChar(16)
+  dayKey String @map("day_key") @db.VarChar(90)
+  reward Int
+  playerDailyWins Int @map("player_daily_wins")
+  playerDailyCredits Int @map("player_daily_credits")
+  winnerId String? @map("winner_id") @db.Uuid
+  winnerName String? @map("winner_name") @db.VarChar(64)
+  winningMessageId String? @map("winning_message_id") @db.Uuid
+  cursorAt DateTime @map("cursor_at")
+  cursorId String? @map("cursor_id") @db.Uuid
+  winner User? @relation(fields:[winnerId],references:[id],onDelete:SetNull)
+  attempts QuizAttempt[]
+  @@index([dayKey,status])
+  @@index([winnerId,dayKey,status])
+  @@index([startedAt(sort:Desc)])
+  @@map("quiz_rounds")
+}
+
+model QuizAttempt {
+  roundId String @map("round_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  lastAt DateTime @map("last_at")
+  round QuizRound @relation(fields:[roundId],references:[id],onDelete:Cascade)
+  @@id([roundId,userId])
+  @@map("quiz_attempts")
+}
+
+model QuizPublication {
+  messageId String @id @map("message_id") @db.Uuid
+  roundId String @map("round_id") @db.Uuid
+  kind String @db.VarChar(16)
+  rewardUserId String? @map("reward_user_id") @db.Uuid
+  deliveredAt DateTime? @map("delivered_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([deliveredAt,createdAt])
+  @@map("quiz_publications")
 }

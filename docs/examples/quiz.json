@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "id": "night-nature",
+  "theme": "Ночной мир",
+  "questions": [
+    { "id": "owl", "question": "Какая ночная птица стала символом TUSOVA?", "answer": "сова", "acceptedAnswers": ["совушка"] },
+    { "id": "moon", "question": "Как называется естественный спутник Земли?", "answer": "луна", "acceptedAnswers": [] },
+    { "id": "tree", "question": "Какое дерево принято украшать на Новый год?", "answer": "ёлочка", "acceptedAnswers": ["ель", "новогодняя ёлка"] }
+  ]
+}

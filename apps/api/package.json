@@ -13,7 +13,9 @@
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
     "user:role": "node --env-file=.env node_modules/tsx/dist/cli.mjs scripts/set-role.ts",
-    "test:integration": "npm run build && node --test test/api.integration.test.mjs"
+    "test:integration": "npm run build && node --test test/api.integration.test.mjs",
+    "test:radio": "npm run build && node --test test/radio.integration.test.mjs",
+    "test:quiz": "npm run build && node --test test/quiz.rules.test.mjs test/quiz.integration.test.mjs"
   },
   "prisma": {
     "seed": "node node_modules/tsx/dist/cli.mjs prisma/seed.ts"

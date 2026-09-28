@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
+import { RadioPlayer } from "@/components/chat/radio-player";
+import { RadioPage } from "@/components/chat/radio-page";
 import { AdminModal } from "@/components/chat/admin-modal";
 import { AuthModal } from "@/components/chat/auth-modal";
 import { Conversation } from "@/components/chat/conversation";
@@ -160,6 +162,11 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
+  const [radioView, setRadioView] = useState<"requests" | "studio" | null>(null);
+  useEffect(() => {
+    const sync = () => setRadioView(window.location.pathname === "/radio/studio" ? "studio" : window.location.pathname === "/radio/requests" ? "requests" : null);
+    sync(); window.addEventListener("popstate", sync); return () => window.removeEventListener("popstate", sync);
+  }, []);
   const [supportOpen, setSupportOpen] = useState(false);
   const [viewedProfile, setViewedProfile] = useState<Person | null>(null);
   const [reportTarget, setReportTarget] = useState<{ label: string; userId?: string; messageId?: string } | null>(null);
@@ -561,6 +568,7 @@ export default function Home() {
       showNotice(error.message ?? "Ошибка соединения в реальном времени.");
     });
 
+    socket.on("economy:changed", () => { void refreshEconomy(user.id); });
     socket.connect();
 
     return () => {
@@ -649,6 +657,8 @@ export default function Home() {
   );
 
   function leaveFullScreenSections() {
+    setRadioView(null);
+    if (window.location.pathname.startsWith("/radio/")) window.history.replaceState(window.history.state, "", "/");
     setNotificationsOpen(false);
     setCommunitiesOpen(false);
     setCommunityChatOpen(false);
@@ -657,6 +667,12 @@ export default function Home() {
     setQuickModerationTarget(null);
     setReportsOpen(false);
     setAdminOpen(false);
+  }
+
+  function openRadio(mode: "requests" | "studio") {
+    leaveFullScreenSections();
+    setRadioView(mode);
+    window.history.pushState(window.history.state, "", "/radio/" + mode);
   }
 
   function openOverlay(setOpen: (open: boolean) => void) {
@@ -1104,7 +1120,7 @@ export default function Home() {
         unreadChatMessages={unreadChatMessages}
         communityBadge={communityBadge}
         shopBadge={shopBadge}
-        activeSection={adminOpen ? "admin" : reportsOpen ? "reports" : communityChatOpen ? "community-chat" : notificationsOpen ? "notifications" : communitiesOpen ? "communities" : giftsOpen ? "store" : "chat"}
+        activeSection={radioView ? "radio" : adminOpen ? "admin" : reportsOpen ? "reports" : communityChatOpen ? "community-chat" : notificationsOpen ? "notifications" : communitiesOpen ? "communities" : giftsOpen ? "store" : "chat"}
         onOpenProfile={() => user && openOverlay(setProfileOpen)}
         onSetStatus={setPresenceStatus}
         onLogout={() => void signOut()}
@@ -1119,12 +1135,14 @@ export default function Home() {
         onOpenGifts={openGifts}
         onOpenReports={() => openOverlay(setReportsOpen)}
         onOpenAdmin={() => openOverlay(setAdminOpen)}
+        onOpenRadio={() => openRadio("requests")}
         onNotice={showNotice}
       />
       <section className="app">
+        <RadioPlayer user={user} onOpen={openRadio} />
 
         <div className="layout">
-          {moderationTarget && user ? <UserEditorPage key={moderationTarget.id} person={moderationTarget} actor={user} onBack={() => changeRoom(roomId)} onChanged={() => { void fetchUsers().then(setChatPeople).catch(() => showNotice("Не удалось обновить список пользователей.")); }} onModerate={(action, duration, reason) => moderatePerson(moderationTarget, action, duration, reason)} /> : communityChatOpen && myCommunity && user ? <CommunityChatPage community={myCommunity} user={user} rooms={rooms} roomId={roomId} mutedPeople={mutedPeople} onOpenProfile={setViewedProfile} onOpenPrivate={(person) => void openDialog(person)} onModerate={setModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} onBackToChat={() => changeRoom(roomId)} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : adminOpen && user?.role === "admin" ? <AdminModal onOpenRooms={() => { setAdminOpen(false); setRoomsOpen(true); }} onOpenReports={() => { setAdminOpen(false); setReportsOpen(true); }} onBackToChat={() => changeRoom(roomId)} /> : reportsOpen && user && user.role !== "user" ? <ReportsModal canBan={user.role === "admin"} onBackToChat={() => changeRoom(roomId)} /> : notificationsOpen ? <NotificationsPage enabledTypes={notificationTypeOptions.filter(({ key }) => notificationPreferences[key]).map(({ key }) => key)} allNotificationsCount={notifications.length} onClearAll={clearAllNotificationsForUser} onOpen={openNotification} onDelete={deleteNotification} onClose={() => changeRoom(roomId)} /> : communitiesOpen && user ? <CommunitiesModal user={user} onBalanceChanged={() => refreshEconomy(user.id)} onBackToChat={() => changeRoom(roomId)} /> : giftsOpen && user ? <GiftShopPage user={user} people={chatPeople} onBackToChat={() => changeRoom(roomId)} onBalanceChanged={(balance) => applyEconomyBalance(balance, user.id)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : <>
+          {radioView && user ? <RadioPage user={user} mode={radioView} onMode={openRadio} onBack={() => changeRoom(roomId)} onBalance={balance => applyEconomyBalance(balance, user.id)} /> : moderationTarget && user ? <UserEditorPage key={moderationTarget.id} person={moderationTarget} actor={user} onBack={() => changeRoom(roomId)} onChanged={() => { void fetchUsers().then(setChatPeople).catch(() => showNotice("Не удалось обновить список пользователей.")); }} onModerate={(action, duration, reason) => moderatePerson(moderationTarget, action, duration, reason)} /> : communityChatOpen && myCommunity && user ? <CommunityChatPage community={myCommunity} user={user} rooms={rooms} roomId={roomId} mutedPeople={mutedPeople} onOpenProfile={setViewedProfile} onOpenPrivate={(person) => void openDialog(person)} onModerate={setModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} onBackToChat={() => changeRoom(roomId)} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : adminOpen && user?.role === "admin" ? <AdminModal onOpenRooms={() => { setAdminOpen(false); setRoomsOpen(true); }} onOpenReports={() => { setAdminOpen(false); setReportsOpen(true); }} onBackToChat={() => changeRoom(roomId)} /> : reportsOpen && user && user.role !== "user" ? <ReportsModal canBan={user.role === "admin"} onBackToChat={() => changeRoom(roomId)} /> : notificationsOpen ? <NotificationsPage enabledTypes={notificationTypeOptions.filter(({ key }) => notificationPreferences[key]).map(({ key }) => key)} allNotificationsCount={notifications.length} onClearAll={clearAllNotificationsForUser} onOpen={openNotification} onDelete={deleteNotification} onClose={() => changeRoom(roomId)} /> : communitiesOpen && user ? <CommunitiesModal user={user} onBalanceChanged={() => refreshEconomy(user.id)} onBackToChat={() => changeRoom(roomId)} /> : giftsOpen && user ? <GiftShopPage user={user} people={chatPeople} onBackToChat={() => changeRoom(roomId)} onBalanceChanged={(balance) => applyEconomyBalance(balance, user.id)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : <>
           <Conversation currentUserId={user?.id} canUseAdminVoice={user?.role === "admin" || user?.role === "moderator"} adminVoice={adminVoice} onAdminVoiceChange={setAdminVoice} appearance={user?.appearance} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} room={room} dialog={dialog?.name ?? null} dialogId={dialog?.id ?? null} directConversations={visibleDirectConversations} onOpenDirect={(person) => void openDialog(person)} onDismissDirect={(personId) => setHiddenDirectIds((old) => new Set(old).add(personId))} messages={currentMessages} draft={draft} muted={muted || !user} attachment={attachment} replyingTo={replyingTo} uploadingAttachment={uploadingAttachment} canDelete={user?.role === "admin" || user?.role === "moderator"} canReport={Boolean(user)} canReact={Boolean(user)} hasOlder={dialog?.id ? Boolean(directCursors[dialog.id]) : Boolean(roomCursors[roomId])} hasNewer={dialog?.id ? Boolean(directHasNewer[dialog.id]) : Boolean(roomHasNewer[roomId])} loadingOlder={loadingOlder} notice={notice} onDraftChange={setDraft} onSend={send} onLoadOlder={() => void loadOlder()} onShowLatest={() => void showLatest()} onFileSelect={(file) => void handleFileSelect(file)} onRemoveAttachment={() => setAttachment(null)} onReply={setReplyingTo} onCancelReply={() => setReplyingTo(null)} onDelete={(messageId) => void handleDeleteMessage(messageId)} onReact={handleReaction} onRevealMessage={revealMessage} onReport={(messageId, label) => setReportTarget({ messageId, label })} onNotice={showNotice} onExitDialog={() => changeRoom(roomId)} mentionCandidates={currentPeople} mentionFocusRequest={mentionFocusRequest} />
           </>}
           {(moderationTarget || !(communityChatOpen && myCommunity && user)) && <PeoplePanel showMobileToggle={!moderationTarget && !adminOpen && !reportsOpen && !notificationsOpen && !communitiesOpen && !giftsOpen} people={currentPeople} rooms={rooms} roomId={roomId} currentUserId={user?.id ?? null} canModerate={user?.role === "admin" || user?.role === "moderator"} privateMessagePreview={privateMessagePreview} onOpenDialog={setViewedProfile} onMention={(person) => { leaveFullScreenSections(); const prefix = "@" + (person.username ?? person.name) + ": "; setDraft((current) => current + (current && !current.endsWith(" ") ? " " : "") + prefix); setMentionFocusRequest((value) => value + 1); }} onOpenPrivate={(person) => { leaveFullScreenSections(); void openDialog(person); }} onModerate={setQuickModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} mutedPeople={mutedPeople} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} />}

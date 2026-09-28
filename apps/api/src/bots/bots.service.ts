@@ -76,7 +76,7 @@ export class BotsService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     if (process.env.NODE_ENV === "test") return;
     if (process.env.NODE_ENV === "production" || process.env.TUSOVA_BOTS_ENABLED !== "true") {
-      await this.prisma.user.updateMany({ where: { isBot: true, status: UserStatus.ONLINE }, data: { status: UserStatus.OFFLINE } });
+      await this.prisma.user.updateMany({ where: { isBot: true, status: UserStatus.ONLINE, OR: [{ username: { startsWith: "tusova_bot_" } }, { username: { startsWith: "aura_bot_" } }] }, data: { status: UserStatus.OFFLINE } });
       return;
     }
     const room = await this.prisma.room.findUnique({ where: { id: "main" }, select: { id: true } });

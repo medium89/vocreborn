@@ -8,6 +8,7 @@ export type AuthenticatedUser = {
   email: string | null;
   emailVerified: boolean;
   role: Lowercase<UserRole>;
+  isDj: boolean;
   status: Lowercase<UserStatus>;
   gender: Lowercase<Gender>;
   rating: number;

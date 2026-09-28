@@ -245,6 +245,7 @@ export class ChatService {
       }
     }
 
+    let created = true;
     const message = await this.prisma.message.create({
       data: {
         roomId,
@@ -255,7 +256,14 @@ export class ChatService {
         requestId,
         replyToId,
       },
+    }).catch(async (error: unknown) => {
+      if (!requestId || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+      const existing = await this.prisma.message.findUnique({ where: { requestId } });
+      if (!existing || existing.authorId !== authorId || existing.roomId !== roomId) throw new ConflictException("requestId уже использован");
+      created = false;
+      return existing;
     });
+    if (!created) return this.getRoomMessage(roomId, message.id, authorId);
     try {
       await this.attachments.attachToMessage(authorId, attachmentId, message.id);
     } catch (error) {
@@ -268,6 +276,9 @@ export class ChatService {
       this.notifications.createMentions(authorId, completed.id, completed.body),
       this.economy.awardForPublicMessage(authorId, completed.id, completed.body, completed.replyTo?.authorId ?? undefined),
     ]);
+    if (roomId === "main" && process.env.TUSOVA_QUIZ_ENABLED === "true") {
+      await this.prisma.message.update({ where: { id: completed.id }, data: { quizAcceptedAt: new Date() } });
+    }
     return this.toApiMessage(completed, authorId);
   }
 
@@ -305,6 +316,7 @@ export class ChatService {
       isBot: user.isBot || undefined,
       isGuest: user.isGuest,
       role: user.role === "USER" ? undefined : user.role.toLowerCase(),
+      isDj: user.isDj,
       room: user.memberships[0]?.roomId ?? "main",
       avatar: user.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarKey : user.displayName[0]?.toUpperCase() ?? "?",
       avatarThumbnail: user.avatarThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarThumbKey : undefined,
@@ -361,6 +373,7 @@ export class ChatService {
           name: peer.displayName,
           status: peer.status.toLowerCase() as ApiPerson["status"],
           role: peer.role === "USER" ? undefined : peer.role.toLowerCase(),
+          isDj: peer.isDj,
           room: peer.memberships[0]?.roomId ?? "main",
           avatar: peer.displayName[0]?.toUpperCase() ?? "?",
           gender: peer.gender.toLowerCase() as ApiPerson["gender"],
@@ -596,6 +609,8 @@ export class ChatService {
       id: message.id,
       authorId: message.authorId ?? undefined,
       author: message.authorName,
+      quizKind: message.quizKind ?? undefined,
+      quizRoundId: message.quizRoundId ?? undefined,
       appearance: message.author?.cosmetics ? cosmeticAppearance(message.author.cosmetics) : undefined,
       adminVoice: message.adminVoice || undefined,
       avatarUrl: message.author?.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + message.author.avatarKey : undefined,

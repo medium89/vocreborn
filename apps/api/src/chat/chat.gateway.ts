@@ -209,6 +209,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   emitRoomMessage(roomId: string, message: Awaited<ReturnType<ChatService["createBotMessage"]>>) {
     this.server.to(roomId).emit("message:created", { roomId, message });
   }
+  emitEconomyChanged(userId: string) { this.server?.to("user:" + userId).emit("economy:changed"); }
+  emitBotPresence(userId: string, status: string) { this.server?.emit("presence:changed", { userId, status }); }
 
   emitDirectMessage(recipientId: string, authorId: string, message: Awaited<ReturnType<ChatService["createDirectMessage"]>>) {
     this.server.to("user:" + recipientId).emit("direct:created", { peerId: authorId, message });

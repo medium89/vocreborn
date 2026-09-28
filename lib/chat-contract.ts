@@ -53,6 +53,7 @@ export type NotificationFeed = {
   items: NotificationItem[];
 };
 export type PublicProfile = {
+  isDj?: boolean;
   id: string; username: string; displayName: string; bio: string | null; avatarUrl: string | null; avatarThumbnailUrl: string | null;
   rating: number; role: UserRole; status: UserStatus; gender: Gender; createdAt: string; appearance?: CosmeticAppearance;
   albums: Array<{ id: string; title: string; createdAt: string; photos: Array<{ id: string; originalName: string; url: string; thumbnailUrl: string; size: number; createdAt: string }> }>;
@@ -90,6 +91,7 @@ export type AdminOverview = {
 };
 
 export type AdminUser = {
+  isDj?: boolean;
   id: string;
   username: string;
   displayName: string;
@@ -107,6 +109,7 @@ export type PendingAttachment = Attachment & {
 
 
 export type AuthUser = {
+  isDj?: boolean;
   id: string;
   username: string;
   displayName: string;
@@ -143,6 +146,8 @@ export type Room = {
 };
 
 export type Message = {
+  quizKind?: string;
+  quizRoundId?: string;
   id: string | number;
   authorId?: string;
   author: string;
@@ -160,6 +165,7 @@ export type Message = {
 };
 
 export type Person = {
+  isDj?: boolean;
   id?: string;
   username?: string;
   name: string;

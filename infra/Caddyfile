@@ -1,6 +1,13 @@
 {$DOMAIN} {
   encode zstd gzip
 
+  handle /radio-stream/live.mp3 {
+    rewrite * /live.mp3
+    reverse_proxy icecast:8000 {
+      flush_interval -1
+    }
+  }
+
   handle /api/* {
     reverse_proxy api:3001
   }

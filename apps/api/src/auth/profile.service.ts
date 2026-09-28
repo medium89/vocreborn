@@ -52,7 +52,7 @@ export class ProfileService {
   async listFriends(userId: string) {
     const exists = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null }, select: { id: true } });
     if (!exists) throw new NotFoundException("Пользователь не найден");
-    const select = { id: true, username: true, displayName: true, avatarKey: true, status: true, role: true, gender: true, deletedAt: true } as const;
+    const select = { id: true, username: true, displayName: true, avatarKey: true, status: true, role: true, isDj: true, gender: true, deletedAt: true } as const;
     const links = await this.prisma.friendship.findMany({
       where: { OR: [{ userAId: userId }, { userBId: userId }] },
       orderBy: { createdAt: "desc" },
@@ -65,7 +65,7 @@ export class ProfileService {
       return [{
         id: friend.id, username: friend.username, displayName: friend.displayName,
         avatarUrl: friend.avatarKey ? baseUrl + friend.avatarKey : null,
-        status: friend.status.toLowerCase(), role: friend.role.toLowerCase(), gender: friend.gender.toLowerCase(),
+        isDj: friend.isDj, status: friend.status.toLowerCase(), role: friend.role.toLowerCase(), gender: friend.gender.toLowerCase(),
         friendsSince: link.createdAt.toISOString(),
       }];
     });
@@ -211,8 +211,8 @@ export class ProfileService {
   private toAlbum(album: { id: string; title: string; createdAt: Date; photos: Array<{ id: string; originalName: string; storageKey: string; thumbnailKey: string; size: number; createdAt: Date }> }) {
     return { id: album.id, title: album.title, createdAt: album.createdAt.toISOString(), photos: album.photos.map((photo) => this.toAlbumPhoto(photo)) };
   }
-  private toProfile(user: { id: string; username: string; displayName: string; bio: string | null; avatarKey: string | null; avatarThumbKey: string | null; role: string; status: string; gender: string; rating: number; createdAt: Date; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> }) {
+  private toProfile(user: { isDj?: boolean; id: string; username: string; displayName: string; bio: string | null; avatarKey: string | null; avatarThumbKey: string | null; role: string; status: string; gender: string; rating: number; createdAt: Date; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> }) {
     const baseUrl = process.env.PUBLIC_API_URL ?? "http://localhost:3001";
-    return { id: user.id, username: user.username, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null, avatarThumbnailUrl: user.avatarThumbKey ? baseUrl + user.avatarThumbKey : null, role: user.role.toLowerCase(), status: user.status.toLowerCase(), gender: user.gender.toLowerCase(), rating: user.rating, createdAt: user.createdAt.toISOString(), appearance: cosmeticAppearance(user.cosmetics ?? []) };
+    return { id: user.id, isDj: Boolean(user.isDj), username: user.username, displayName: user.displayName, bio: user.bio, avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null, avatarThumbnailUrl: user.avatarThumbKey ? baseUrl + user.avatarThumbKey : null, role: user.role.toLowerCase(), status: user.status.toLowerCase(), gender: user.gender.toLowerCase(), rating: user.rating, createdAt: user.createdAt.toISOString(), appearance: cosmeticAppearance(user.cosmetics ?? []) };
   }
 }

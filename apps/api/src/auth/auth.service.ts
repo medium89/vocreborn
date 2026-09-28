@@ -26,6 +26,7 @@ export class AuthService {
   ) {}
 
   async register(input: RegisterDto) {
+    if (input.username.toLowerCase() === "tusova_quiz") throw new BadRequestException("Это служебное имя бота");
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
     let user;
@@ -307,6 +308,7 @@ export class AuthService {
     email?: string | null;
     emailVerifiedAt?: Date | null;
     role: string;
+    isDj?: boolean;
     status: string;
     gender: string;
     rating?: number;
@@ -321,6 +323,7 @@ export class AuthService {
       username: user.username,
       displayName: user.displayName,
       role: user.role.toLowerCase() as AuthenticatedUser["role"],
+      isDj: Boolean(user.isDj),
       email: user.email ?? null,
       emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status.toLowerCase() as AuthenticatedUser["status"],

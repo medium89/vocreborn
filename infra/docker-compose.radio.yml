@@ -1,0 +1,42 @@
+# Add to existing TUSOVA compose files; audio service ports are loopback/private.
+services:
+  api:
+    environment:
+      TUSOVA_RADIO_ENABLED: ${TUSOVA_RADIO_ENABLED:-false}
+      RADIO_WORKER_URL: http://radio-worker:8090
+      RADIO_WORKER_TOKEN: ${RADIO_WORKER_TOKEN}
+      RADIO_STORAGE_DIR: /app/storage/radio
+    volumes:
+      - attachment-data:/app/storage
+  radio-worker:
+    build:
+      context: ..
+      dockerfile: infra/radio/worker.Dockerfile
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 1.0
+    environment:
+      RADIO_WORKER_TOKEN: ${RADIO_WORKER_TOKEN}
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      RADIO_STORAGE_DIR: /radio-files/radio
+    volumes:
+      - attachment-data:/radio-files:ro
+    depends_on:
+      - icecast
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8090/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  icecast:
+    build:
+      context: ..
+      dockerfile: infra/radio/icecast.Dockerfile
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.5
+    ports:
+      - "127.0.0.1:3005:8000"
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD}
