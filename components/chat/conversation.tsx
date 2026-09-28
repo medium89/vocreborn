@@ -475,7 +475,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
           <RoomCover room={room} />
           <div className="room-heading-copy">
             <span className="eyebrow">{room.kind === "general" ? "ОБЩАЯ КОМНАТА" : room.visibility === "private" ? "ПРИВАТНАЯ КОМНАТА" : "ПУБЛИЧНАЯ КОМНАТА"}</span>
-            <h2># {room.name.toLowerCase()}</h2>
+            <div className="room-heading-title-row"><h2># {room.name.toLowerCase()}</h2><div className="room-radio-controls" ref={radioControlsRef} /></div>
           </div>
         </div>
         <div className="room-head-actions">
@@ -484,7 +484,6 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
         </div>
       </>}
     </div>
-    <div className="room-radio-controls" ref={radioControlsRef} />
     {searchOpen && <div className="message-search-backdrop" onMouseDown={() => setSearchOpen(false)}><section className="message-search" onMouseDown={(event) => event.stopPropagation()}><div><strong>Поиск по всей истории</strong><button type="button" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X size={16} /></button></div><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Текст или имя автора" />{searchLoading ? <p className="message-search-state">Поиск…</p> : searchQuery.trim() && (searchResults.length ? <ul>{searchResults.map((message) => <li key={message.id}><button type="button" onClick={() => { setSearchOpen(false); jumpToMessage(message.id, message); }}><strong>{message.author}</strong><small>{message.time} · {message.body || "Вложение"}</small></button></li>)}</ul> : <p className="message-search-state">Ничего не найдено.</p>)}</section></div>}
     {(directConversations.length > 0 || contentTab !== "chat" || dialog) && <DirectConversationTabs conversations={directConversations} dialogId={dialogId} showReturn={contentTab !== "chat" || Boolean(dialog)} onReturn={returnToRoomChat} onOpen={onOpenDirect} onDismiss={onDismissDirect} />}
     <div className={"conversation-message-area" + (contentTab === "chat" ? "" : " tab-hidden")}>
