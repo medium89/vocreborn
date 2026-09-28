@@ -2378,3 +2378,51 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 :root[data-theme="dark"] .radio-room-player .radio-song-order{border-color:#8e62b8;background:linear-gradient(135deg,#49305f,#342842);color:#ecd9ff}
 :root[data-theme="dark"] .radio-room-player .radio-song-order:hover{background:linear-gradient(135deg,#5b3b77,#443154)}
 @media(max-width:850px){.room-radio-controls{padding:0 8px}.radio-room-player{gap:6px}.radio-room-player .radio-song-order{padding:6px 9px}.radio-room-player .radio-now{flex-basis:100%;order:3}.radio-room-player .radio-volume{margin-left:auto}}
+
+/* Profile settings are a full workspace page, not a blocking dialog. */
+.layout.profile-layout{display:block}
+.profile-page{display:flex;flex-direction:column;width:100%;height:100%;min-width:0;min-height:0;background:var(--surface);color:var(--ink)}
+.profile-page-header{flex-shrink:0;gap:12px;padding:22px 28px;border-bottom:1px solid var(--line)}
+.profile-page-header h2{margin:4px 0 0;font-size:25px}
+.profile-page-header .back-to-chat-button{flex-shrink:0}
+.profile-page .profile-settings-page{flex:1;width:100%;min-height:0;max-height:none;grid-template-columns:220px minmax(0,1fr);border-radius:0;box-shadow:none;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;background:var(--surface);color:var(--ink)}
+.profile-page .profile-settings-nav{padding:26px 12px}
+.profile-page .profile-settings-content{min-height:0;max-height:none;overflow:visible}
+.profile-page .profile-settings-content header{padding:28px 28px 18px}
+.profile-page .profile-settings-summary{margin:0 28px 18px;padding:20px;gap:20px}
+.profile-page .profile-settings-identity{min-width:0}
+.profile-page .profile-settings-identity strong{overflow-wrap:anywhere}
+.profile-page .profile-photo-button{max-width:100%;white-space:normal}
+.profile-page .profile-settings-fields{padding-left:28px;padding-right:28px}
+.profile-page .profile-settings-footer{padding:16px 28px;flex-wrap:wrap;gap:8px}
+.profile-page .profile-settings-footer .action-button{font-weight:600}
+.profile-page .profile-settings-link.disabled{display:none}
+.rail-account-profile[aria-current="page"]{color:#e8f3b6}
+:root[data-theme="dark"] .profile-page{background:var(--dialog-surface);color:var(--dialog-text)}
+:root[data-theme="dark"] .profile-page-header{background:#15241a;border-color:var(--dialog-border)}
+:root[data-theme="dark"] .profile-page .profile-settings-page{background:var(--dialog-surface);color:var(--dialog-text)}
+:root[data-theme="dark"] .profile-page .profile-settings-summary .profile-photo-button{background:#344b2b;color:#e7f3bc}
+:root[data-theme="dark"] .profile-page .profile-settings-footer .action-button:not(.secondary){color:#17240e}
+@media(max-width:1000px){
+ .profile-page .profile-settings-page{display:block}
+ .profile-page .profile-settings-nav{padding:12px;border-right:0;border-bottom:1px solid var(--line)}
+ .profile-page .profile-settings-links{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;margin:0}
+ .profile-page .profile-settings-link{position:relative;min-width:0;min-height:44px;justify-content:center;padding:8px 0}
+ .profile-page .profile-settings-link svg{flex:none;width:21px;height:21px}
+ .profile-page .profile-settings-link span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+ .profile-page .profile-settings-link.disabled{display:none}
+}
+@media(max-width:700px){
+ .profile-page-header{padding:14px 12px}
+ .profile-page-header h2{font-size:21px}
+ .profile-page-header .back-to-chat-button{padding:10px;font-size:12px}
+ .profile-page .profile-settings-content header{padding:20px 14px 16px}
+ .profile-page .profile-settings-content h2{font-size:23px}
+ .profile-page .profile-settings-summary{margin:0 14px 16px;padding:14px;gap:14px;align-items:flex-start}
+ .profile-page .profile-settings-summary .profile-avatar{width:70px;height:70px;border-radius:18px}
+ .profile-page .profile-settings-identity strong{font-size:20px}
+ .profile-page .profile-settings-summary .profile-photo-button{padding:10px;font-size:12px}
+ .profile-page .profile-settings-fields{padding:0 14px 20px}
+ .profile-page .profile-settings-footer{padding:14px}
+ .profile-page .profile-alert-settings{max-height:none;overflow:visible}
+}

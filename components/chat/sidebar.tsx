@@ -12,7 +12,7 @@ type SidebarProps = {
   unreadDirects: number;
   unreadNotifications: number;
   unreadChatMessages: number;
-  activeSection: "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin" | "radio";
+  activeSection: "profile" | "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin" | "radio";
   onOpenProfile: () => void;
   onSetStatus: (status: "online" | "dnd") => void;
   onLogout: () => void;
@@ -90,7 +90,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
     <div className="brand"><span className="tusova-rail-brand"><img className="tusova-rail-wordmark" src="/brand/tusova-header-logo.png" alt="TUSOVA" /><img className="tusova-rail-owl" src="/brand/tusova-note-owl.png" alt="TUSOVA" /></span><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} aria-expanded={!collapsed} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
     <section className="rail-account" aria-label="Ваш профиль">
       <div className="rail-account-head">
-        <button type="button" className="rail-account-profile" onClick={onOpenProfile} aria-label="Открыть профиль">
+        <button type="button" className="rail-account-profile" onClick={onOpenProfile} aria-label="Открыть профиль" aria-current={activeSection === "profile" ? "page" : undefined}>
           <span className="rail-account-avatar"><Avatar value={user?.avatarUrl} name={name} /></span>
           <span className="rail-account-identity"><strong title={name}>{name}</strong><small className={"status-" + (user?.status ?? "offline")}><i aria-hidden="true" />{!user ? "не в сети" : user.status === "dnd" ? "не беспокоить" : user.status === "away" ? "нет на месте" : user.status === "offline" ? "не в сети" : "в сети"}</small></span>
         </button>
@@ -99,7 +99,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
     {user && <div className="profile-quick-actions" aria-label="Быстрые действия профиля"><button type="button" className={"profile-quick-action online " + (user.status === "online" ? "selected" : "")} aria-label="В сети" title="В сети" onClick={() => onSetStatus("online")}><CircleDot size={16} /></button><button type="button" className={"profile-quick-action dnd " + (user.status === "dnd" ? "selected" : "")} aria-label="Не беспокоить" title="Не беспокоить" onClick={() => onSetStatus("dnd")}><BellOff size={16} /></button><button type="button" className="profile-quick-action settings" aria-label="Настройки профиля" title="Настройки" onClick={onOpenProfile}><Settings size={16} /></button><button type="button" className="profile-quick-action logout" aria-label="Выйти из профиля" title="Выйти" onClick={onLogout}><LogOut size={16} /></button></div>}
     </section>
     <nav className="rail-nav">
-      {user && <button type="button" className="rail-link rail-mobile-profile" onClick={onOpenProfile} aria-label="Мой профиль" title="Мой профиль"><UserRound size={18} /><span>Профиль</span></button>}
+      {user && <button type="button" className={"rail-link rail-mobile-profile" + (activeSection === "profile" ? " active" : "")} onClick={onOpenProfile} aria-label="Мой профиль" title="Мой профиль"><UserRound size={18} /><span>Профиль</span></button>}
       <button className={"rail-link " + (activeSection === "chat" ? "active" : "")} onClick={onOpenChat}><MessageCircle size={18} /><span>Чат</span>{unreadChatMessages > 0 && <b className="direct-unread-count">{unreadChatMessages > 99 ? "99+" : unreadChatMessages}</b>}</button>
       {(activeSection === "chat" || activeSection === "community-chat") && <button type="button" className="rail-link rail-mobile-people" onClick={onOpenPeople} aria-label="Кто в чате" title="Кто в чате"><UserRoundSearch size={18} /><span>Кто в чате</span></button>}
       {SHOW_DIRECTS_NAV && <button className={"rail-link " + (activeSection === "directs" ? "active" : "")} onClick={user ? onOpenDirects : () => onNotice("Войдите, чтобы открыть личку.")}><MessagesSquare size={18} /><span>Личка</span>{unreadDirects > 0 && <b className="direct-unread-count">{unreadDirects > 99 ? "99+" : unreadDirects}</b>}</button>}
