@@ -79,7 +79,7 @@ export function ReportsModal({ onBackToChat, canBan }: { onBackToChat: () => voi
       {notice && <div className="security-message" role="status">{notice}</div>}
       {tab === "reports" ? <div className="report-list">{reports.length === 0 ? <p>Жалоб пока нет.</p> : reports.slice().sort((a, b) => Number(b.status === "OPEN" || b.status === "REVIEWED") - Number(a.status === "OPEN" || a.status === "REVIEWED")).map((report) => {
         const active = report.status === "OPEN" || report.status === "REVIEWED";
-        const canTargetUser = Boolean(report.targetUserId ?? report.message?.authorId);
+        const canTargetUser = report.canRestrictTarget === true;
         return <article className="report-card" key={report.id}>
           <div><b>{statusLabels[report.status]}</b><time>{new Date(report.createdAt).toLocaleString("ru-RU")}</time></div>
           <strong>{report.message ? "Сообщение: " + report.message.authorName : "Пользователь: " + (report.targetUser?.displayName ?? "удалён")}</strong>

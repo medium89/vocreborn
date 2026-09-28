@@ -138,6 +138,7 @@ export class AdminService {
     if (id === actor.id) throw new BadRequestException("Нельзя отключить собственный аккаунт");
     const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!target) throw new NotFoundException("Пользователь не найден");
+    if (target.role === "ADMIN") throw new ForbiddenException("Нельзя отключить аккаунт администратора");
     await this.prisma.$transaction(async (prisma) => {
       await prisma.user.update({ where: { id }, data: { deletedAt: new Date(), status: "OFFLINE" } });
       await prisma.session.deleteMany({ where: { userId: id } });

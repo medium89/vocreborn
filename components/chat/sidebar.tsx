@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/chat-contract";
-import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, CircleHelp, Coins, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Moon, Settings, ShieldCheck, Sun, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
+import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, Coins, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Settings, ShieldCheck, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
 import { Avatar } from "./avatar";
-import { useSiteTheme } from "@/lib/use-site-theme";
 
 const SHOW_DIRECTS_NAV = false;
 
@@ -86,10 +85,9 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
   const [collapsed, setCollapsed] = useState(false);
   const logoutDialogRef = useRef<HTMLDialogElement | null>(null);
   useEffect(() => { const key = "tusova-sidebar-collapsed"; const legacyKey = "aura-sidebar-collapsed"; const saved = window.localStorage.getItem(key) ?? window.localStorage.getItem(legacyKey); setCollapsed(saved === "true"); if (saved !== null) window.localStorage.setItem(key, saved); window.localStorage.removeItem(legacyKey); }, []);
-  const { theme, toggleTheme } = useSiteTheme();
   function toggleCollapsed() { setCollapsed((current) => { const next = !current; window.localStorage.setItem("tusova-sidebar-collapsed", String(next)); return next; }); }
   return <aside className={"rail " + (collapsed ? "collapsed" : "")}>
-    <div className="brand"><span className="tusova-rail-brand"><img className="tusova-rail-wordmark" src="/brand/tusova-header-logo.png" alt="TUSOVA" /><img className="tusova-rail-owl" src="/brand/tusova-note-owl.png" alt="TUSOVA" /></span></div>
+    <div className="brand"><span className="tusova-rail-brand"><img className="tusova-rail-wordmark" src="/brand/tusova-header-logo.png" alt="TUSOVA" /><img className="tusova-rail-owl" src="/brand/tusova-note-owl.png" alt="TUSOVA" /></span><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} aria-expanded={!collapsed} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
     <section className="rail-account" aria-label="Ваш профиль">
       <div className="rail-account-head">
         <button type="button" className="rail-account-profile" onClick={onOpenProfile} aria-label="Открыть профиль">
@@ -124,6 +122,5 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
         </div>
       </section>
     </dialog>
-    <div className="rail-bottom"><button className="icon-button" aria-label={theme === "light" ? "Включить тёмную тему" : "Включить светлую тему"} title={theme === "light" ? "Тёмная тема" : "Светлая тема"} onClick={toggleTheme}>{theme === "light" ? <Moon size={17} /> : <Sun size={17} />}</button><button className="icon-button" aria-label="Справка" title="Справка" onClick={() => { window.location.href = "/help"; }}><CircleHelp size={17} /></button><button className="rail-collapse" type="button" aria-label={collapsed ? "Развернуть боковое меню" : "Свернуть боковое меню"} title={collapsed ? "Развернуть меню" : "Свернуть меню"} onClick={toggleCollapsed}>{collapsed ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}</button></div>
   </aside>;
 }

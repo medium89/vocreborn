@@ -212,6 +212,7 @@ export type ReportReason = "SPAM" | "HARASSMENT" | "IMPERSONATION" | "ILLEGAL" |
 export type ReportStatus = "OPEN" | "REVIEWED" | "DISMISSED" | "ACTIONED";
 export type CompactUser = { id: string; username: string; displayName: string };
 export type Report = {
+  canRestrictTarget?: boolean;
   id: string;
   reporterId: string;
   targetUserId: string | null;

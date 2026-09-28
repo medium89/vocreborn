@@ -10,7 +10,7 @@ export class ModerationService {
   constructor(private readonly prisma: PrismaService, private readonly notifications: NotificationsService) {}
 
   async mute(actor: AuthenticatedUser, input: MuteUserDto, reportId?: string) {
-    const target = await this.assertTarget(actor, input.userId);
+    const target = await this.assertTarget(actor, input.userId, true);
     if (target.role !== "USER" && actor.role !== "admin") {
       throw new ForbiddenException("Модератор не может ограничить администратора или модератора");
     }
@@ -49,7 +49,7 @@ export class ModerationService {
   }
 
   async imposeChaos(actor: AuthenticatedUser, input: MuteUserDto, reportId?: string) {
-    const target = await this.assertTarget(actor, input.userId);
+    const target = await this.assertTarget(actor, input.userId, true);
     if (target.role !== "USER" && actor.role !== "admin") {
       throw new ForbiddenException("Модератор не может ограничить администратора или модератора");
     }
@@ -89,7 +89,7 @@ export class ModerationService {
 
   async ban(actor: AuthenticatedUser, input: BanUserDto, reportId?: string) {
     this.requireAdmin(actor);
-    const target = await this.assertTarget(actor, input.userId);
+    const target = await this.assertTarget(actor, input.userId, true);
     const expiresAt = input.durationMinutes ? new Date(Date.now() + input.durationMinutes * 60_000) : null;
 
     const ban = await this.prisma.$transaction(async (prisma) => {
@@ -163,11 +163,14 @@ export class ModerationService {
     if (actor.role !== "admin") throw new ForbiddenException("Требуются права администратора");
   }
 
-  private async assertTarget(actor: AuthenticatedUser, userId: string) {
+  private async assertTarget(actor: AuthenticatedUser, userId: string, applyingRestriction = false) {
     this.requireModerator(actor);
     if (actor.id === userId) throw new BadRequestException("Нельзя применить действие к себе");
     const target = await this.prisma.user.findFirst({ where: { id: userId, deletedAt: null } });
     if (!target) throw new NotFoundException("Пользователь не найден");
+    if (applyingRestriction && target.role === "ADMIN") {
+      throw new ForbiddenException("Нельзя применять баны, мут или Хаос к администратору");
+    }
     return target;
   }
 }

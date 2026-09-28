@@ -50,16 +50,22 @@ export class ReportsService {
 
   async list(actor: AuthenticatedUser, status?: ReportStatus) {
     this.requireModerator(actor);
-    return this.prisma.report.findMany({
+    const reports = await this.prisma.report.findMany({
       where: status ? { status } : undefined,
       orderBy: { createdAt: "desc" },
       take: 100,
       include: {
         reporter: { select: { id: true, username: true, displayName: true } },
-        targetUser: { select: { id: true, username: true, displayName: true } },
-        message: { select: { id: true, authorId: true, authorName: true, body: true, roomId: true, createdAt: true } },
+        targetUser: { select: { id: true, username: true, displayName: true, role: true } },
+        message: { select: { id: true, authorId: true, authorName: true, body: true, roomId: true, createdAt: true, author: { select: { role: true } } } },
         handledBy: { select: { id: true, username: true, displayName: true } },
       },
+    });
+    return reports.map((report) => {
+      const targetId = report.targetUserId ?? report.message?.authorId;
+      const targetRole = report.targetUser?.role ?? report.message?.author?.role;
+      return { ...report, canRestrictTarget: Boolean(targetId && targetId !== actor.id && targetRole &&
+        targetRole !== "ADMIN" && (actor.role === "admin" || targetRole === "USER")) };
     });
   }
 

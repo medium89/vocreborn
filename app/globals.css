@@ -1589,11 +1589,11 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 :root[data-theme="dark"] .shell{--ink:#f1f2e7;--muted:#a8b7a5;--line:#374a38;--brand:#dce98d;--brand-strong:#c9dc75;--brand-soft:#273a25;--rail:#0b170f;--surface:#0d1912}
 .shell .rail{background:linear-gradient(180deg,#0a170f 0%,#142719 55%,#09150d 100%);border-right:1px solid #dce98d38;box-shadow:8px 0 32px #06110b2c}
 .shell .brand{justify-content:flex-start;min-height:55px;margin:0 0 29px;padding:0 4px}
-.shell .brand>.tusova-rail-brand{display:block;flex:0 0 auto;width:174px;max-width:100%}
+.shell .brand>.tusova-rail-brand{display:block;flex:1 1 0;min-width:0;width:174px;max-width:174px}
 .tusova-rail-wordmark{display:block;width:100%;height:55px;object-fit:contain;object-position:left center;filter:drop-shadow(0 3px 10px #d9eb8233)}
 .tusova-rail-owl{display:none}
-.shell .rail.collapsed .brand{justify-content:center;margin:0 0 29px;padding:0}
-.shell .rail.collapsed .brand>.tusova-rail-brand{display:block;width:42px}
+.shell .rail.collapsed .brand{flex-direction:column;justify-content:center;gap:4px;margin:0 0 29px;padding:0}
+.shell .rail.collapsed .brand>.tusova-rail-brand{display:block;flex:none;width:42px}
 .shell .rail.collapsed .tusova-rail-wordmark{display:none}
 .shell .rail.collapsed .tusova-rail-owl{display:block;width:42px;height:55px;object-fit:contain;filter:drop-shadow(0 2px 8px #d9eb8240)}
 .shell .rail-link{color:#c0cdbd}
@@ -1603,12 +1603,9 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .shell .rail-admin{border-top-color:#dce98d30}
 .shell .rail-admin .rail-link{background:#dce98d0a;color:#c0cdbd}
 .shell .rail-admin .rail-link:hover{background:#dce98d18;color:#fff8dd}
-.shell .rail-bottom{align-items:center}
-.shell .rail-bottom .rail-collapse{display:grid;place-items:center;width:34px;height:34px;margin-left:auto;border:1px solid #dce98d60;border-radius:10px;background:#dce98d12;color:#e5edbb}
-.shell .rail-bottom .rail-collapse:hover{border-color:#dce98d;background:#dce98d2b;color:#fff8dc}
-.shell .rail.collapsed .rail-bottom .rail-collapse{margin-left:0}
-.shell .rail-bottom .icon-button{background:#dce98d12;color:#c6d4b6}
-.shell .rail-bottom .icon-button:hover{background:#dce98d2b;color:#fff8dc}
+.shell .brand .rail-collapse{display:grid;place-items:center;flex:0 0 31px;width:31px;height:31px;margin-left:auto;border:1px solid #dce98d60;border-radius:9px;background:#dce98d12;color:#e5edbb}
+.shell .brand .rail-collapse:hover{border-color:#dce98d;background:#dce98d2b;color:#fff8dc}
+.shell .rail.collapsed .brand .rail-collapse{margin-left:0}
 .shell .app{background:var(--surface)}
 .shell .conversation{background:radial-gradient(circle at 84% 7%,#dce98d13,transparent 32%),linear-gradient(180deg,#fbfcf5,#f5f8f0)}
 .shell .conversation-head.room-head,.shell .conversation-head.dialog-head{background:#f3f7e8;border-bottom-color:#dce6cf}
@@ -1652,7 +1649,7 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 :root[data-theme="dark"] .shell .composer .send:hover:not(:disabled){background:#edf4ad;color:#16230e}
 :root[data-theme="dark"] .shell .composer-status{color:#a8b7a4}
 @media(min-width:701px) and (max-width:850px){.shell .brand>.tusova-rail-brand{display:block;width:42px}.shell .tusova-rail-wordmark{display:none}.shell .tusova-rail-owl{display:block;width:42px;height:55px;object-fit:contain}}
-@media(max-width:850px){.shell .rail-bottom .rail-collapse{display:none}}
+@media(max-width:850px){.shell .brand .rail-collapse{display:none}}
 .shell .rail-admin .rail-link.active{background:#dce98d24;color:#f2f5ce;box-shadow:inset 3px 0 0 #dce98d}
 .shell .message.reply-for-current-user:hover{background:#e3f0cc}
 :root[data-theme="dark"] .shell .message.reply-for-current-user:hover{background:#354a2c}

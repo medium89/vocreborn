@@ -56,7 +56,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     <span className="person-actions">
       <button type="button" className="person-profile" aria-label={"Посмотреть профиль " + person.name} title={"Посмотреть профиль " + person.name} onClick={() => onClick(person)}><UserRound size={14} /></button>
       {!isSelf && person.id && <button type="button" className="report-person" aria-label={"Пожаловаться на " + person.name} title={"Пожаловаться на " + person.name} onClick={() => onReport(person)}><Flag size={13} /></button>}
-      {!isSelf && canModerate && person.id && <button type="button" className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}
+      {!isSelf && canModerate && person.id && (person.role !== "admin" || muted) && <button type="button" className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}
       {canModerate && person.id && (!isSelf || role !== null) && <button type="button" className="moderate-person" aria-label={isSelf ? "Модерировать себя" : "Модерировать " + person.name} title={isSelf ? "Модерировать себя" : "Модерировать " + person.name} onClick={() => onModerate(person)}><Shield size={14} /></button>}
     </span>
   </div>;
