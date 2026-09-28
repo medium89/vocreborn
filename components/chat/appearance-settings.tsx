@@ -16,7 +16,7 @@ const groups = [
 function AppearanceOptions({ appearance, onSelect, includeProfile = true }: { appearance: CosmeticAppearance; onSelect: (key: string) => void; includeProfile?: boolean }) {
   const available = (includeProfile ? groups : groups.slice(0, 2)).map((group) => ({
     ...group,
-    keys: group.keys.filter((key) => (includeProfile || !["messageColor", "boldText", "italicText"].includes(key)) && (key === "messageColor" || appearance[key])),
+    keys: group.keys.filter((key) => (includeProfile || key !== "messageColor") && (key === "messageColor" || appearance[key])),
   })).filter((group) => group.keys.length);
   if (!available.length) return <div className="appearance-empty"><Palette size={28} /><strong>Пока нет настроек оформления</strong><p>После покупки улучшений в магазине они появятся здесь.</p></div>;
   return <div className="appearance-option-groups">{available.map((group) => <section key={group.title}><h4>{group.title}</h4><div>{group.keys.map((key) => {

@@ -548,7 +548,6 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
       </label>
       {currentUserId && <ComposerAppearanceMenu appearance={appearance} onSaved={onAppearanceChanged} />}
       {currentUserId && <ComposerMessageColorPicker appearance={appearance} onSaved={onAppearanceChanged} />}
-      {currentUserId && <ComposerTextStyleToggles appearance={appearance} onSaved={onAppearanceChanged} />}
       </div>
 <button className={"voice-record " + (recordingVoice ? "recording" : "")} type="button" aria-label={recordingVoice ? "Остановить запись" : "Записать голосовое"} title={recordingVoice ? "Остановить запись" : "Записать голосовое"} disabled={muted || uploadingAttachment} onClick={() => void toggleVoiceRecording()}>{recordingVoice ? <Square size={15} /> : <Mic size={18} />}</button>{recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
       <button ref={emojiToggleRef} className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} disabled={muted} onClick={() => setEmojiOpen((open) => !open)}><Smile size={18} /></button><button className="mention-toggle" type="button" aria-label="Упомянуть участника" title="Упомянуть участника" disabled={muted} onClick={toggleMentionAtCursor}><AtSign size={17} /></button>
