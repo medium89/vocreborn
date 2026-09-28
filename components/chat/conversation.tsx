@@ -475,8 +475,9 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
           <RoomCover room={room} />
           <div className="room-heading-copy">
             <span className="eyebrow">{room.kind === "general" ? "ОБЩАЯ КОМНАТА" : room.visibility === "private" ? "ПРИВАТНАЯ КОМНАТА" : "ПУБЛИЧНАЯ КОМНАТА"}</span>
-            <div className="room-heading-title-row"><h2># {room.name.toLowerCase()}</h2><div className="room-radio-controls" ref={radioControlsRef} /></div>
+            <div className="room-heading-title-row"><h2># {room.name.toLowerCase()}</h2></div>
           </div>
+          <div className="room-radio-controls" ref={radioControlsRef} />
         </div>
         <div className="room-head-actions">
           <span className="room-member-count" title="Сейчас в чате"><Users size={15} />{room.online} онлайн</span>

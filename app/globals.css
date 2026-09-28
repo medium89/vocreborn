@@ -2378,11 +2378,12 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 :root[data-theme="dark"] .radio-room-player .radio-song-order:hover{background:linear-gradient(135deg,#5b3b77,#443154)}
 @media(max-width:850px){.room-radio-controls{padding:0 8px}.radio-room-player{gap:6px}.radio-room-player .radio-song-order{padding:6px 9px}.radio-room-player .radio-now{flex-basis:100%;order:3}.radio-room-player .radio-volume{margin-left:auto}}
 
-/* Keep the listen control beside the room name; orders and DJ studio live in the Radio section. */
+/* Center the listen control beside both lines of the room heading. */
 .room-heading-copy{height:auto;min-height:32px;gap:2px}
 .room-heading-title-row{display:flex;align-items:center;gap:8px;min-width:0;min-height:25px}
 .room-heading-title-row h2{height:auto;min-width:0;max-width:min(42vw,300px);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1}
 .room-radio-controls{display:flex;align-items:center;flex:0 0 auto;min-width:0;padding:0}
+.room-heading>.room-radio-controls{align-self:center;margin-left:6px}
 .radio-room-player{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:0;padding:0;border:0;background:transparent}
 .radio-room-player .radio-listen{min-height:24px;padding:3px 7px;border-radius:7px;font-size:10px}
 .radio-room-player .radio-now{flex:0 1 190px;max-width:190px;font-size:9px;line-height:1.15}
