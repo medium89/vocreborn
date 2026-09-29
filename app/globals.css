@@ -1588,9 +1588,9 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .shell{--ink:#273329;--muted:#74816f;--line:#dce6d3;--brand:#dce98d;--brand-strong:#9dbd4d;--brand-soft:#edf4d9;--rail:#0c190f;--surface:#fafbf5;color:var(--ink);background:var(--surface)}
 :root[data-theme="dark"] .shell{--ink:#f1f2e7;--muted:#a8b7a5;--line:#374a38;--brand:#dce98d;--brand-strong:#c9dc75;--brand-soft:#273a25;--rail:#0b170f;--surface:#0d1912}
 .shell .rail{background:linear-gradient(180deg,#0a170f 0%,#142719 55%,#09150d 100%);border-right:1px solid #dce98d38;box-shadow:8px 0 32px #06110b2c}
-.shell .brand{justify-content:flex-start;min-height:55px;margin:0 0 29px;padding:0 4px}
-.shell .brand>.tusova-rail-brand{display:block;flex:1 1 0;min-width:0;width:174px;max-width:174px}
-.tusova-rail-wordmark{display:block;width:100%;height:55px;object-fit:contain;object-position:left center;filter:drop-shadow(0 3px 10px #d9eb8233)}
+.shell .brand{justify-content:flex-start;min-height:44px;margin:0 0 29px;padding:0 4px}
+.shell .brand>.tusova-rail-brand{display:block;flex:1 1 0;min-width:0;width:132px;max-width:132px}
+.tusova-rail-wordmark{display:block;width:132px;height:40px;object-fit:contain;object-position:left center;filter:drop-shadow(0 3px 10px #d9eb8233)}
 .tusova-rail-owl{display:none}
 .shell .rail.collapsed .brand{flex-direction:column;justify-content:center;gap:4px;margin:0 0 29px;padding:0}
 .shell .rail.collapsed .brand>.tusova-rail-brand{display:block;flex:none;width:42px}
