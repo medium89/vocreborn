@@ -132,7 +132,7 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
           </form>
           {mode === "register" && <p className="tusova-email-hint">После регистрации проверь почту и подтверди адрес по ссылке из письма.</p>}
           <div className="tusova-divider"><span>или</span></div>
-          <button type="button" className="tusova-guest" onClick={() => { setGuestError(""); setGuestDialogOpen(true); }}><span aria-hidden="true">♧</span>Войти как гость</button>
+          <button type="button" className="tusova-guest" onClick={() => { setGuestError(""); setGuestDialogOpen(true); }}><UserRound size={22} aria-hidden="true" />Войти как гость</button>
           {guestDialogOpen && <div className="tusova-guest-dialog-backdrop" role="presentation">
             <section className="tusova-guest-dialog" role="dialog" aria-modal="true" aria-labelledby="guest-entry-title">
               <button type="button" className="tusova-guest-dialog-close" onClick={() => setGuestDialogOpen(false)} aria-label="Закрыть">×</button>
