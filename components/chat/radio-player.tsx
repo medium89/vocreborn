@@ -44,8 +44,11 @@ export function RadioPlayer({ user, controlsTarget }: { user: AuthUser; controls
   }
   if (!state?.enabled) return null;
   const controls = <section className={"radio-player radio-room-player" + (state.live ? " is-live" : "")} aria-label="Радио TUSOVA">
-    <button type="button" className="radio-listen" disabled={!state.live} onClick={() => void toggle()} aria-label={playing ? "Остановить эфир" : state.live ? "Слушать эфир" : "Эфир офлайн"} title={state.live && state.track ? state.track.artist + " — " + state.track.title : "Радио TUSOVA"}>{playing ? <Pause size={15} /> : state.live ? <Play size={15} /> : <Radio size={15} />}<span>{playing ? "В эфире" : state.live ? "Слушать эфир" : "Эфир офлайн"}</span></button>
-    {state.live && <span className="radio-now" title={state.track ? state.track.artist + " — " + state.track.title : "Музыка нашей тусовы"}><b><i>LIVE</i> {state.host?.displayName ?? "TUSOVA Radio"}</b><small>{state.track ? state.track.artist + " — " + state.track.title : "Музыка нашей тусовы"}</small></span>}
+    <button type="button" className="radio-listen" disabled={!state.live} onClick={() => void toggle()} aria-label={playing ? "Остановить эфир" : state.live ? "Слушать эфир" : "Эфир офлайн"} title={state.live && state.track ? state.track.artist + " — " + state.track.title : "Радио TUSOVA"}>{playing ? <Pause size={18} /> : state.live ? <Play size={18} /> : <Radio size={18} />}<span>{playing ? "В эфире" : state.live ? "Слушать эфир" : "Эфир офлайн"}</span></button>
+    {state.live && <>
+      <span className="radio-live"><span className="radio-live-dot" aria-hidden="true" />LIVE</span>
+      <span className="radio-host" title={state.host?.displayName ?? "TUSOVA Radio"}><span>{state.host?.displayName ?? "TUSOVA Radio"}</span></span>
+    </>}
     {playing && <label className="radio-volume"><span className="visually-hidden">Громкость эфира</span><input type="range" min="0" max="1" step=".05" value={volume} onChange={event => setVolume(Number(event.target.value))} /></label>}
     {error && <small className="radio-player-error" role="status">{error}</small>}
   </section>;

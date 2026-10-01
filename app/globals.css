@@ -2384,14 +2384,25 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .room-heading-title-row{display:flex;align-items:center;gap:8px;min-width:0;min-height:25px}
 .room-heading-title-row h2{height:auto;min-width:0;max-width:min(42vw,300px);margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.1}
 .room-radio-controls{display:flex;align-items:center;flex:0 0 auto;min-width:0;padding:0}
-.room-heading>.room-radio-controls{align-self:center;margin-left:6px}
-.radio-room-player{display:flex;align-items:center;gap:7px;flex:0 0 auto;min-height:0;padding:0;border:0;background:transparent}
-.radio-room-player .radio-listen{min-height:24px;padding:3px 7px;border-radius:7px;font-size:10px}
-.radio-room-player .radio-now{flex:0 1 190px;max-width:190px;font-size:9px;line-height:1.15}
-.radio-room-player .radio-now b,.radio-room-player .radio-now small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.room-heading>.room-radio-controls{align-self:center;margin-left:clamp(8px,2vw,20px)}
+.radio-room-player{display:flex;align-items:center;flex-wrap:nowrap;gap:8px;flex:0 0 auto;min-width:0;min-height:0;padding:0;border:0;background:transparent}
+.radio-room-player .radio-listen{display:inline-flex;align-items:center;justify-content:center;gap:8px;flex:0 0 auto;min-height:38px;padding:6px 14px;border:1px solid #dac6f2;border-radius:12px;background:linear-gradient(180deg,#eee3ff,#e6d7fa);color:#713aac;font-size:14px;font-weight:700;white-space:nowrap}
+.radio-room-player .radio-listen svg{width:20px;height:20px;stroke-width:2.5}
+.radio-room-player .radio-listen span{max-width:none;white-space:nowrap}
+.radio-room-player .radio-listen:hover:not(:disabled){background:linear-gradient(180deg,#e9d9ff,#dcc8f7)}
+.radio-room-player .radio-listen:disabled{border-color:#e6dcec;background:#f0ebf5;color:#9c8dad}
+.radio-room-player .radio-live,.radio-room-player .radio-host{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-height:30px;padding:5px 9px;border:1px solid;border-radius:9px;font-size:12px;font-weight:700;line-height:1;white-space:nowrap}
+.radio-room-player .radio-live{gap:6px;border-color:#f3d6cf;background:#fff0ed;color:#dd3e20}
+.radio-room-player .radio-live-dot{width:8px;height:8px;border-radius:50%;background:#e84023}
+.radio-room-player .radio-host{max-width:120px;border-color:#ebddb9;background:#fff4da;color:#25312e}.radio-room-player .radio-host span{min-width:0;overflow:hidden;text-overflow:ellipsis}
 .radio-room-player .radio-volume{width:64px;flex:0 0 auto}
-@media(max-width:850px){.room-radio-controls{padding:0}.room-heading-title-row{gap:6px}.radio-room-player .radio-now{flex-basis:130px;max-width:130px;order:0;margin:0}.radio-room-player .radio-volume{width:52px;margin-left:0}}
-@media(max-width:700px){.room-heading-title-row{gap:5px;min-height:23px}.room-radio-controls{max-width:46vw;overflow:hidden}.radio-room-player{gap:4px}.radio-room-player .radio-listen{gap:4px;min-height:22px;padding:3px 5px;font-size:9px}.radio-room-player .radio-now{display:none}.radio-room-player .radio-volume{width:42px}}
+:root[data-theme="dark"] .radio-room-player .radio-listen:not(:disabled){border-color:#765198;background:linear-gradient(180deg,#50366c,#432e5d);color:#ead7ff}
+:root[data-theme="dark"] .radio-room-player .radio-listen:hover:not(:disabled){background:linear-gradient(180deg,#5b3b7a,#4d346b)}
+:root[data-theme="dark"] .radio-room-player .radio-listen:disabled{border-color:#4e4358;background:#302938;color:#a99bb5}
+:root[data-theme="dark"] .radio-room-player .radio-live{border-color:#794a45;background:#4d302e;color:#ffb2a0}
+:root[data-theme="dark"] .radio-room-player .radio-host{border-color:#78633c;background:#4d402b;color:#ffe9bb}
+@media(max-width:850px){.room-heading-title-row{gap:6px}.room-heading>.room-radio-controls{margin-left:8px}.radio-room-player{gap:5px}.radio-room-player .radio-listen{min-height:30px;padding:4px 8px;font-size:11px}.radio-room-player .radio-listen svg{width:16px;height:16px}.radio-room-player .radio-live,.radio-room-player .radio-host{min-height:26px;padding:4px 6px;font-size:10px}.radio-room-player .radio-host{max-width:85px}.radio-room-player .radio-volume{width:52px}}
+@media(max-width:700px){.room-heading-title-row{gap:5px;min-height:23px}.room-heading>.room-radio-controls{margin-left:4px;max-width:46vw;overflow:hidden}.radio-room-player{gap:4px}.radio-room-player .radio-listen{gap:4px;min-height:24px;padding:3px 6px;font-size:9px}.radio-room-player .radio-listen svg{width:14px;height:14px}.radio-room-player .radio-live,.radio-room-player .radio-host{display:none}.radio-room-player .radio-volume{width:42px}}
 
 /* Profile settings are a full workspace page, not a blocking dialog. */
 .layout.profile-layout{display:block}
