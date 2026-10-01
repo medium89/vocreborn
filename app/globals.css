@@ -1446,8 +1446,8 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .tusova-loading{display:grid;place-items:center;height:100dvh;background:#09110d}
 .tusova-loading img{display:block;width:min(280px,72vw);height:auto;filter:drop-shadow(0 5px 16px #d9eb8240)}
 .tusova-landing{position:relative;isolation:isolate;height:100dvh;min-height:540px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;background:#09110d;color:#f4f2e6}
-.tusova-landing::before{content:"";position:fixed;inset:0;z-index:0;background-image:linear-gradient(90deg,#03100aa9 0%,#06140e75 34%,#06130e34 62%,#07110d26 100%),linear-gradient(0deg,#02090547,transparent 32%),url("/brand/tusova-night-room.png");background-position:center;background-size:cover}
-.tusova-landing.is-day::before{background-image:linear-gradient(90deg,#13241591 0%,#22341a55 48%,#21351a12 100%),url("/brand/tusova-night-room.png");filter:brightness(1.18)}
+.tusova-landing::before{content:"";position:fixed;inset:0;z-index:0;background-image:linear-gradient(90deg,#03100aa9 0%,#06140e75 34%,#06130e34 62%,#07110d26 100%),linear-gradient(0deg,#02090547,transparent 32%),url("/brand/tusova-night-room.webp");background-position:center;background-size:cover}
+.tusova-landing.is-day::before{background-image:linear-gradient(90deg,#13241591 0%,#22341a55 48%,#21351a12 100%),url("/brand/tusova-day-room.png");filter:brightness(1.18)}
 .tusova-landing-inner{position:relative;z-index:1;display:flex;flex-direction:column;max-width:1672px;min-height:100%;margin:0 auto;padding:0 clamp(24px,4.8vw,82px)}
 .tusova-header{display:flex;align-items:center;justify-content:space-between;gap:24px;min-height:78px}
 .tusova-header-nav{display:flex;align-items:center;gap:clamp(20px,2.8vw,48px);min-height:70px;padding:0 18px;border:1px solid #cce08a24;border-top:0;border-radius:0 0 30px 30px;background:#08150e9c;box-shadow:0 18px 38px #0107033d;backdrop-filter:blur(15px)}
@@ -2480,3 +2480,6 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
   .composer:not(.community-chat-page-composer)>.composer-send-actions>.composer-admin-voice{grid-column:3;grid-row:2}
   .composer:not(.community-chat-page-composer)>.voice-meter{grid-column:1/-1;grid-row:3}
 }
+
+/* Day and night artwork for the public landing page. */
+.tusova-landing::before{transition:background-image .35s ease,filter .35s ease}
