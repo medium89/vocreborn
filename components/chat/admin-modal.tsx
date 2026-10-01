@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, type ComponentProps } from "react";
-import { Check, FileAudio, FileImage, Flag, LayoutGrid, RefreshCw, Search, Shield, Users, X, Coins, Radio, Bot, Headset, ScrollText, Server, MessageSquare, Settings2, Pencil } from "lucide-react";
+import { Check, FileAudio, FileImage, Flag, LayoutGrid, RefreshCw, Search, Shield, Users, X, Coins, Gift, Radio, Bot, Headset, ScrollText, Server, MessageSquare, Settings2, Pencil } from "lucide-react";
 import { API_URL } from "@/lib/chat-api";
 import { BackToChatButton } from "./back-to-chat-button";
 import { SupportTicketsPanel } from "./support-tickets-panel";
@@ -20,7 +20,7 @@ const tabs = [
   { id: "overview", label: "Обзор", icon: LayoutGrid }, { id: "users", label: "Пользователи", icon: Users },
   { id: "rooms", label: "Комнаты", icon: LayoutGrid }, { id: "communication", label: "Общение", icon: MessageSquare },
   { id: "materials", label: "Материалы", icon: FileImage }, { id: "moderation", label: "Модерация", icon: Shield },
-  { id: "economy", label: "Экономика", icon: Coins }, { id: "radio", label: "Радио", icon: Radio },
+  { id: "economy", label: "Экономика", icon: Coins }, { id: "store", label: "Магазин", icon: Gift }, { id: "radio", label: "Радио", icon: Radio },
   { id: "bots", label: "Боты", icon: Bot }, { id: "support", label: "Поддержка", icon: Headset },
   { id: "audit", label: "Журнал", icon: ScrollText }, { id: "system", label: "Система", icon: Server },
 ] as const;
@@ -31,7 +31,7 @@ export function AdminModal({ user: actor, rooms, onSaveRoom, onChangeRoom, onOpe
   const [overview, setOverview] = useState<AdminOverview | null>(null), [users, setUsers] = useState<AdminUser[]>([]), [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [tab, setTab] = useState<Tab>("overview"), [selectedUser, setSelectedUser] = useState<Person | null>(null);
   const [search, setSearch] = useState(""), [usersRefresh, setUsersRefresh] = useState(0), [usersLoading, setUsersLoading] = useState(false), [error, setError] = useState("");
-  const [economyTab, setEconomyTab] = useState<"rewards" | "store" | "ledger">("rewards");
+  const [economyTab, setEconomyTab] = useState<"rewards" | "ledger">("rewards");
   async function load() { setError(""); try { const [stats, files] = await Promise.all([fetchAdminOverview(), fetchPendingAttachments()]); setOverview(stats); setAttachments(files); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось загрузить управление"); } }
   useEffect(() => { void load(); }, []);
   useEffect(() => {
@@ -63,7 +63,8 @@ export function AdminModal({ user: actor, rooms, onSaveRoom, onChangeRoom, onOpe
       {tab === "communication" && <><AdminSettingsPanel title="Правила общения" keys={["maxMessageLength", "slowModeSeconds", "allowLinks", "allowUserRooms"]} /><AdminAnnouncementPanel /></>}
       {tab === "materials" && <><AdminContentPanel /><AdminSettingsPanel title="Новые вложения" keys={["imageMaxMb", "audioMaxMb"]} /><section className="admin-panel"><h3>Проверка вложений</h3><p>Удаление по сроку относится только к вложениям общего чата. Вложения лички, профилей и сообществ не удаляются по этому сроку.</p><div className="admin-attachments">{!attachments.length ? <p>Все вложения проверены.</p> : attachments.map(item => { const Icon = item.kind === "image" ? FileImage : FileAudio; return <article key={item.id}><Icon size={18} /><div><strong>{item.originalName}</strong><small>{item.uploader.displayName} · {(item.size / 1024).toFixed(0)} КБ</small></div><a href={API_URL + item.url} target="_blank" rel="noreferrer">Открыть</a><button title="Разрешить" onClick={() => void review(item.id, "APPROVED")}><Check size={15} /></button><button title="Отклонить" onClick={() => void review(item.id, "REJECTED")}><X size={15} /></button></article>; })}</div></section></>}
       {(tab === "moderation" || tab === "audit") && <ReportsModal key={tab} initialTab={tab === "audit" ? "audit" : "reports"} canBan onBackToChat={onBackToChat} />}
-      {tab === "economy" && <><div className="admin-shortcuts">{([["rewards", "Награды"], ["store", "Магазин"], ["ledger", "Операции"]] as const).map(([id,label]) => <button aria-pressed={economyTab === id} key={id} onClick={() => setEconomyTab(id)}>{label}</button>)}</div>{economyTab === "rewards" ? <AdminSettingsPanel title="Кредиты и ежедневные награды" keys={["initialCredits", "firstMessageReward", "firstReplyReward", "profileCommentReward", "photoLikeReward", "profilePostLikeReward"]} /> : economyTab === "store" ? <StoreEditorPage onBack={() => setEconomyTab("rewards")} onBackToChat={onBackToChat} /> : <AdminEconomyLedger />}</>}
+      {tab === "economy" && <><div className="admin-shortcuts">{([["rewards", "Награды"], ["ledger", "Операции"]] as const).map(([id,label]) => <button aria-pressed={economyTab === id} key={id} onClick={() => setEconomyTab(id)}>{label}</button>)}</div>{economyTab === "rewards" ? <AdminSettingsPanel title="Кредиты и ежедневные награды" keys={["initialCredits", "firstMessageReward", "firstReplyReward", "profileCommentReward", "photoLikeReward", "profilePostLikeReward"]} /> : <AdminEconomyLedger />}</>}
+      {tab === "store" && <StoreEditorPage onBack={() => setTab("overview")} onBackToChat={onBackToChat} />}
       {tab === "radio" && <AdminRadioPanel onStudio={onOpenRadio} />}
       {tab === "bots" && <><section className="admin-panel"><h3>Сервисные боты</h3><p>Ниже — импорт тем, расписание, награды, подсказки и управление викториной. Тестовые собеседники включаются только локальной конфигурацией, в production они запрещены. ИИ-помощник пока не подключён: нужны база знаний и выбранный провайдер.</p></section><QuizAdminPanel /></>}
       {tab === "support" && <SupportTicketsPanel />}
