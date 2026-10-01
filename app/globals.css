@@ -2460,7 +2460,7 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
   .composer:not(.community-chat-page-composer)>.composer-file-tools>.composer-message-color-row{grid-column:3;grid-row:2}
   .composer:not(.community-chat-page-composer)>.composer-file-tools>.attach,.composer:not(.community-chat-page-composer)>.composer-file-tools>.voice-record,.composer:not(.community-chat-page-composer)>.composer-file-tools>.emoji-toggle,.composer:not(.community-chat-page-composer)>.composer-file-tools>.mention-toggle{align-self:center;justify-self:center;margin:0!important}
   .composer:not(.community-chat-page-composer)>textarea{grid-column:2;grid-row:1/3;align-self:stretch;min-height:66px;max-height:132px;min-width:0;width:100%;padding:8px 4px;line-height:20px}
-  .composer:not(.community-chat-page-composer)>.composer-send-actions{grid-column:3;grid-row:1/3;display:grid;grid-template-columns:32px 32px 38px;grid-template-rows:repeat(2,32px);gap:2px;align-items:center;justify-items:center;align-self:stretch;justify-self:end;margin:0}
+  .composer:not(.community-chat-page-composer)>.composer-send-actions{place-self:stretch end;place-items:center;gap:5px;margin:0px;display:grid}
   .composer:not(.community-chat-page-composer)>.composer-send-actions>.composer-expand{grid-column:1;grid-row:1;margin:0!important}
   .composer:not(.community-chat-page-composer)>.composer-send-actions>.composer-clear{grid-column:2;grid-row:1;margin:0!important}
   .composer:not(.community-chat-page-composer)>.composer-send-actions>.send{grid-column:3;grid-row:1;margin:0!important}
