@@ -308,6 +308,7 @@ model Message {
   roomId      String?           @map("room_id") @db.VarChar(64)
   recipientId String?           @map("recipient_id") @db.Uuid
   body        String            @db.VarChar(1000)
+  gifUrl      String?           @map("gif_url") @db.Text
   adminVoice  Boolean           @default(false) @map("admin_voice")
   kind        MessageKind       @default(TEXT)
   requestId   String?           @unique @map("request_id") @db.VarChar(100)

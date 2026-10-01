@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsOptional, IsString, IsUUID, Length, Matches, MaxLength } from "class-validator";
+import { IsBoolean, IsOptional, IsString, IsUUID, IsUrl, Length, Matches, MaxLength } from "class-validator";
 
 class MessageContentDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
@@ -15,6 +15,12 @@ class MessageContentDto {
   @IsOptional()
   @IsUUID()
   replyToId?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsUrl({ protocols: ["https"], require_protocol: true })
+  @MaxLength(2048)
+  gifUrl?: string;
 
   @IsString()
   @MaxLength(100)

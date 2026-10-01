@@ -11,6 +11,8 @@ import { StyledMessageText, StyledName } from "./cosmetics";
 import { ComposerAppearanceMenu, ComposerMessageColorPicker, ComposerTextStyleToggles } from "./appearance-settings";
 import { useSiteTheme } from "@/lib/use-site-theme";
 import { DirectConversationTabs } from "./direct-conversation-tabs";
+import { GifPicker } from "./gif-picker";
+import type { ChatGif } from "@/lib/gif-api";
 
 const reactionOptions: Array<{ type: ReactionType; emoji: string; label: string }> = [
   { type: "like", emoji: "👍", label: "Нравится" },
@@ -29,10 +31,10 @@ const composerEmojis = ["😀","😃","😄","😁","😆","😅","😂","🤣",
 type ConversationProps = {
   radioControlsRef?: (element: HTMLDivElement | null) => void;
   currentUserId?: string; canUseAdminVoice: boolean; adminVoice: boolean; onAdminVoiceChange: (value: boolean) => void; appearance?: CosmeticAppearance; onAppearanceChanged: (appearance: CosmeticAppearance) => void; room: Room; dialog: string | null; dialogId: string | null; directConversations: DirectConversation[]; onOpenDirect: (person: Person) => void; onDismissDirect: (personId: string) => void; messages: Message[]; draft: string; muted: boolean;
-  attachment: Attachment | null; replyingTo: Message | null; uploadingAttachment: boolean;
+  attachment: Attachment | null; gif: ChatGif | null; replyingTo: Message | null; uploadingAttachment: boolean;
   canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; hasNewer: boolean; loadingOlder: boolean; notice: string;
   onDraftChange: (value: string) => void; onSend: FormEventHandler<HTMLFormElement>; onLoadOlder: () => void; onShowLatest: () => void;
-  onFileSelect: (file: File) => void; onRemoveAttachment: () => void;
+  onFileSelect: (file: File) => void; onRemoveAttachment: () => void; onGifSelect: (gif: ChatGif) => void; onRemoveGif: () => void;
   onDelete: (messageId: string) => void; onReply: (message: Message) => void; onCancelReply: () => void; onReport: (messageId: string, label: string) => void;
   onReact: (messageId: string, type: ReactionType) => Promise<void>; onExitDialog: () => void; onRevealMessage: (message: Message) => void; onNotice: (message: string) => void; mentionCandidates: Person[]; mentionFocusRequest: number;
 };
@@ -151,7 +153,7 @@ function RoomInfoModal({ room, onClose }: { room: Room; onClose: () => void }) {
   </div>;
 }
 
-export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
+export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, gif, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onGifSelect, onRemoveGif, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
   const { theme, toggleTheme } = useSiteTheme();
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
@@ -172,6 +174,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [imagePreview, setImagePreview] = useState<Attachment | null>(null);
   const [roomInfoOpen, setRoomInfoOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiTab, setEmojiTab] = useState<"emoji" | "gif">("emoji");
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const mobileToolsRef = useRef<HTMLDivElement | null>(null);
   const [mentionButtonAt, setMentionButtonAt] = useState<number | null>(null);
@@ -207,7 +210,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const olderAnchorRef = useRef<{ id: string; top: number } | null>(null);
   const isNearLatestRef = useRef(true);
   const [showJumpToLatest, setShowJumpToLatest] = useState(false);
-  const canSend = !muted && !uploadingAttachment && Boolean(draft.trim() || attachment);
+  const canSend = !muted && !uploadingAttachment && Boolean(draft.trim() || attachment || gif);
   const emojiStorageKey = "tusova:frequent-emojis:" + (currentUserId ?? "guest");
   useEffect(() => { try { const legacyKey = emojiStorageKey.replace("tusova:", "aura:"); const saved = localStorage.getItem(emojiStorageKey) ?? localStorage.getItem(legacyKey) ?? "[]"; setFrequentEmojis(JSON.parse(saved).slice(0, 10)); if (localStorage.getItem(legacyKey)) { localStorage.setItem(emojiStorageKey, saved); localStorage.removeItem(legacyKey); } } catch { setFrequentEmojis([]); } }, [emojiStorageKey]);
   function insertEmoji(emoji: string) { const field = composerInputRef.current; const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + emoji + draft.slice(end)); const next = [emoji, ...frequentEmojis.filter((item) => item !== emoji)].slice(0, 10); setFrequentEmojis(next); localStorage.setItem(emojiStorageKey, JSON.stringify(next)); setEmojiOpen(false); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + emoji.length, start + emoji.length); }); }
@@ -502,6 +505,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
               {message.body && <span className="message-body">{message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
             </div>}
             <div className="message-extras">
+              {message.gifUrl && <img className="message-gif" src={message.gifUrl} alt="GIF" loading="lazy" />}
               {(message.attachments ?? []).map((item) => <AttachmentCard key={item.id} attachment={item} onOpenImage={setImagePreview} />)}
             </div>
             {(message.reactions?.length ?? 0) > 0 && <div className="message-reactions">{message.reactions?.map((reaction) => {
@@ -524,6 +528,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     {contentTab !== "chat" && <section className={"room-resource-panel " + (dialog ? "direct-resources" : "")}>{resourcesLoading ? <p>Загрузка…</p> : contentTab === "links" ? (resources?.links.length ? resources.links.map((item) => <article key={item.messageId + item.url}><a href={item.url} target="_blank" rel="noreferrer"><strong>{item.author}</strong><span>{item.url}</span></a><button type="button" className="resource-jump" onClick={() => void revealRoomMessage(item.messageId)}>К сообщению</button></article>) : <p>{dialog ? "В личных сообщениях ссылок пока нет." : "Ссылок в этой комнате пока нет."}</p>) : (resources?.media?.length ? resources?.media?.map((item) => <article key={item.messageId + item.attachment.id}><AttachmentCard attachment={item.attachment} onOpenImage={setImagePreview} /><footer><small>{item.author} · {new Date(item.createdAt).toLocaleString("ru-RU")}</small><button type="button" className="resource-jump" onClick={() => void revealRoomMessage(item.messageId)}>К сообщению</button></footer></article>) : <p>{dialog ? "В личных сообщениях медиа пока нет." : "Медиа в этой комнате пока нет."}</p>)}</section>}
     {replyingTo && <div className="composer-reply"><Reply size={13} /><span>Ответ для <b>{replyingTo.author}</b> в {replyingTo.time}</span><button type="button" aria-label="Отменить ответ" title="Отменить ответ" onClick={onCancelReply}><X size={14} /></button></div>}
     {attachment && <div className="composer-file"><span>{attachment.kind === "image" ? <FileImage size={15} /> : <FileAudio size={15} />}{attachment.originalName}<small>готово к отправке · хранится 24 часа</small></span><button type="button" aria-label="Убрать вложение" onClick={onRemoveAttachment}><X size={15} /></button></div>}
+    {gif && <div className="composer-gif-selected"><img src={gif.previewUrl} alt="" /><span>GIF готов к отправке</span><button type="button" aria-label="Убрать GIF" onClick={onRemoveGif}><X size={15} /></button></div>}
     <form className="composer" onSubmit={onSend}>
       <div className="composer-mobile-tools" ref={mobileToolsRef}>
         <button type="button" className="composer-mobile-tools-trigger" aria-label="Действия и настройки сообщения" title="Действия и настройки" aria-expanded={mobileToolsOpen} onClick={() => setMobileToolsOpen((open) => !open)}><Settings2 size={20} /></button>
@@ -554,7 +559,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
       {currentUserId && <ComposerMessageColorPicker appearance={appearance} onSaved={onAppearanceChanged} />}
       </div>
       {recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
-      {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Выбор смайла">{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></div>}
+      {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Смайлы и GIF"><nav className="composer-picker-tabs"><button type="button" className={emojiTab === "emoji" ? "active" : ""} onClick={() => setEmojiTab("emoji")}>Смайлы</button><button type="button" className={emojiTab === "gif" ? "active" : ""} onClick={() => setEmojiTab("gif")}>GIF</button></nav>{emojiTab === "emoji" ? <>{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></> : <GifPicker onSelect={(next) => { onGifSelect(next); setEmojiOpen(false); }} />}</div>}
       {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.username ?? person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}{person.username && <small>{" @" + person.username}</small>}</span></button>)}</div>}
       <textarea ref={composerInputRef} value={draft} onChange={(event) => { setMentionButtonAt(null); onDraftChange(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} maxLength={1000} rows={1} disabled={muted} title="Ctrl + Alt + M — перейти к полю сообщения" placeholder={muted ? "Вы временно не можете писать" : "Написать в " + (dialog ? "личку" : "#" + room.name.toLowerCase()) + "…"} />
       {draftPreviewOpen && <div ref={draftPreviewRef} className="composer-draft-preview" style={messagePreviewStyle(draft)} role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15} /></button></div><textarea autoFocus rows={8} value={draft} maxLength={1000} disabled={muted} onChange={(event) => onDraftChange(event.target.value)} placeholder="Написать сообщение…" /></div>}

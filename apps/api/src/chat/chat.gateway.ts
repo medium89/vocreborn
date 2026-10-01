@@ -181,7 +181,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     if (!this.allowAction(client, user.id, "message", 60, 10 * 1000)) return;
 
-    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice);
+    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice, input.gifUrl);
     const payload = { roomId: input.roomId, message, requestId: input.requestId };
     return payload;
   }
@@ -195,7 +195,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     if (!this.allowAction(client, user.id, "message", 60, 10 * 1000)) return;
 
-    const message = await this.chat.createDirectMessage(input.recipientId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId);
+    const message = await this.chat.createDirectMessage(input.recipientId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.gifUrl);
     const senderPayload = { peerId: input.recipientId, message, requestId: input.requestId };
     return senderPayload;
   }

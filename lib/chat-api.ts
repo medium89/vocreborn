@@ -37,10 +37,10 @@ export async function fetchRoomMessages(roomId: string) {
   return (await fetchRoomMessagePage(roomId)).items;
 }
 
-export function postRoomMessage(roomId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string, adminVoice?: boolean) {
+export function postRoomMessage(roomId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string, adminVoice?: boolean, gifUrl?: string) {
   return request<{ requestId: string; message: Message }>("/api/rooms/" + encodeURIComponent(roomId) + "/messages", {
     method: "POST",
-    body: JSON.stringify({ body, requestId, attachmentId, replyToId, adminVoice }),
+    body: JSON.stringify({ body, requestId, attachmentId, replyToId, adminVoice, gifUrl }),
   });
 }
 
@@ -57,10 +57,10 @@ export async function fetchDirectMessages(peerId: string) {
   return (await fetchDirectMessagePage(peerId)).items;
 }
 
-export function postDirectMessage(peerId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string) {
+export function postDirectMessage(peerId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string, gifUrl?: string) {
   return request<{ requestId: string; message: Message }>("/api/direct/" + encodeURIComponent(peerId) + "/messages", {
     method: "POST",
-    body: JSON.stringify({ body, requestId, attachmentId, replyToId }),
+    body: JSON.stringify({ body, requestId, attachmentId, replyToId, gifUrl }),
   });
 }
 export function fetchDirectConversations() {

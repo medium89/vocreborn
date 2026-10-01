@@ -155,6 +155,7 @@ export type Message = {
   appearance?: CosmeticAppearance;
   avatarUrl?: string;
   body: string;
+  gifUrl?: string;
   adminVoice?: boolean;
   time: string;
   createdAt?: string;

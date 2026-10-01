@@ -96,7 +96,7 @@ export class ChatController {
   ) {
     return {
       requestId: input.requestId,
-      message: await this.chat.createMessage(roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice),
+      message: await this.chat.createMessage(roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice, input.gifUrl),
     };
   }
 }
@@ -182,7 +182,7 @@ export class DirectController {
   ) {
     return {
       requestId: input.requestId,
-      message: await this.chat.createDirectMessage(peerId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId),
+      message: await this.chat.createDirectMessage(peerId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.gifUrl),
     };
   }
 }

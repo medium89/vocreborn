@@ -15,6 +15,15 @@ const MAX_ROOM_COVER_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_ROOM_COVER_BYTES = 2 * 1024 * 1024;
 type RoomCoverFile = { buffer: Buffer; mimetype: string; size: number };
 
+function normalizeGifUrl(value?: string) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "https:" || !/^(?:media\d*|i)\.giphy\.com$/i.test(url.hostname)) throw new Error("host");
+    return url.toString();
+  } catch { throw new BadRequestException("Некорректный GIF"); }
+}
+
 function hasValidRoomCoverSignature(file: RoomCoverFile) {
   const png = file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
   const jpeg = file.buffer.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff]));
@@ -236,10 +245,12 @@ export class ChatService {
     attachmentId?: string,
     replyToId?: string,
     adminVoice = false,
+    gifUrl?: string,
   ): Promise<ApiMessage> {
     await this.assertCanWrite(authorId);
     await assertNotInChaos(this.prisma, authorId);
-    if (!body.trim() && !attachmentId) throw new BadRequestException("Введите сообщение или прикрепите файл");
+    const normalizedGifUrl = normalizeGifUrl(gifUrl);
+    if (!body.trim() && !attachmentId && !normalizedGifUrl) throw new BadRequestException("Введите сообщение или прикрепите файл");
     await this.assertRoom(roomId);
     if (adminVoice) {
       if (!body.trim()) throw new BadRequestException("Введите текст для «Гласа админа»");
@@ -292,6 +303,7 @@ export class ChatService {
         adminVoice,
         requestId,
         replyToId,
+        gifUrl: normalizedGifUrl,
       },
       });
     }).catch(async (error: unknown) => {
@@ -488,9 +500,11 @@ export class ChatService {
     authorName: string,
     attachmentId?: string,
     replyToId?: string,
+    gifUrl?: string,
   ): Promise<ApiMessage> {
     await this.assertCanWrite(authorId);
-    if (!body.trim() && !attachmentId) throw new BadRequestException("Введите сообщение или прикрепите файл");
+    const normalizedGifUrl = normalizeGifUrl(gifUrl);
+    if (!body.trim() && !attachmentId && !normalizedGifUrl) throw new BadRequestException("Введите сообщение или прикрепите файл");
     await this.assertPeer(authorId, recipientId);
     await this.assertReplyTarget(replyToId, { participantIds: [authorId, recipientId] });
 
@@ -506,7 +520,7 @@ export class ChatService {
     await this.settings.assertMessage(authorId, body);
     let created = true;
     const message = await this.prisma.message.create({
-      data: { recipientId, authorId, authorName, body: body.trim(), requestId, replyToId },
+      data: { recipientId, authorId, authorName, body: body.trim(), requestId, replyToId, gifUrl: normalizedGifUrl },
     }).catch(async (error: unknown) => {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
       const duplicate = await this.prisma.message.findUnique({ where: { requestId } });
@@ -676,6 +690,7 @@ export class ChatService {
       adminVoice: message.adminVoice || undefined,
       avatarUrl: message.author?.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + message.author.avatarKey : undefined,
       body: message.body,
+      gifUrl: message.gifUrl ?? undefined,
       time: message.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
       createdAt: message.createdAt.toISOString(),
       system: message.kind === "SYSTEM",

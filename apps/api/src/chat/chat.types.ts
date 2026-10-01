@@ -53,6 +53,7 @@ export type ApiMessage = {
   appearance?: Record<string, Record<string, string | boolean>>;
   avatarUrl?: string;
   body: string;
+  gifUrl?: string;
   time: string;
   createdAt?: string;
   adminVoice?: boolean;
