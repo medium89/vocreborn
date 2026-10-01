@@ -1,6 +1,6 @@
 import type { DirectConversation, Message, Person, ReactionType, ReactionUpdate, Room, RoomResources } from "@/lib/chat-contract";
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(API_URL + path, {
