@@ -128,7 +128,7 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
               {mode === "register" && registerStep === 2 && <button type="button" className="tusova-forgot" onClick={() => { setRegisterStep(1); setError(""); }}>Назад</button>}
             </div>
             {error && <p className="tusova-auth-error" role="alert">{error}</p>}
-            <button type="submit" className="tusova-submit" disabled={busy}><span>{busy ? "Подождите…" : mode === "login" ? "Войти в TUSOVA" : registerStep === 1 ? "Далее" : "Создать профиль"}</span><ArrowRight size={21} aria-hidden="true" /></button>
+            <button type="submit" className={"tusova-submit" + (mode === "login" ? " tusova-login-submit" : "")} disabled={busy}><span>{busy ? "Подождите…" : mode === "login" ? "Войти в TUSOVA" : registerStep === 1 ? "Далее" : "Создать профиль"}</span>{mode !== "login" && <ArrowRight size={21} aria-hidden="true" />}</button>
           </form>
           {mode === "register" && <p className="tusova-email-hint">После регистрации проверь почту и подтверди адрес по ссылке из письма.</p>}
           <div className="tusova-divider"><span>или</span></div>

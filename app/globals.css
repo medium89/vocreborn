@@ -1494,6 +1494,7 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .tusova-forgot:hover{color:#e2ef98}
 .tusova-auth-error{margin:0;padding:10px 12px;border:1px solid #e6a6a18a;border-radius:10px;background:#6b292954;color:#ffe6df;font-size:13px;line-height:1.4}
 .tusova-submit{display:flex;align-items:center;justify-content:center;gap:17px;min-height:58px;margin-top:5px;border-radius:999px;background-color:#d7e989;background-image:linear-gradient(90deg,#d7e989,#e6ef9d);color:#14200b;font-size:17px;font-weight:800;box-shadow:0 8px 22px #dbe98a21}
+.tusova-login-submit{font-weight:700;text-transform:uppercase}
 .tusova-submit:hover:not(:disabled){background-color:#ecf3a6;background-image:linear-gradient(90deg,#ecf3a6,#f4f8bb);transform:translateY(-2px)}
 .tusova-submit:disabled{opacity:.65;cursor:wait}
 .tusova-divider{display:flex;align-items:center;gap:17px;margin:18px 0;color:#aeb9a9;font-size:13px;text-align:center}
