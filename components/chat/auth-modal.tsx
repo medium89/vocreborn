@@ -88,7 +88,6 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
         <section className="tusova-entry" id="tusova-entry" aria-labelledby="tusova-entry-title">
           <div className="tusova-entry-heading">
             <h1 id="tusova-entry-title">Снова ночь. Снова TUSOVA <span aria-hidden="true">☾</span></h1>
-            <p>Заходи. Тут ещё никто не спит.</p>
           </div>
           <div className="tusova-auth-tabs" role="tablist" aria-label="Способ входа">
             <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Вход</button>

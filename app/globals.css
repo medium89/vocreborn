@@ -1473,8 +1473,7 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .tusova-entry{width:100%;max-width:492px;justify-self:end;align-self:start;padding:clamp(26px,2.6vw,42px);border:1px solid #dce79a75;border-radius:28px;background:linear-gradient(135deg,#08130ee8,#09150dde 56%,#111c10ed);box-shadow:0 30px 80px #010703b3,inset 0 1px #ffffff16;backdrop-filter:blur(17px)}
 .tusova-entry-heading{position:relative;margin:0 0 25px}
 .tusova-entry-heading h1{margin:0 0 14px;font-size:clamp(26px,2.1vw,35px);font-weight:750;line-height:1.13;letter-spacing:.005em;color:#f4f2e7}
-.tusova-entry-heading h1>span{display:inline-block;margin-left:12px;color:#f4dc85;font-size:.9em}
-.tusova-entry-heading p{margin:0;color:#d1d7cc;font-size:17px;line-height:1.5}
+.tusova-entry-heading h1>span{display:inline-block;margin-left:12px;color:#f4dc85;font-size:.9em;transform:rotateZ(-35deg) scale(1.4)}
 .tusova-auth-tabs{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:10px;padding:3px;border:1px solid #d4dda25b;border-radius:999px;background:#101d14}
 .tusova-auth-tabs button{min-height:40px;border-radius:999px;background:transparent;color:#c7cfc5;font-size:14px}
 .tusova-auth-tabs button.active{background:#dfec90;color:#12190f;font-weight:750;box-shadow:0 2px 10px #dded9250}
@@ -1566,7 +1565,6 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
   .tusova-landing .tusova-entry-heading{margin-bottom:18px}
   .tusova-landing .tusova-entry-heading h1{font-size:clamp(22px,6vw,27px);line-height:1.2;overflow-wrap:anywhere}
   .tusova-landing .tusova-entry-heading h1>span{display:none}
-  .tusova-landing .tusova-entry-heading p{font-size:14px}
   .tusova-landing .tusova-auth-tabs{grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:10px}
   .tusova-landing .tusova-auth-tabs button{min-width:0;padding:8px 4px;font-size:14px}
   .tusova-landing .tusova-auth-form,.tusova-landing .tusova-field,.tusova-landing .tusova-input{min-width:0;width:100%}
