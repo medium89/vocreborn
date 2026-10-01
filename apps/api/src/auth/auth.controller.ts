@@ -8,6 +8,7 @@ import { LoginDto } from "./dto/login.dto";
 import { EmailAddressDto, EmailPasswordResetDto, EmailTokenDto, SetEmailDto } from "./dto/email.dto";
 import { ChangePasswordDto, CreateRecoveryCodeDto, ResetPasswordDto } from "./dto/password.dto";
 import { RegisterDto } from "./dto/register.dto";
+import { GuestLoginDto } from "./dto/guest.dto";
 import { UpdateProfileDto } from "./dto/update-profile.dto";
 import { ProfileService } from "./profile.service";
 import { SessionGuard } from "./session.guard";
@@ -24,6 +25,24 @@ export class AuthController {
   @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "ip" })
   async register(@Body() input: RegisterDto, @Res({ passthrough: true }) response: Response) {
     const session = await this.auth.register(input);
+    setSessionCookie(response, session.token, session.expiresAt);
+    return { user: session.user };
+  }
+
+  @Post("guest")
+  @HttpCode(200)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "ip" })
+  async guest(@Body() input: GuestLoginDto, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
+    const session = await this.auth.registerGuest(input.turnstileToken, request.ip);
+    setSessionCookie(response, session.token, session.expiresAt);
+    return { user: session.user };
+  }
+
+  @Post("guest/upgrade")
+  @UseGuards(SessionGuard)
+  @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "session" })
+  async upgradeGuest(@Body() input: RegisterDto, @Req() request: AuthenticatedRequest, @Res({ passthrough: true }) response: Response) {
+    const session = await this.auth.upgradeGuest(request.user.id, input);
     setSessionCookie(response, session.token, session.expiresAt);
     return { user: session.user };
   }

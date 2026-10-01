@@ -31,6 +31,22 @@ export async function register(input: { email: string; displayName: string; pass
   return result.user;
 }
 
+export async function enterAsGuest(turnstileToken: string) {
+  const result = await authRequest<{ user: AuthUser }>("/api/auth/guest", {
+    method: "POST",
+    body: JSON.stringify({ turnstileToken }),
+  });
+  return result.user;
+}
+
+export async function upgradeGuest(input: { email: string; displayName: string; password: string }) {
+  const result = await authRequest<{ user: AuthUser }>("/api/auth/guest/upgrade", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+  return result.user;
+}
+
 export async function login(input: { email: string; password: string }) {
   const result = await authRequest<{ user: AuthUser }>("/api/auth/login", {
     method: "POST",

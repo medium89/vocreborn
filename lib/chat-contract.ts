@@ -110,6 +110,7 @@ export type PendingAttachment = Attachment & {
 
 export type AuthUser = {
   isDj?: boolean;
+  isGuest?: boolean;
   id: string;
   username: string;
   displayName: string;

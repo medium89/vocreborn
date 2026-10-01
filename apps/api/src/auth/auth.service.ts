@@ -2,7 +2,7 @@ import { ChatSettingsService } from "../settings/chat-settings.service";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { Algorithm, hash, verify } from "@node-rs/argon2";
 import { Prisma } from "@prisma/client";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
 import { SessionRevocationService } from "../security/session-revocation.service";
 import type { AuthenticatedUser } from "./auth.types";
@@ -12,6 +12,7 @@ import type { EmailAddressDto, EmailPasswordResetDto, EmailTokenDto, SetEmailDto
 import { EmailService } from "./email.service";
 import type { ChangePasswordDto, CreateRecoveryCodeDto, ResetPasswordDto } from "./dto/password.dto";
 import type { RegisterDto } from "./dto/register.dto";
+import { TurnstileService } from "./turnstile.service";
 
 const RECOVERY_CODE_DAYS = 365;
 const SESSION_DAYS = 30;
@@ -25,6 +26,7 @@ export class AuthService {
     private readonly sessionRevocation: SessionRevocationService,
     private readonly email: EmailService,
     private readonly settings: ChatSettingsService,
+    private readonly turnstile: TurnstileService,
   ) {}
 
   async register(input: RegisterDto) {
@@ -59,6 +61,69 @@ export class AuthService {
       await this.createEmailToken(user.id, input.email, "verify");
     } catch (error) {
       await this.prisma.user.delete({ where: { id: user.id } });
+      throw error;
+    }
+    return this.issueSession(user.id, this.toAuthenticatedUser(user));
+  }
+
+  async registerGuest(turnstileToken: string, remoteIp?: string) {
+    const { settings } = await this.settings.read();
+    if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Гостевой вход временно закрыт администратором");
+    await this.turnstile.verify(turnstileToken, remoteIp);
+
+    let user;
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      try {
+        user = await this.prisma.user.create({
+          data: {
+            username: "guest_" + randomBytes(8).toString("hex"),
+            displayName: "Гость" + randomInt(1000, 10000),
+            isGuest: true,
+            status: "OFFLINE",
+            role: "USER",
+            credits: 0,
+          },
+        });
+        break;
+      } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
+      }
+    }
+    if (!user) throw new BadRequestException("Не удалось создать гостевой профиль. Повторите попытку.");
+    return this.issueSession(user.id, this.toAuthenticatedUser(user), 7);
+  }
+
+  async upgradeGuest(userId: string, input: RegisterDto) {
+    const { settings } = await this.settings.read();
+    if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
+    const guest = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!guest?.isGuest || guest.deletedAt) throw new ForbiddenException("Регистрация доступна только гостевому профилю");
+    this.email.ensureConfigured();
+    const passwordHash = await this.hashPassword(input.password);
+
+    let user;
+    try {
+      user = await this.prisma.user.update({
+        where: { id: guest.id },
+        data: {
+          email: input.email,
+          displayName: input.displayName,
+          passwordHash,
+          isGuest: false,
+          credits: settings.initialCredits,
+        },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+        throw new ConflictException("Этот адрес почты уже занят");
+      }
+      throw error;
+    }
+
+    try {
+      await this.createEmailToken(user.id, input.email, "verify");
+    } catch (error) {
+      await this.prisma.user.update({ where: { id: guest.id }, data: { email: null, displayName: guest.displayName, passwordHash: null, isGuest: true, credits: guest.credits } });
       throw error;
     }
     return this.issueSession(user.id, this.toAuthenticatedUser(user));
@@ -291,9 +356,9 @@ export class AuthService {
     return chaos?.expiresAt.toISOString() ?? null;
   }
 
-  private async issueSession(userId: string, user: AuthenticatedUser) {
+  private async issueSession(userId: string, user: AuthenticatedUser, days = SESSION_DAYS) {
     const token = randomBytes(32).toString("base64url");
-    const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
     await this.prisma.session.create({ data: { userId, tokenHash: this.hashToken(token), expiresAt } });
     return { token, expiresAt, user };
   }
@@ -320,6 +385,7 @@ export class AuthService {
     emailVerifiedAt?: Date | null;
     role: string;
     isDj?: boolean;
+    isGuest?: boolean;
     status: string;
     gender: string;
     rating?: number;
@@ -335,6 +401,7 @@ export class AuthService {
       displayName: user.displayName,
       role: user.role.toLowerCase() as AuthenticatedUser["role"],
       isDj: Boolean(user.isDj),
+      isGuest: Boolean(user.isGuest),
       email: user.email ?? null,
       emailVerified: Boolean(user.emailVerifiedAt),
       status: user.status.toLowerCase() as AuthenticatedUser["status"],

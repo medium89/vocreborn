@@ -6,7 +6,7 @@ import { io, type Socket } from "socket.io-client";
 import { RadioPlayer } from "@/components/chat/radio-player";
 import { RadioPage } from "@/components/chat/radio-page";
 import { AdminModal } from "@/components/chat/admin-modal";
-import { AuthModal } from "@/components/chat/auth-modal";
+import { AuthModal, GuestRegistrationModal } from "@/components/chat/auth-modal";
 import { Conversation } from "@/components/chat/conversation";
 import { PeoplePanel } from "@/components/chat/people-panel";
 import { PublicProfileModal } from "@/components/chat/public-profile-modal";
@@ -123,6 +123,7 @@ function normalizeConversations(items: DirectConversation[], userId: string) {
 export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  const [guestRegistrationOpen, setGuestRegistrationOpen] = useState(false);
   const [roomId, setRoomId] = useState("main");
   const [rooms, setRooms] = useState<Room[]>([defaultRoom]);
   const [chatPeople, setChatPeople] = useState<Person[]>([]);
@@ -1125,6 +1126,7 @@ export default function Home() {
         shopBadge={shopBadge}
         activeSection={profileOpen ? "profile" : radioView ? "radio" : adminOpen ? "admin" : reportsOpen ? "reports" : communityChatOpen ? "community-chat" : notificationsOpen ? "notifications" : communitiesOpen ? "communities" : giftsOpen ? "store" : "chat"}
         onOpenProfile={() => user && openOverlay(setProfileOpen)}
+        onOpenRegistration={() => setGuestRegistrationOpen(true)}
         onSetStatus={setPresenceStatus}
         onLogout={() => void signOut()}
         onOpenChat={() => changeRoom(roomId)}
@@ -1141,6 +1143,7 @@ export default function Home() {
         onOpenRadio={() => openRadio("requests")}
         onNotice={showNotice}
       />
+      {guestRegistrationOpen && <GuestRegistrationModal onAuthenticated={handleAuthenticated} onClose={() => setGuestRegistrationOpen(false)} />}
       <section className="app">
         <RadioPlayer user={user} controlsTarget={radioControlsTarget} />
 

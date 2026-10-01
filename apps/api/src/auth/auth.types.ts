@@ -9,6 +9,7 @@ export type AuthenticatedUser = {
   emailVerified: boolean;
   role: Lowercase<UserRole>;
   isDj: boolean;
+  isGuest: boolean;
   status: Lowercase<UserStatus>;
   gender: Lowercase<Gender>;
   rating: number;

@@ -14,6 +14,7 @@ type SidebarProps = {
   unreadChatMessages: number;
   activeSection: "profile" | "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin" | "radio";
   onOpenProfile: () => void;
+  onOpenRegistration: () => void;
   onSetStatus: (status: "online" | "dnd") => void;
   onLogout: () => void;
   onOpenChat: () => void;
@@ -79,7 +80,7 @@ function CreditBalance({ credits, mobile = false, onOpenStore }: { credits: numb
   </button>;
 }
 
-export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenReports, onOpenAdmin, onOpenRadio, onNotice }: SidebarProps) {
+export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onOpenRegistration, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenReports, onOpenAdmin, onOpenRadio, onNotice }: SidebarProps) {
   const name = user?.displayName ?? "Гость";
   const canModerate = user?.role === "admin" || user?.role === "moderator";
   const [collapsed, setCollapsed] = useState(false);
@@ -100,6 +101,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
     </section>
     <nav className="rail-nav">
       {user && <button type="button" className={"rail-link rail-mobile-profile" + (activeSection === "profile" ? " active" : "")} onClick={onOpenProfile} aria-label="Мой профиль" title="Мой профиль"><UserRound size={18} /><span>Профиль</span></button>}
+      {user?.isGuest && <button type="button" className="rail-link" onClick={onOpenRegistration}><UserRound size={18} /><span>Регистрация</span></button>}
       <button className={"rail-link " + (activeSection === "chat" ? "active" : "")} onClick={onOpenChat}><MessageCircle size={18} /><span>Чат</span>{unreadChatMessages > 0 && <b className="direct-unread-count">{unreadChatMessages > 99 ? "99+" : unreadChatMessages}</b>}</button>
       {(activeSection === "chat" || activeSection === "community-chat") && <button type="button" className="rail-link rail-mobile-people" onClick={onOpenPeople} aria-label="Кто в чате" title="Кто в чате"><UserRoundSearch size={18} /><span>Кто в чате</span></button>}
       {SHOW_DIRECTS_NAV && <button className={"rail-link " + (activeSection === "directs" ? "active" : "")} onClick={user ? onOpenDirects : () => onNotice("Войдите, чтобы открыть личку.")}><MessagesSquare size={18} /><span>Личка</span>{unreadDirects > 0 && <b className="direct-unread-count">{unreadDirects > 99 ? "99+" : unreadDirects}</b>}</button>}

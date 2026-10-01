@@ -262,8 +262,16 @@ export class ChatService {
     const policy = await this.settings.assertMessage(authorId, body);
     let created = true;
     const message = await this.prisma.$transaction(async tx => {
-      // Per-user/room DB lock also covers parallel HTTP and Socket.IO sends.
+      // Per-user lock covers guest cooldown across HTTP, Socket.IO and all rooms.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${authorId + ":message"}, 0))`;
       await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${authorId + ":" + roomId}, 0))`;
+      const author = await tx.user.findUnique({ where: { id: authorId }, select: { isGuest: true } });
+      if (author?.isGuest) {
+        const lastGuestMessage = await tx.message.findFirst({ where: { authorId }, orderBy: { createdAt: "desc" }, select: { createdAt: true } });
+        if (lastGuestMessage && lastGuestMessage.createdAt.getTime() + 10_000 > Date.now()) {
+          throw new ForbiddenException("Гости могут отправлять одно сообщение раз в 10 секунд");
+        }
+      }
       if (requestId) {
         const retry = await tx.message.findUnique({ where: { requestId } });
         if (retry) {

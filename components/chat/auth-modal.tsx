@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { ArrowRight, Eye, EyeOff, HeartHandshake, LockKeyhole, Mail, MessageCircle, Sparkles, UserRound, UsersRound } from "lucide-react";
 import { SiteHeader } from "@/components/site/site-header";
 import { useSiteTheme } from "@/lib/use-site-theme";
-import { login, register } from "@/lib/auth-api";
+import { enterAsGuest, login, register, upgradeGuest } from "@/lib/auth-api";
+import { Turnstile } from "./turnstile";
 import type { AuthUser } from "@/lib/chat-contract";
 
 type Mode = "login" | "register";
@@ -26,6 +27,9 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
   const { theme } = useSiteTheme();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [guestDialogOpen, setGuestDialogOpen] = useState(false);
+  const [guestError, setGuestError] = useState("");
+  const [guestBusy, setGuestBusy] = useState(false);
 
   useEffect(() => {
     const savedLogin = window.localStorage.getItem(REMEMBERED_LOGIN_KEY);
@@ -59,6 +63,19 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
       setBusy(false);
     }
   }
+
+  const enterGuest = useCallback(async (turnstileToken: string) => {
+    setGuestError("");
+    setGuestBusy(true);
+    try {
+      onAuthenticated(await enterAsGuest(turnstileToken));
+      setGuestDialogOpen(false);
+    } catch (reason) {
+      setGuestError(reason instanceof Error ? reason.message : "Не удалось войти как гость");
+    } finally {
+      setGuestBusy(false);
+    }
+  }, [onAuthenticated]);
 
   function switchMode(nextMode: Mode) {
     setMode(nextMode);
@@ -115,7 +132,17 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
           </form>
           {mode === "register" && <p className="tusova-email-hint">После регистрации проверь почту и подтверди адрес по ссылке из письма.</p>}
           <div className="tusova-divider"><span>или</span></div>
-          <button type="button" className="tusova-guest" disabled title="Гостевой вход пока не поддерживается"><span aria-hidden="true">♧</span>Войти как гость</button>
+          <button type="button" className="tusova-guest" onClick={() => { setGuestError(""); setGuestDialogOpen(true); }}><span aria-hidden="true">♧</span>Войти как гость</button>
+          {guestDialogOpen && <div className="tusova-guest-dialog-backdrop" role="presentation">
+            <section className="tusova-guest-dialog" role="dialog" aria-modal="true" aria-labelledby="guest-entry-title">
+              <button type="button" className="tusova-guest-dialog-close" onClick={() => setGuestDialogOpen(false)} aria-label="Закрыть">×</button>
+              <h2 id="guest-entry-title">Быстрый вход</h2>
+              <p>Пройди проверку — и сразу попадёшь в чат как гость.</p>
+              <Turnstile onVerify={(token) => void enterGuest(token)} onError={() => setGuestError("Капча не пройдена. Обновите её и повторите попытку.")} />
+              {guestBusy && <p className="tusova-email-hint">Входим в чат…</p>}
+              {guestError && <p className="tusova-auth-error" role="alert">{guestError}</p>}
+            </section>
+          </div>}
           <div className="tusova-entry-note">
             <img src="/brand/tusova-note-owl.png" alt="" width={50} height={50} />
             <p>Иногда лучшие разговоры начинаются просто с «привет» <span>♡</span></p>
@@ -124,4 +151,54 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
       </div>
     </div>
   </main>;
+}
+
+
+export function GuestRegistrationModal({ onAuthenticated, onClose }: { onAuthenticated: (user: AuthUser) => void; onClose: () => void }) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [email, setEmail] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmation, setConfirmation] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError("");
+    if (step === 1) {
+      if (password !== confirmation) return setError("Пароли не совпадают");
+      if (!displayName) setDisplayName(nicknameFromEmail(email));
+      setStep(2);
+      return;
+    }
+    setBusy(true);
+    try {
+      onAuthenticated(await upgradeGuest({ email, displayName, password }));
+      onClose();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Не удалось завершить регистрацию");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return <div className="tusova-guest-dialog-backdrop" role="presentation">
+    <section className="tusova-guest-dialog tusova-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="guest-registration-title">
+      <button type="button" className="tusova-guest-dialog-close" onClick={onClose} aria-label="Закрыть">×</button>
+      <h2 id="guest-registration-title">Регистрация</h2>
+      <p>Шаг {step} из 2 — {step === 1 ? "почта и пароль" : "никнейм в чате"}.</p>
+      <form className="tusova-auth-form" onSubmit={submit}>
+        {step === 1 && <>
+          <label className="tusova-field"><span className="tusova-input"><Mail size={18} aria-hidden="true" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={254} placeholder="Электронная почта" required /></span></label>
+          <label className="tusova-field"><span className="tusova-input"><LockKeyhole size={18} aria-hidden="true" /><input type="password" autoComplete="new-password" value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={128} placeholder="Пароль" required /></span></label>
+          <label className="tusova-field"><span className="tusova-input"><LockKeyhole size={18} aria-hidden="true" /><input type="password" autoComplete="new-password" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} minLength={10} maxLength={128} placeholder="Повторите пароль" required /></span></label>
+        </>}
+        {step === 2 && <label className="tusova-field"><span className="tusova-input"><UserRound size={18} aria-hidden="true" /><input autoComplete="nickname" value={displayName} onChange={(event) => setDisplayName(event.target.value)} minLength={2} maxLength={64} placeholder="Никнейм в чате" required autoFocus /></span></label>}
+        {step === 2 && <button type="button" className="tusova-forgot" onClick={() => setStep(1)}>Назад</button>}
+        {error && <p className="tusova-auth-error" role="alert">{error}</p>}
+        <button type="submit" className="tusova-submit" disabled={busy}><span>{busy ? "Подождите…" : step === 1 ? "Далее" : "Создать профиль"}</span><ArrowRight size={21} aria-hidden="true" /></button>
+      </form>
+    </section>
+  </div>;
 }

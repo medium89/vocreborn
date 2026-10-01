@@ -9,6 +9,8 @@
 - `POST /api/auth/register` — регистрация по email, никнейму (displayName) и паролю; внутренний username создаётся сервером.
 - `POST /api/auth/login` — вход по email и паролю с установкой безопасной HttpOnly-cookie; старый вход по username доступен для совместимости API.
 - `POST /api/auth/logout` — завершение сессии.
+- POST /api/auth/guest — вход гостем после серверной проверки Turnstile; выдаёт семидневную сессию.
+- POST /api/auth/guest/upgrade — превращает текущий гостевой профиль в обычный аккаунт, сохраняя его данные и сообщения.
 - `GET /api/me` — текущий пользователь, роль, статус, профиль и активный mute.
 - `PATCH /api/me` — изменить отображаемое имя и описание.
 - `POST /api/me/avatar` — загрузить PNG, JPEG или WebP до 2 МБ; сервер проверяет MIME и сигнатуру.
