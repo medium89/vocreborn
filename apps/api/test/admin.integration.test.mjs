@@ -101,9 +101,9 @@ test('Maintenance and registration gates apply while administrators can still se
   assert.equal((await request('/api/rooms/main/messages',user.cookie,{body:'hello',requestId:randomUUID()})).status,403);
   assert.equal((await request('/api/direct/'+alice.id+'/messages',user.cookie,{body:'hello',requestId:randomUUID()})).status,403);
   assert.equal((await request('/api/rooms/main/messages',alice.cookie,{body:'maintenance notice',requestId:randomUUID()})).status,201);
-  assert.equal((await request('/api/auth/register',null,{username:'closed_register',email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
+  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
   await settings({maintenance:false,registrationOpen:false,allowUserRooms:false});
-  assert.equal((await request('/api/auth/register',null,{username:'closed_register',email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
+  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
   assert.equal((await request('/api/rooms',user.cookie,{name:'Closed room'})).status,403);
   assert.equal((await request('/api/rooms',alice.cookie,{name:'Admin room'})).status,201);
   await settings({registrationOpen:true,allowUserRooms:true});

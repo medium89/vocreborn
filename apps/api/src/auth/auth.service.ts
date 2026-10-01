@@ -30,14 +30,17 @@ export class AuthService {
   async register(input: RegisterDto) {
     const { settings } = await this.settings.read();
     if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
-    if (input.username.toLowerCase() === "tusova_quiz") throw new BadRequestException("Это служебное имя бота");
+    const baseUsername = input.email.split("@")[0].replace(/[^a-z0-9_]/g, "").slice(0, 32) || "user";
+    const username = baseUsername === "tusova_quiz" || await this.prisma.user.findUnique({ where: { username: baseUsername } })
+      ? baseUsername.slice(0, 23) + "_" + randomBytes(4).toString("hex")
+      : baseUsername;
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
     let user;
     try {
       user = await this.prisma.user.create({
         data: {
-          username: input.username,
+          username,
           email: input.email,
           displayName: input.displayName,
           passwordHash,
@@ -48,7 +51,7 @@ export class AuthService {
       });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new ConflictException("Этот логин или адрес почты уже занят");
+        throw new ConflictException("Этот адрес почты уже занят");
       }
       throw error;
     }
@@ -62,9 +65,12 @@ export class AuthService {
   }
 
   async login(input: LoginDto) {
-    const user = await this.prisma.user.findUnique({ where: { username: input.username }, include: { cosmetics: true } });
+    const user = await this.prisma.user.findUnique({
+      where: input.email ? { email: input.email } : { username: input.username },
+      include: { cosmetics: true },
+    });
     const passwordMatches = user?.passwordHash ? await verify(user.passwordHash, input.password) : false;
-    if (!user || !passwordMatches || user.deletedAt) throw new UnauthorizedException("Неверный логин или пароль");
+    if (!user || !passwordMatches || user.deletedAt) throw new UnauthorizedException("Неверный email или пароль");
     if (await this.findActiveBan(user.id)) throw new ForbiddenException("Аккаунт заблокирован");
 
     const authenticated = this.toAuthenticatedUser(user);

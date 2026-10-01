@@ -6,8 +6,8 @@
 
 ### Сессия и профиль
 
-- `POST /api/auth/register` — регистрация по логину и паролю.
-- `POST /api/auth/login` — вход и установка безопасной HttpOnly-cookie.
+- `POST /api/auth/register` — регистрация по email, никнейму (displayName) и паролю; внутренний username создаётся сервером.
+- `POST /api/auth/login` — вход по email и паролю с установкой безопасной HttpOnly-cookie; старый вход по username доступен для совместимости API.
 - `POST /api/auth/logout` — завершение сессии.
 - `GET /api/me` — текущий пользователь, роль, статус, профиль и активный mute.
 - `PATCH /api/me` — изменить отображаемое имя и описание.

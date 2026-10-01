@@ -43,7 +43,7 @@ async function request(path, options = {}, cookie) {
 async function register(username, displayName) {
   const result = await request("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ username, email: username + "@example.test", displayName, password: "Integration123!" }),
+    body: JSON.stringify({ email: username + "@example.test", displayName, password: "Integration123!" }),
   });
   assert.equal(result.status, 201);
   return { user: result.body.user, cookie: result.cookie };
@@ -106,6 +106,16 @@ test("liveness, readiness, request IDs and metrics are available", async () => {
   const metrics = await metricsResponse.text();
   assert.match(metrics, /voc_http_requests_total/);
   assert.match(metrics, /voc_process_resident_memory_bytes/);
+});
+
+test("registration creates an internal username and email login works", async () => {
+  assert.equal(user.user.username, usernames[1]);
+  const signedIn = await request("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email: (usernames[1] + "@example.test").toUpperCase(), password: "Integration123!" }),
+  });
+  assert.equal(signedIn.status, 200);
+  assert.equal(signedIn.body.user.id, user.user.id);
 });
 
 test("session and editable profile bio", async () => {

@@ -57,7 +57,7 @@ export class RateLimitGuard implements CanActivate {
     if (options.key === "ip") return [{ key: namespace + ":ip:" + ip, limit: options.limit }];
 
     if (options.key === "ip-and-username") {
-      const rawUsername = typeof request.body?.username === "string" ? request.body.username : "unknown";
+      const rawUsername = typeof request.body?.email === "string" ? request.body.email : typeof request.body?.username === "string" ? request.body.username : "unknown";
       const username = rawUsername.normalize("NFKC").trim().toLowerCase().slice(0, 80);
       return [
         { key: namespace + ":account:" + username, limit: options.limit },

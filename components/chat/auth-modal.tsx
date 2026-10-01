@@ -8,11 +8,16 @@ import { login, register } from "@/lib/auth-api";
 import type { AuthUser } from "@/lib/chat-contract";
 
 type Mode = "login" | "register";
+
+function nicknameFromEmail(address: string) {
+  return address.split("@")[0].normalize("NFKC").replace(/[^\p{L}\p{N}]+/gu, "").slice(0, 64) || "Участник";
+}
 const REMEMBERED_LOGIN_KEY = "tusova-remembered-login";
 
 export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUser) => void }) {
   const [mode, setMode] = useState<Mode>("login");
-  const [username, setUsername] = useState("");
+  const [registerStep, setRegisterStep] = useState<1 | 2>(1);
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,19 +29,28 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
 
   useEffect(() => {
     const savedLogin = window.localStorage.getItem(REMEMBERED_LOGIN_KEY);
-    if (savedLogin) setUsername(savedLogin);
+    if (savedLogin?.includes("@")) setEmail(savedLogin);
     if (new URLSearchParams(window.location.search).get("auth") === "register") setMode("register");
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    if (mode === "register" && registerStep === 1) {
+      if (password !== passwordConfirmation) {
+        setError("Пароли не совпадают");
+        return;
+      }
+      if (!displayName) setDisplayName(nicknameFromEmail(email));
+      setRegisterStep(2);
+      return;
+    }
     setBusy(true);
     try {
       const user = mode === "register"
-        ? await register({ username, email, displayName, password })
-        : await login({ username, password });
-      if (rememberLogin) window.localStorage.setItem(REMEMBERED_LOGIN_KEY, username);
+        ? await register({ email, displayName, password })
+        : await login({ email, password });
+      if (rememberLogin) window.localStorage.setItem(REMEMBERED_LOGIN_KEY, email.trim().toLowerCase());
       else window.localStorage.removeItem(REMEMBERED_LOGIN_KEY);
       onAuthenticated(user);
     } catch (reason) {
@@ -48,8 +62,10 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
 
   function switchMode(nextMode: Mode) {
     setMode(nextMode);
+    setRegisterStep(1);
     setError("");
     setPassword("");
+    setPasswordConfirmation("");
   }
 
   return <main className={"tusova-landing " + (theme === "dark" ? "is-night" : "is-day")} id="top">
@@ -78,17 +94,25 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
             <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Вход</button>
             <button type="button" role="tab" aria-selected={mode === "register"} className={mode === "register" ? "active" : ""} onClick={() => switchMode("register")}>Регистрация</button>
           </div>
+          {mode === "register" && <p className="tusova-email-hint">Шаг {registerStep} из 2 — {registerStep === 1 ? "почта и пароль" : "никнейм в чате"}</p>}
           <form className="tusova-auth-form" onSubmit={submit}>
-            <label className="tusova-field"><span className="visually-hidden">Логин</span><span className="tusova-input"><UserRound size={18} aria-hidden="true" /><input autoComplete="username" value={username} onChange={(event) => setUsername(event.target.value)} minLength={3} maxLength={32} pattern="[a-zA-Z0-9_]+" placeholder="Логин" required /></span></label>
-            {mode === "register" && <label className="tusova-field"><span className="visually-hidden">Отображаемое имя</span><span className="tusova-input"><UserRound size={18} aria-hidden="true" /><input autoComplete="name" value={displayName} onChange={(event) => setDisplayName(event.target.value)} minLength={2} maxLength={64} placeholder="Имя в чате" required /></span></label>}
-            {mode === "register" && <label className="tusova-field"><span className="visually-hidden">Электронная почта</span><span className="tusova-input"><Mail size={18} aria-hidden="true" /><input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={254} placeholder="Электронная почта" required /></span></label>}
-            <label className="tusova-field"><span className="visually-hidden">Пароль</span><span className="tusova-input"><LockKeyhole size={18} aria-hidden="true" /><input type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={128} placeholder="Пароль" required /><button type="button" className="tusova-password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>
+            {(mode === "login" || registerStep === 1) && <>
+              <label className="tusova-field"><span className="visually-hidden">Электронная почта</span><span className="tusova-input"><Mail size={18} aria-hidden="true" /><input type="email" autoComplete="email" value={email} onChange={(event) => {
+                const nextEmail = event.target.value;
+                if (!displayName || displayName === nicknameFromEmail(email)) setDisplayName(nicknameFromEmail(nextEmail));
+                setEmail(nextEmail);
+              }} maxLength={254} placeholder="Электронная почта" required /></span></label>
+              <label className="tusova-field"><span className="visually-hidden">Пароль</span><span className="tusova-input"><LockKeyhole size={18} aria-hidden="true" /><input type={showPassword ? "text" : "password"} autoComplete={mode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} minLength={10} maxLength={128} placeholder="Пароль" required /><button type="button" className="tusova-password-toggle" onClick={() => setShowPassword((value) => !value)} aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}>{showPassword ? <EyeOff size={18} /> : <Eye size={18} />}</button></span></label>
+              {mode === "register" && <label className="tusova-field"><span className="visually-hidden">Повторите пароль</span><span className="tusova-input"><LockKeyhole size={18} aria-hidden="true" /><input type={showPassword ? "text" : "password"} autoComplete="new-password" value={passwordConfirmation} onChange={(event) => setPasswordConfirmation(event.target.value)} minLength={10} maxLength={128} placeholder="Повторите пароль" required /></span></label>}
+            </>}
+            {mode === "register" && registerStep === 2 && <label className="tusova-field"><span className="visually-hidden">Никнейм в чате</span><span className="tusova-input"><UserRound size={18} aria-hidden="true" /><input autoComplete="nickname" value={displayName} onChange={(event) => setDisplayName(event.target.value)} minLength={2} maxLength={64} placeholder="Никнейм в чате" required autoFocus /></span></label>}
             <div className="tusova-form-options">
-              <label className="tusova-remember"><input type="checkbox" checked={rememberLogin} onChange={(event) => setRememberLogin(event.target.checked)} /><span>Запомнить логин</span></label>
+              <label className="tusova-remember"><input type="checkbox" checked={rememberLogin} onChange={(event) => setRememberLogin(event.target.checked)} /><span>Запомнить email</span></label>
               {mode === "login" && <a className="tusova-forgot" href="/recover">Забыли пароль?</a>}
+              {mode === "register" && registerStep === 2 && <button type="button" className="tusova-forgot" onClick={() => { setRegisterStep(1); setError(""); }}>Назад</button>}
             </div>
             {error && <p className="tusova-auth-error" role="alert">{error}</p>}
-            <button type="submit" className="tusova-submit" disabled={busy}><span>{busy ? "Подождите…" : mode === "login" ? "Войти в TUSOVA" : "Создать профиль"}</span><ArrowRight size={21} aria-hidden="true" /></button>
+            <button type="submit" className="tusova-submit" disabled={busy}><span>{busy ? "Подождите…" : mode === "login" ? "Войти в TUSOVA" : registerStep === 1 ? "Далее" : "Создать профиль"}</span><ArrowRight size={21} aria-hidden="true" /></button>
           </form>
           {mode === "register" && <p className="tusova-email-hint">После регистрации проверь почту и подтверди адрес по ссылке из письма.</p>}
           <div className="tusova-divider"><span>или</span></div>

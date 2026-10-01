@@ -23,7 +23,7 @@ export async function getMe() {
   return result.user;
 }
 
-export async function register(input: { username: string; email: string; displayName: string; password: string }) {
+export async function register(input: { email: string; displayName: string; password: string }) {
   const result = await authRequest<{ user: AuthUser }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify(input),
@@ -31,7 +31,7 @@ export async function register(input: { username: string; email: string; display
   return result.user;
 }
 
-export async function login(input: { username: string; password: string }) {
+export async function login(input: { email: string; password: string }) {
   const result = await authRequest<{ user: AuthUser }>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify(input),
