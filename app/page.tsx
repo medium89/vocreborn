@@ -1033,11 +1033,12 @@ export default function Home() {
   }
 
   async function saveRoom(roomToEdit: string | null, input: { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; coverFile: File | null }) {
-    let saved = roomToEdit ? await updateRoom(roomToEdit, input) : await createRoom(input);
-    if (input.coverFile) saved = await uploadRoomCover(saved.id, input.coverFile);
+    const { coverFile, ...roomInput } = input;
+    let saved = roomToEdit ? await updateRoom(roomToEdit, roomInput) : await createRoom(roomInput);
+    if (coverFile) saved = await uploadRoomCover(saved.id, coverFile);
     setRooms((old) => roomToEdit ? old.map((room) => room.id === saved.id ? saved : room) : [...old, saved]);
     if (!roomToEdit) changeRoom(saved.id);
-    showNotice(input.coverFile ? "Комната и обложка сохранены." : roomToEdit ? "Комната обновлена." : "Комната создана.");
+    showNotice(coverFile ? "Комната и обложка сохранены." : roomToEdit ? "Комната обновлена." : "Комната создана.");
   }
 
   async function saveProfile(input: { bio: string; gender: "male" | "female" | "unspecified" }, avatar: File | null) {

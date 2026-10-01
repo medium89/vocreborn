@@ -2496,3 +2496,17 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .composer-picker-tabs button{padding:6px 8px;border-radius:7px;background:transparent;color:var(--muted);font-size:11px;font-weight:700}
 .composer-picker-tabs button.active{background:var(--surface);color:var(--ink);box-shadow:0 1px 4px #2030151f}
 .composer-gif-picker{display:grid;gap:9px;min-width:280px}.composer-gif-search{display:flex;align-items:center;gap:6px;padding:7px 8px;border:1px solid var(--line);border-radius:9px;color:var(--muted)}.composer-gif-search input{min-width:0;width:100%;border:0;outline:0;background:transparent;color:var(--ink);font:inherit}.composer-gif-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;max-height:270px;overflow:auto}.composer-gif-grid button{aspect-ratio:1.25;overflow:hidden;border-radius:7px;background:#e8efe1}.composer-gif-grid img{width:100%;height:100%;object-fit:cover}.composer-gif-state{display:flex;align-items:center;justify-content:center;gap:6px;min-height:110px;margin:0;color:var(--muted);font-size:11px}.composer-gif-state.error{color:#b35b53}.composer-gif-attribution{color:var(--muted);font-size:9px;text-align:right}.composer-gif-selected{display:flex;align-items:center;gap:8px;margin:0 42px 6px;padding:5px 8px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:11px}.composer-gif-selected img{width:42px;height:30px;object-fit:cover;border-radius:5px}.composer-gif-selected span{flex:1}.composer-gif-selected button{display:grid;place-items:center;color:var(--muted)}.message-gif{display:block;max-width:min(320px,100%);max-height:300px;margin:6px 0;border-radius:10px;object-fit:contain;background:#101612}@media(max-width:700px){.composer-gif-selected{margin-left:16px;margin-right:16px}.composer-gif-picker{min-width:min(280px,calc(100vw - 36px))}}
+/* Messages containing one to three emoji deserve room to breathe. */
+.message-body-large-emoji{display:inline-block;font-size:38px;line-height:1.1;letter-spacing:3px}
+.message-body-large-emoji>*{line-height:inherit}
+/* Night palette for image and voice-message cards. */
+:root[data-theme="dark"] .attachment-card{border-color:#41543d;background:#1e2c24;color:#e6eee0;box-shadow:0 4px 14px #07100d66}
+:root[data-theme="dark"] .attachment-card:hover{border-color:#6d8b51;background:#26382d}
+:root[data-theme="dark"] .attachment-copy strong{color:#edf4e8}
+:root[data-theme="dark"] .attachment-copy small,:root[data-theme="dark"] .audio-attachment .attachment-copy small{color:#aebfaa!important}
+:root[data-theme="dark"] .attachment-icon{background:#30452f;color:#cce58b}
+:root[data-theme="dark"] .audio-play{background:#b8d86f;color:#1d2d18}
+:root[data-theme="dark"] .audio-play:hover{background:#d0ea90}
+:root[data-theme="dark"] .audio-progress{background:#40533e!important}
+:root[data-theme="dark"] .image-tooltip{border-color:#41543d;background:#1e2c24;box-shadow:0 14px 38px #050a0788}
+:root[data-theme="dark"] .image-attachment>button{border-color:#41543d;background:#1e2c24}

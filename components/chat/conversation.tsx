@@ -26,6 +26,12 @@ const reactionOptions: Array<{ type: ReactionType; emoji: string; label: string 
 
 const reactionByType = new Map(reactionOptions.map((item) => [item.type, item]));
 
+function isLargeEmojiMessage(value: string) {
+  const compact = value.trim();
+  const emojiCount = [...compact.matchAll(/\p{Extended_Pictographic}/gu)].length;
+  return emojiCount >= 1 && emojiCount <= 3 && /^[\p{Extended_Pictographic}\p{Emoji_Component}\u200d\ufe0f\s]+$/u.test(compact);
+}
+
 const composerEmojis = ["😀","😃","😄","😁","😆","😅","😂","🤣","😊","😇","🙂","🙃","😉","😍","😘","😎","🤓","🤔","🤗","🤭","😴","😢","😭","😡","🤢","🥳","😮","😱","🤩","😈","👍","👎","👏","🙏","💪","👋","❤️","💔","🔥","✨","🎉","🎁","🎵","💬","🌿","☀️","🌙","⭐","✅","❌","💯","🚀","🍀","🌈","☕","🍕","🎮","📷","💻","⚡","🎂","🥂","😺","🐶","🦊","🐼","🌸","🌺","🖤","🤍","💚","💙","💜","🤝","✌️","👌","😌","😏","🙄","😬","🤪","🤫"];
 
 type ConversationProps = {
@@ -174,6 +180,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [imagePreview, setImagePreview] = useState<Attachment | null>(null);
   const [roomInfoOpen, setRoomInfoOpen] = useState(false);
   const [emojiOpen, setEmojiOpen] = useState(false);
+  const gifSearchEnabled = Boolean(process.env.NEXT_PUBLIC_GIPHY_API_KEY);
   const [emojiTab, setEmojiTab] = useState<"emoji" | "gif">("emoji");
   const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const mobileToolsRef = useRef<HTMLDivElement | null>(null);
@@ -502,7 +509,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
             <div className="message-heading">{!dialog && !message.mine ? <button type="button" className="message-author-mention" title="Упомянуть в сообщении" onClick={() => mentionAuthor(message.author)}><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></button> : <strong><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></strong>}<time>{message.time}</time></div>
             {(message.replyTo || message.body) && <div className="message-copy" title={message.body}>
               {message.replyTo && <button type="button" className="inline-reply" title={"Перейти к сообщению " + message.replyTo.author + " в " + message.replyTo.time} onClick={() => jumpToMessage(message.replyTo!.id)}><Reply size={10} /><b>{message.replyTo.author}</b><time>{message.replyTo.time}</time></button>}
-              {message.body && <span className="message-body">{message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
+              {message.body && <span className={"message-body" + (isLargeEmojiMessage(message.body) ? " message-body-large-emoji" : "")}>{message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
             </div>}
             <div className="message-extras">
               {message.gifUrl && <img className="message-gif" src={message.gifUrl} alt="GIF" loading="lazy" />}
@@ -559,7 +566,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
       {currentUserId && <ComposerMessageColorPicker appearance={appearance} onSaved={onAppearanceChanged} />}
       </div>
       {recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
-      {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Смайлы и GIF"><nav className="composer-picker-tabs"><button type="button" className={emojiTab === "emoji" ? "active" : ""} onClick={() => setEmojiTab("emoji")}>Смайлы</button><button type="button" className={emojiTab === "gif" ? "active" : ""} onClick={() => setEmojiTab("gif")}>GIF</button></nav>{emojiTab === "emoji" ? <>{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></> : <GifPicker onSelect={(next) => { onGifSelect(next); setEmojiOpen(false); }} />}</div>}
+      {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Смайлы и GIF"><nav className="composer-picker-tabs"><button type="button" className={emojiTab === "emoji" ? "active" : ""} onClick={() => setEmojiTab("emoji")}>Смайлы</button>{gifSearchEnabled && <button type="button" className={emojiTab === "gif" ? "active" : ""} onClick={() => setEmojiTab("gif")}>GIF</button>}</nav>{emojiTab === "emoji" || !gifSearchEnabled ? <>{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></> : <GifPicker onSelect={(next) => { onGifSelect(next); setEmojiOpen(false); }} />}</div>}
       {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.username ?? person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}{person.username && <small>{" @" + person.username}</small>}</span></button>)}</div>}
       <textarea ref={composerInputRef} value={draft} onChange={(event) => { setMentionButtonAt(null); onDraftChange(event.target.value); }} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} maxLength={1000} rows={1} disabled={muted} title="Ctrl + Alt + M — перейти к полю сообщения" placeholder={muted ? "Вы временно не можете писать" : "Написать в " + (dialog ? "личку" : "#" + room.name.toLowerCase()) + "…"} />
       {draftPreviewOpen && <div ref={draftPreviewRef} className="composer-draft-preview" style={messagePreviewStyle(draft)} role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15} /></button></div><textarea autoFocus rows={8} value={draft} maxLength={1000} disabled={muted} onChange={(event) => onDraftChange(event.target.value)} placeholder="Написать сообщение…" /></div>}
