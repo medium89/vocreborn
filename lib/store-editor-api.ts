@@ -35,3 +35,17 @@ export function uploadStoreCategoryImage(id: string, file: File) {
   form.append("image", file);
   return request<StoreCategory>("/categories/" + encodeURIComponent(id) + "/image", { method: "POST", body: form });
 }
+
+export type StoreBulkProductInput = { name: string; description: string; price: number };
+export function uploadStoreProductImage(id: string, file: File) {
+  const form = new FormData();
+  form.append("image", file);
+  return request<StoreProduct>("/products/" + encodeURIComponent(id) + "/image", { method: "POST", body: form });
+}
+export function bulkCreateStoreProducts(categoryId: string, products: StoreBulkProductInput[], files: File[]) {
+  const form = new FormData();
+  form.append("categoryId", categoryId);
+  form.append("products", JSON.stringify(products));
+  files.forEach((file) => form.append("images", file));
+  return request<StoreProduct[]>("/products/bulk", { method: "POST", body: form });
+}

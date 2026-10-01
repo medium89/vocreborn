@@ -84,7 +84,7 @@ export class StoreEditorService {
     return category;
   }
 
-  private async encodeImage(file?: ImageFile) {
+  private async encodeImage(file?: ImageFile, size = 800, fit: "inside" | "cover" = "inside") {
     if (!file) throw new BadRequestException("Изображение не передано");
     if (file.size > 5 * 1024 * 1024) throw new BadRequestException("Изображение должно быть не больше 5 МБ");
     const png = file.buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
@@ -93,7 +93,7 @@ export class StoreEditorService {
     if (!((file.mimetype === "image/png" && png) || (file.mimetype === "image/jpeg" && jpeg) || (file.mimetype === "image/webp" && webp)))
       throw new BadRequestException("Допустимы изображения PNG, JPEG и WebP");
     try {
-      return await sharp(file.buffer, { failOn: "error", limitInputPixels: 30_000_000 }).rotate().resize(800, 800, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82 }).toBuffer();
+      return await sharp(file.buffer, { failOn: "error", limitInputPixels: 30_000_000 }).rotate().resize(size, size, { fit, withoutEnlargement: fit === "inside" }).webp({ quality: 82 }).toBuffer();
     } catch {
       throw new BadRequestException("Не удалось обработать изображение");
     }
@@ -172,7 +172,80 @@ export class StoreEditorService {
     await this.prisma.$transaction(async (tx) => {
       await tx.giftCatalog.update({ where: { id }, data: { active: false, deletedAt: new Date() } });
       await tx.moderationAudit.create({ data: { actorId: actor.id, action: "STORE_PRODUCT_DELETE", details: { productId: id, name: product.name } } });
+    await this.removeProductImage(product.imageKey);
     });
     return { id, deleted: true };
+  }
+
+  private async removeProductImage(key: string | null) {
+    if (!key?.startsWith("/uploads/store-products/")) return;
+    await unlink(join(process.cwd(), "uploads", "store-products", basename(key))).catch(() => undefined);
+  }
+
+  private async saveProductImage(file?: ImageFile) {
+    const image = await this.encodeImage(file, 400, "cover");
+    const directory = join(process.cwd(), "uploads", "store-products");
+    const key = "/uploads/store-products/" + randomUUID() + ".webp";
+    await mkdir(directory, { recursive: true });
+    await writeFile(join(directory, basename(key)), image);
+    return key;
+  }
+
+  async uploadProductImage(actor: AuthenticatedUser, id: string, file?: ImageFile) {
+    this.requireAdmin(actor);
+    const product = await this.prisma.giftCatalog.findFirst({ where: { id, deletedAt: null } });
+    if (!product) throw new NotFoundException("Товар не найден");
+    const key = await this.saveProductImage(file);
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const next = await tx.giftCatalog.update({ where: { id }, data: { imageKey: key } });
+        await tx.moderationAudit.create({ data: { actorId: actor.id, action: "STORE_PRODUCT_IMAGE", details: { productId: id, imageKey: key } } });
+        return next;
+      });
+      await this.removeProductImage(product.imageKey);
+      return this.productView(updated);
+    } catch (error) {
+      await this.removeProductImage(key);
+      throw error;
+    }
+  }
+
+  private parseBatchProducts(value: unknown, expectedCount: number) {
+    if (typeof value !== "string") throw new BadRequestException("Передайте JSON с товарами");
+    let raw: unknown;
+    try { raw = JSON.parse(value); } catch { throw new BadRequestException("JSON с товарами содержит ошибку"); }
+    if (!Array.isArray(raw) || raw.length < 1 || raw.length > 50) throw new BadRequestException("Можно добавить от 1 до 50 товаров за раз");
+    if (raw.length !== expectedCount) throw new BadRequestException("Число товаров в JSON должно совпадать с числом изображений");
+    return raw.map((item, index) => {
+      if (!item || typeof item !== "object") throw new BadRequestException("Товар " + (index + 1) + " указан неверно");
+      const record = item as Record<string, unknown>;
+      const name = typeof record.name === "string" ? record.name.trim() : "";
+      const description = typeof record.description === "string" ? record.description.trim() : "";
+      const price = record.price;
+      if (!name || name.length > 80 || description.length > 240 || !Number.isInteger(price) || (price as number) < 1 || (price as number) > 2147483647)
+        throw new BadRequestException("Проверьте название, описание и цену товара " + (index + 1));
+      return { name, description, price: price as number };
+    });
+  }
+
+  async bulkCreateProducts(actor: AuthenticatedUser, categoryId: string, rawProducts: unknown, files: ImageFile[]) {
+    this.requireAdmin(actor);
+    await this.getCategory(categoryId);
+    const products = this.parseBatchProducts(rawProducts, files.length);
+    const keys: string[] = [];
+    try {
+      for (const file of files) keys.push(await this.saveProductImage(file));
+      const created = await this.prisma.$transaction(async (tx) => {
+        const latest = await tx.giftCatalog.aggregate({ where: { categoryId, deletedAt: null }, _max: { position: true } });
+        const start = (latest._max.position ?? -10) + 10;
+        const rows = await Promise.all(products.map((product, index) => tx.giftCatalog.create({ data: { id: randomUUID(), categoryId, name: product.name, description: product.description, price: product.price, emoji: "🎁", kind: "gift", active: true, position: start + index * 10, imageKey: keys[index] } })));
+        await tx.moderationAudit.create({ data: { actorId: actor.id, action: "STORE_PRODUCT_BULK_CREATE", details: { categoryId, productIds: rows.map((row) => row.id), count: rows.length } } });
+        return rows;
+      });
+      return created.map((product) => this.productView(product));
+    } catch (error) {
+      await Promise.all(keys.map((key) => this.removeProductImage(key)));
+      throw error;
+    }
   }
 }
