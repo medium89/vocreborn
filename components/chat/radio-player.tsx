@@ -30,8 +30,8 @@ export function RadioPlayer({ user, controlsTarget }: { user: AuthUser; controls
     return () => { document.removeEventListener("play", capture, true); document.removeEventListener("pause", capture, true); document.removeEventListener("ended", capture, true); window.removeEventListener("tusova:microphone", mic); };
   }, [volume, microphone, state?.enabled]);
   useEffect(() => {
-    if (!state?.live) { audio.current?.pause(); audio.current?.removeAttribute("src"); setPlaying(false); }
-  }, [state?.live]);
+    audio.current?.pause(); audio.current?.removeAttribute("src"); setPlaying(false);
+  }, [state?.streamUrl]);
   useEffect(() => { const element = audio.current; return () => { element?.pause(); element?.removeAttribute("src"); }; }, [state?.enabled]);
   async function toggle() {
     const element = audio.current;

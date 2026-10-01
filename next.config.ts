@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   output: "standalone",
   async rewrites() {
-    return [{ source: "/radio-stream/live.mp3", destination: (process.env.RADIO_STREAM_PROXY_URL ?? "http://127.0.0.1:3005") + "/live.mp3" }];
+    return ["live.mp3", "dj.mp3"].map(name => ({ source: "/radio-stream/" + name, destination: (process.env.RADIO_STREAM_PROXY_URL ?? "http://127.0.0.1:3005") + "/" + name }));
   },
 };
 

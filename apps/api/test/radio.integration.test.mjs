@@ -20,7 +20,7 @@ const prisma = new PrismaClient({ datasources: { db: { url: isolated.toString() 
 const base = 'http://127.0.0.1:3117/api';
 const token = 'local-radio-test-token-not-for-production-000';
 let api, worker, created = false;
-let audio = { active: false, epoch: null, trackId: null, completedId: null, result: null };
+let audio = { active: false, streaming: false, mode: null, epoch: null, trackId: null, completedId: null, result: null };
 let failAudio = false;
 let admin, dj, listener, stranger;
 const files = [];
@@ -50,7 +50,7 @@ before(async () => {
     const body = raw ? JSON.parse(raw) : {};
     if (failAudio) { res.writeHead(503); res.end('{}'); return; }
     if (req.url === '/probe') { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify({ duration: 10, mimeType: 'audio/mpeg' })); return; }
-    if (req.url === '/start') audio = { active: true, epoch: body.epoch, trackId: null, completedId: null, result: null };
+    if (req.url === '/start') audio = { active: true, streaming: body.mode !== 'butt', mode: body.mode ?? 'playlist', epoch: body.epoch, trackId: null, completedId: null, result: null };
     if (body.epoch === audio.epoch) {
       if (req.url === '/stop') audio.active = false;
       if (req.url === '/play') { audio.trackId = body.trackId; audio.completedId = null; audio.result = null; }
@@ -146,4 +146,20 @@ test('worker failure closes acceptance and returns reservations', async () => {
   await waitFor(async () => (await prisma.radioRequest.findUnique({ where: { id: row.id } })).status === 'CANCELLED');
   assert.equal(await balance(), paid + 5); failAudio = false;
   assert.equal((await request('/radio/status', listener)).body.accepting, false);
+});
+
+test('BUTT mode waits for a source and never accepts paid playlist orders', async () => {
+  assert.equal((await request('/radio/start', listener, { mode: 'butt' })).status, 403);
+  assert.equal((await request('/radio/start', admin, { mode: 'butt' })).status, 201);
+  const waiting = (await request('/radio/status', listener)).body;
+  assert.equal(waiting.mode, 'butt'); assert.equal(waiting.live, false); assert.equal(waiting.streamUrl, null);
+  assert.equal((await request('/radio/settings', admin, { accepting: true }, 'PATCH')).status, 409);
+  assert.equal((await request('/radio/requests', listener, order())).status, 409);
+  assert.equal((await request('/radio/skip', admin, {})).status, 409);
+  audio.streaming = true;
+  const live = (await request('/radio/status', listener)).body;
+  assert.equal(live.live, true); assert.equal(live.streamUrl, '/radio-stream/dj.mp3'); assert.equal(live.accepting, false);
+  assert.equal((await request('/radio/start', admin, { mode: 'playlist' })).status, 409);
+  assert.equal((await request('/radio/stop', admin, {})).status, 201);
+  assert.equal((await request('/radio/status', listener)).body.live, false);
 });

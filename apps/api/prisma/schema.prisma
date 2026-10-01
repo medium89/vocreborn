@@ -779,6 +779,7 @@ model RadioBroadcast {
   hostId String? @map("host_id") @db.Uuid
   epoch String? @db.Uuid
   accepting Boolean @default(false)
+  mode String @default("playlist") @db.VarChar(16)
   price Int @default(5)
   currentId String? @map("current_id") @db.Uuid
   startedAt DateTime? @map("started_at")

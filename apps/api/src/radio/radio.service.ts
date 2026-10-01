@@ -9,7 +9,7 @@ import { assertNotInChaos } from "../moderation/chaos.guard";
 
 const active: RadioRequestStatus[] = ["WAITING", "ACCEPTED", "PLAYING"];
 const directory = resolve(process.env.RADIO_STORAGE_DIR ?? "storage/radio");
-type WorkerStatus = { active: boolean; epoch: string | null; trackId: string | null; completedId: string | null; result: "completed" | "failed" | "skipped" | null };
+type WorkerStatus = { active: boolean; streaming?: boolean; mode?: "playlist" | "butt"; epoch: string | null; trackId: string | null; completedId: string | null; result: "completed" | "failed" | "skipped" | null };
 type Order = { artist: string; title: string; note?: string; uploadId?: string; idempotencyKey: string; expectedPrice: number; studio?: boolean };
 
 @Injectable()
@@ -61,27 +61,27 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return state;
   }
   async status() {
-    if (!this.enabled) return { enabled: false, live: false, accepting: false, price: 5, host: null, track: null, streamUrl: null };
+    if (!this.enabled) return { enabled: false, live: false, accepting: false, price: 5, host: null, track: null, mode: null, streamUrl: null };
     await this.ensure();
     const state = await this.prisma.radioBroadcast.findUniqueOrThrow({ where: { id: "main" }, include: { host: { select: { id: true, displayName: true } } } });
     const audio = await this.worker<WorkerStatus>("/status").catch(() => null);
-    const live = Boolean(state.epoch && audio?.active && audio.epoch === state.epoch);
-    const track = state.currentId ? await this.prisma.radioRequest.findUnique({ where: { id: state.currentId }, select: { id: true, artist: true, title: true } }) : null;
-    return { enabled: true, live, accepting: live && state.accepting, price: state.price, host: state.host, track, streamUrl: live ? "/radio-stream/live.mp3" : null };
+    const live = Boolean(state.epoch && audio?.active && audio.epoch === state.epoch && audio.mode === state.mode && (state.mode !== "butt" || audio.streaming));
+    const track = state.mode === "playlist" && state.currentId ? await this.prisma.radioRequest.findUnique({ where: { id: state.currentId }, select: { id: true, artist: true, title: true } }) : null;
+    return { enabled: true, live, accepting: live && state.mode === "playlist" && state.accepting, price: state.price, host: state.host, track, mode: state.hostId ? state.mode : null, streamUrl: live ? state.mode === "butt" ? "/radio-stream/dj.mp3" : "/radio-stream/live.mp3" : null };
   }
-  async start(actor: AuthenticatedUser) {
+  async start(actor: AuthenticatedUser, mode: "playlist" | "butt" = "playlist") {
     await this.ensure(); await this.dj(actor.id);
     const epoch = randomUUID();
     const claimed = await this.prisma.$transaction(async tx => {
       const current = await this.lock(tx);
       if (current.hostId) {
-        if (current.hostId === actor.id) return current;
-        throw new ConflictException("Эфир уже занят другим DJ");
+        if (current.hostId === actor.id && current.mode === mode) return current;
+        throw new ConflictException(current.hostId === actor.id ? "Сначала завершите текущий режим эфира" : "Эфир уже занят другим DJ");
       }
-      await tx.moderationAudit.create({ data: { actorId: actor.id, action: "RADIO_START", details: { epoch } } });
-      return tx.radioBroadcast.update({ where: { id: "main" }, data: { hostId: actor.id, epoch, accepting: false, startedAt: new Date(), currentId: null } });
+      await tx.moderationAudit.create({ data: { actorId: actor.id, action: "RADIO_START", details: { epoch, mode } } });
+      return tx.radioBroadcast.update({ where: { id: "main" }, data: { hostId: actor.id, epoch, mode, accepting: false, startedAt: new Date(), currentId: null } });
     });
-    try { await this.worker("/start", { epoch: claimed.epoch }); }
+    try { await this.worker("/start", { epoch: claimed.epoch, mode }); }
     catch (error) { await this.finish(claimed.epoch!, "Эфир не удалось запустить"); throw error; }
     return this.status();
   }
@@ -118,6 +118,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     await this.prisma.$transaction(async tx => {
       const state = await this.lock(tx);
       if (input.accepting !== undefined && state.hostId !== actor.id) throw new ConflictException("Ведущий уже изменился");
+      if (input.accepting && state.mode === "butt") throw new ConflictException("Заказы доступны только в режиме плейлиста");
       await tx.radioBroadcast.update({ where: { id: "main" }, data: input });
       await tx.moderationAudit.create({ data: { actorId: actor.id, action: "RADIO_SETTINGS", details: input } });
     });
@@ -176,7 +177,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const state = await this.lock(tx);
       const previous = await tx.radioRequest.findUnique({ where: { userId_idempotencyKey: { userId: actor.id, idempotencyKey: input.idempotencyKey } } });
       if (previous) return previous;
-      if (!audio.active || audio.epoch !== state.epoch) throw new ConflictException("Эфир сейчас недоступен");
+      if (!audio.active || audio.epoch !== state.epoch || state.mode !== "playlist" || audio.mode !== "playlist") throw new ConflictException("Заказы доступны только во время эфира с плейлистом");
       if (!state.epoch || (!input.studio && !state.accepting)) throw new ConflictException("Приём заказов закрыт");
       if (input.studio && state.hostId !== actor.id) throw new ForbiddenException("Студия другого ведущего");
       if (!input.studio && state.price !== input.expectedPrice) throw new ConflictException("Цена изменилась. Обновите страницу и подтвердите новую цену");
@@ -235,6 +236,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
   async skip(actor: AuthenticatedUser) {
     const state = await this.host(actor);
+    if (state.mode === "butt") throw new ConflictException("В режиме BUTT треками управляют в программе вещания");
     if (state.currentId) {
       await this.worker("/skip", { epoch: state.epoch });
       await this.prisma.$transaction(async tx => {
@@ -256,7 +258,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         try { await this.dj(state.hostId); }
         catch { await this.finish(state.epoch, "Ведущий больше не имеет доступа к эфиру"); return; }
         const audio = await this.worker<WorkerStatus>("/heartbeat", { epoch: state.epoch }).catch(() => null);
-        if (!audio?.active || audio.epoch !== state.epoch) { await this.finish(state.epoch, "Эфир прерван; кредиты возвращены"); return; }
+        if (!audio?.active || audio.epoch !== state.epoch || audio.mode !== state.mode) { await this.finish(state.epoch, "Эфир прерван; кредиты возвращены"); return; }
         if (state.currentId && audio.completedId === state.currentId) {
           await this.prisma.$transaction(async tx => {
             const fresh = await this.lock(tx);
@@ -274,7 +276,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       });
       await this.cleanup();
       const fresh = await this.prisma.radioBroadcast.findUniqueOrThrow({ where: { id: "main" } });
-      if (!fresh.epoch || fresh.currentId) return;
+      if (!fresh.epoch || fresh.currentId || fresh.mode === "butt") return;
       const next = await this.prisma.$transaction(async tx => {
         const latest = await this.lock(tx);
         if (latest.epoch !== fresh.epoch || latest.currentId) return null;

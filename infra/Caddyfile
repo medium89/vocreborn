@@ -8,6 +8,24 @@
     }
   }
 
+  @radioSource {
+    path /radio-source/dj.mp3
+    method PUT POST SOURCE
+  }
+  handle @radioSource {
+    rewrite * /dj.mp3
+    reverse_proxy icecast:8000 {
+      flush_interval -1
+    }
+  }
+
+  handle /radio-stream/dj.mp3 {
+    rewrite * /dj.mp3
+    reverse_proxy icecast:8000 {
+      flush_interval -1
+    }
+  }
+
   handle /api/* {
     reverse_proxy api:3001
   }

@@ -1,5 +1,5 @@
 import { API_URL } from "./chat-api";
-export type RadioStatus = { enabled: boolean; live: boolean; accepting: boolean; price: number; host: { id: string; displayName: string } | null; track: { id: string; artist: string; title: string } | null; streamUrl: string | null };
+export type RadioStatus = { enabled: boolean; live: boolean; accepting: boolean; price: number; host: { id: string; displayName: string } | null; track: { id: string; artist: string; title: string } | null; mode: "playlist" | "butt" | null; streamUrl: string | null };
 export type RadioOrder = { id: string; userId: string; epoch: string; artist: string; title: string; note: string; studio: boolean; price: number; payment: "HELD" | "CHARGED" | "REFUNDED"; status: "WAITING" | "ACCEPTED" | "PLAYING" | "COMPLETED" | "REJECTED" | "CANCELLED" | "EXPIRED"; decision: string; createdAt: string; expiresAt: string; upload?: { id: string; originalName: string; duration?: number; expiresAt: string; available?: boolean } | null; user?: { id: string; displayName: string } };
 export const radioLabels: Record<RadioOrder["status"], string> = { WAITING: "В очереди", ACCEPTED: "Принят DJ", PLAYING: "В эфире", COMPLETED: "Исполнен", REJECTED: "Отклонён", CANCELLED: "Отменён", EXPIRED: "Истёк срок ожидания" };
 export async function radioRequest<T>(path: string, body?: unknown, method = "POST"): Promise<T> {

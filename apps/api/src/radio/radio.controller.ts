@@ -23,6 +23,7 @@ class SettingsDto {
   @IsOptional() @IsInt() @Min(1) @Max(10000) price?: number;
 }
 class DjDto { @IsBoolean() enabled!: boolean; }
+class StartDto { @IsOptional() @IsIn(["playlist", "butt"]) mode?: "playlist" | "butt"; }
 class DecisionDto {
   @IsIn(["accept", "reject", "cancel", "attach"]) action!: "accept" | "reject" | "cancel" | "attach";
   @IsOptional() @IsString() @MaxLength(300) reason?: string;
@@ -33,7 +34,7 @@ class DecisionDto {
 export class RadioController {
   constructor(private readonly radio: RadioService) {}
   @Get("status") status() { return this.radio.status(); }
-  @Post("start") start(@CurrentUser() user: AuthenticatedUser) { return this.radio.start(user); }
+  @Post("start") start(@CurrentUser() user: AuthenticatedUser, @Body() body?: StartDto) { return this.radio.start(user, body?.mode ?? "playlist"); }
   @Post("stop") stop(@CurrentUser() user: AuthenticatedUser) { return this.radio.stop(user); }
   @Post("skip") skip(@CurrentUser() user: AuthenticatedUser) { return this.radio.skip(user); }
   @Patch("settings") settings(@CurrentUser() user: AuthenticatedUser, @Body() body: SettingsDto) { return this.radio.settings(user, body); }
