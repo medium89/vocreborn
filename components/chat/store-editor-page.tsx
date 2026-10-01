@@ -77,6 +77,8 @@ export function StoreEditorPage({ onBack, onBackToChat }: { onBack: () => void; 
   const pageCount = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
   const visibleProducts = filteredProducts.slice(productPage * PAGE_SIZE, (productPage + 1) * PAGE_SIZE);
 
+  useEffect(() => { setProductPage((current) => Math.min(current, pageCount - 1)); }, [pageCount]);
+
   function openCategory(mode: EditorDialog["mode"], item?: StoreCategory) {
     setTab("categories"); setError(""); setNotice("");
     setCategoryDraft(item ? { name: item.name, description: item.description, icon: item.icon, active: item.active, position: item.position } : { ...blankCategory, position: (categories.length + 1) * 10 });
@@ -156,6 +158,7 @@ export function StoreEditorPage({ onBack, onBackToChat }: { onBack: () => void; 
         {catalog && (tab === "categories" ? categories.length === 0 : filteredProducts.length === 0) && <p className="store-editor-empty">{tab === "categories" ? "Категорий пока нет. Создайте первую." : "Товары не найдены."}</p>}
       </div>
 
+      {tab === "products" && pageCount > 1 && <footer className="store-crud-pagination"><span>Страница {productPage + 1} из {pageCount} · всего {filteredProducts.length} товаров</span><div><button type="button" disabled={productPage === 0} onClick={() => setProductPage((page) => page - 1)}><ChevronLeft size={16} /></button>{Array.from({ length: pageCount }, (_, index) => <button type="button" key={index} className={index === productPage ? "active" : ""} onClick={() => setProductPage(index)}>{index + 1}</button>)}<button type="button" disabled={productPage >= pageCount - 1} onClick={() => setProductPage((page) => page + 1)}><ChevronRight size={16} /></button></div></footer>}
     </>}</div>
     {dialog && <div className="store-crud-backdrop" onMouseDown={() => !busy && setDialog(null)}><section className="store-crud-dialog" role="dialog" aria-modal="true" aria-label={dialog.mode === "view" ? "Просмотр" : dialog.mode === "create" ? "Создание" : "Редактирование"} onMouseDown={(event) => event.stopPropagation()}><header><div><span className="eyebrow">{dialog.kind === "category" ? "КАТЕГОРИЯ" : "ТОВАР"} · {dialog.mode === "view" ? "ПРОСМОТР" : dialog.mode === "create" ? "СОЗДАНИЕ" : "РЕДАКТИРОВАНИЕ"}</span><h3>{dialog.kind === "category" ? selectedCategory?.name ?? "Новая категория" : selectedProduct?.name ?? "Новый товар"}</h3></div><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => !busy && setDialog(null)}><X size={19} /></button></header>
       <div className="store-crud-dialog-body">
