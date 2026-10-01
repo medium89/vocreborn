@@ -62,9 +62,16 @@ export class GiftsService {
         tx.user.findFirst({ where: { id: recipientId ?? sender.id, deletedAt: null } }),
         tx.user.findUniqueOrThrow({ where: { id: sender.id }, select: { credits: true } }),
       ]);
-      if (!gift || gift.kind !== "gift") throw new NotFoundException("Подарок не найден");
+      if (!gift) throw new NotFoundException("Товар не найден");
       if (!recipient) throw new NotFoundException("Получатель не найден");
       if (current.credits < gift.price) throw new BadRequestException("Недостаточно кредитов для этого подарка");
+
+      if (gift.kind === "cosmetic") {
+        if (!gift.effectKey) throw new BadRequestException("Улучшение настроено неверно");
+        const owned = await tx.userCosmetic.findUnique({ where: { userId_effectKey: { userId: recipient.id, effectKey: gift.effectKey } } });
+        if (owned) throw new ConflictException("У получателя уже есть это улучшение");
+        await tx.userCosmetic.create({ data: { userId: recipient.id, effectKey: gift.effectKey, settings: COSMETIC_DEFAULTS[gift.effectKey as CosmeticKey] } });
+      }
       const updated = await tx.user.update({ where: { id: sender.id }, data: { credits: { decrement: gift.price } }, select: { credits: true, rating: true } });
       const item = await tx.giftInventory.create({ data: { giftId: gift.id, senderId: sender.id, recipientId: recipient.id, message: message?.trim() || null, giftName: gift.name, giftDescription: gift.description, giftEmoji: gift.emoji, giftPrice: gift.price } });
       await tx.economyEntry.create({ data: { userId: sender.id, type: "GIFT_PURCHASE", creditsDelta: -gift.price, balanceAfter: updated.credits, giftId: gift.id } });
