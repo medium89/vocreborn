@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { Children, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { StyledSelect } from "./styled-select";
 import { Crown, Save, X } from "lucide-react";
 import type { CosmeticAppearance } from "@/lib/chat-contract";
@@ -82,6 +82,23 @@ export function StyledName({ name, appearance, avatarUrl, className, showVipCrow
   return <span className={"styled-name" + (backgroundImage ? " image-fill" : "") + (className ? " " + className : "")} style={style}>{name}{showVipCrown && appearance?.vip?.enabled !== false && appearance?.vip && <Crown className="styled-name-vip" size={12} aria-label="VIP" />}</span>;
 }
 
+const messageGraphemes = typeof Intl.Segmenter === "function" ? new Intl.Segmenter("ru", { granularity: "grapheme" }) : null;
+const emojiGrapheme = /[\p{Extended_Pictographic}\p{Regional_Indicator}\u20e3]/u;
+
+function gradientTextParts(value: string, key: number, backgroundImage: string) {
+  if (!messageGraphemes) return <span key={key} className="styled-message-text" style={{ backgroundImage }}>{value}</span>;
+  const runs: { text: string; emoji: boolean }[] = [];
+  for (const { segment } of messageGraphemes.segment(value)) {
+    const emoji = emojiGrapheme.test(segment);
+    const last = runs[runs.length - 1];
+    if (last && last.emoji === emoji) last.text += segment;
+    else runs.push({ text: segment, emoji });
+  }
+  return runs.map((run, index) => run.emoji
+    ? <span key={key + "-" + index}>{run.text}</span>
+    : <span key={key + "-" + index} className="styled-message-text" style={{ backgroundImage }}>{run.text}</span>);
+}
+
 export function StyledMessageText({ appearance, children }: { appearance?: CosmeticAppearance; children: ReactNode }) {
   const effect = appearance?.gradientText;
   const gradient = effect && effect.enabled !== false;
@@ -89,7 +106,10 @@ export function StyledMessageText({ appearance, children }: { appearance?: Cosme
   const italic = appearance?.italicText && appearance.italicText.enabled !== false;
   const messageColor = appearance?.messageColor?.enabled !== false ? appearance?.messageColor?.color : undefined;
   if (!gradient && !bold && !italic && !messageColor) return <>{children}</>;
-  return <span className={gradient ? "styled-message-text" : undefined} style={{ backgroundImage: gradient ? "linear-gradient(90deg," + effect.start + "," + effect.end + ")" : undefined, color: !gradient && typeof messageColor === "string" ? messageColor : undefined, fontWeight: bold ? 600 : undefined, fontStyle: italic ? "italic" : undefined }}>{children}</span>;
+  const backgroundImage = gradient ? "linear-gradient(90deg," + effect.start + "," + effect.end + ")" : "";
+  return <span style={{ color: !gradient && typeof messageColor === "string" ? messageColor : undefined, fontWeight: bold ? 600 : undefined, fontStyle: italic ? "italic" : undefined }}>
+    {gradient ? Children.toArray(children).map((child, index) => typeof child === "string" ? gradientTextParts(child, index, backgroundImage) : child) : children}
+  </span>;
 }
 
 export function CosmeticSettingsDialog({ effectKey, appearance, onSaved, onClose }: { effectKey: string; appearance: CosmeticAppearance; onSaved: (next: CosmeticAppearance) => void; onClose: () => void }) {

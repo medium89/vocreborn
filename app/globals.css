@@ -1112,7 +1112,6 @@ html,body{height:100%;overflow:hidden}.shell{height:100dvh;min-height:0;overflow
 .styled-name{display:inline-flex;align-items:center;gap:3px}
 .styled-name.image-fill,.styled-message-text{background-clip:text;-webkit-background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
 .styled-name-vip{flex:none;color:#d69b36;-webkit-text-fill-color:#d69b36;filter:drop-shadow(0 1px 2px #84572055)}
-.styled-message-text .mention{-webkit-text-fill-color:initial}
 .aura-profile-reference>.aura-profile-head{margin:-18px -18px 0;padding:18px 50px 18px 20px;border-radius:16px 16px 0 0}
 @media(max-width:760px){.aura-profile-reference>.aura-profile-head{margin:-15px -15px 0;padding:15px 48px 15px 15px}}
 .aura-profile-head.cover-meadow{background:linear-gradient(115deg,#f5f9eb 0%,#fff 44%,#e4f0dc 100%)}
