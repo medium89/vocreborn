@@ -40,7 +40,16 @@ try {
   assert.equal(call('/play',{epoch,key,trackId:randomUUID()}).status,200);
   assert.equal(call('/skip',{epoch}).body.result,'skipped');
   assert.equal(call('/stop',{epoch}).body.active,false);
-  console.log('PASS: actual Icecast MP3 stream, verified WAV decoding/completion, skip, fencing and path protection');
+  const buttEpoch = randomUUID();
+  assert.equal(call('/start',{epoch:buttEpoch,mode:'butt'}).body.active,true);
+  assert.equal(call('/status').body.streaming,false);
+  docker('exec','-d',worker,'ffmpeg','-hide_banner','-loglevel','error','-re','-f','lavfi','-i','sine=frequency=440:sample_rate=44100','-vn','-c:a','libmp3lame','-b:a','128k','-content_type','audio/mpeg','-f','mp3','icecast://source:'+djPassword+'@icecast:8000/dj.mp3');
+  await wait(()=>call('/status').body.streaming===true);
+  const external = JSON.parse(docker('exec',worker,'node','--input-type=module','-e',"const r=await fetch('http://icecast:8000/dj.mp3');const reader=r.body.getReader();let bytes=0;while(bytes<18000){const chunk=await reader.read();if(chunk.done)break;bytes+=chunk.value.length}await reader.cancel();console.log(JSON.stringify({status:r.status,type:r.headers.get('content-type'),bytes}))"));
+  assert.equal(external.status,200); assert.match(external.type,/audio\/mpeg/); assert(external.bytes>=18000);
+  assert.equal(call('/stop',{epoch:buttEpoch}).body.active,false);
+  await wait(()=>JSON.parse(docker('exec',worker,'node','--input-type=module','-e',"const r=await fetch('http://icecast:8000/status-json.xsl');const x=await r.json();console.log(JSON.stringify([].concat(x.icestats?.source||[]).some(s=>new URL(s.listenurl).pathname==='/dj.mp3')))"))===false);
+  console.log('PASS: playlist MP3, BUTT MP3 source/stop, WAV completion, skip, fencing and path protection');
 } finally {
   for(const name of [worker,ice]){try{docker('rm','-f',name)}catch{}}
   try{docker('network','rm',tag)}catch{}
