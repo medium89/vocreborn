@@ -49,3 +49,16 @@ export function bulkCreateStoreProducts(categoryId: string, products: StoreBulkP
   files.forEach((file) => form.append("images", file));
   return request<StoreProduct[]>("/products/bulk", { method: "POST", body: form });
 }
+
+export function bulkCreateStoreProductsWithProgress(categoryId: string, products: StoreBulkProductInput[], files: File[], onProgress: (percent: number) => void) {
+  const form = new FormData();
+  form.append("categoryId", categoryId); form.append("products", JSON.stringify(products)); files.forEach((file) => form.append("images", file));
+  return new Promise<StoreProduct[]>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", API_URL + "/api/admin/store/products/bulk"); xhr.withCredentials = true;
+    xhr.upload.onprogress = (event) => { if (event.lengthComputable) onProgress(Math.round(event.loaded / event.total * 100)); };
+    xhr.onerror = () => reject(new Error("Не удалось загрузить изображения"));
+    xhr.onload = () => { const payload = JSON.parse(xhr.responseText || "null") as StoreProduct[] | { message?: string | string[] } | null; if (xhr.status >= 200 && xhr.status < 300) resolve(payload as StoreProduct[]); else { const message = payload && typeof payload === "object" && "message" in payload ? payload.message : undefined; reject(new Error(Array.isArray(message) ? message[0] : message ?? "Не удалось добавить товары")); } };
+    xhr.send(form);
+  });
+}
