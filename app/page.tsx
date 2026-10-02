@@ -184,6 +184,7 @@ export default function Home() {
   const [reconnecting, setReconnecting] = useState(false);
   const [errorNotice, setErrorNotice] = useState("");
   const socketRef = useRef<Socket | null>(null);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tabAlertPreferencesRef = useRef<TabAlertPreferences>(defaultTabAlertPreferences);
   const notificationPreferencesRef = useRef<NotificationPreferences>(defaultNotificationPreferences);
   const tabAlertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -491,6 +492,9 @@ export default function Home() {
       setReconnecting(true);
     });
     socket.on("connect_error", (error) => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+      setReconnecting(false);
       showNotice(error.message === "Требуется вход" ? "Сессия завершена. Войдите снова." : "Сервер недоступен.");
     });
     socket.on("room:snapshot", (snapshot: RoomSnapshot) => {
@@ -587,6 +591,8 @@ export default function Home() {
     socket.connect();
 
     return () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
