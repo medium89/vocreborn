@@ -55,6 +55,14 @@ function displayMessageTime(message: Message) {
   return localTime(message.createdAt, message.time);
 }
 
+function QuizHintText({ body }: { body: string }) {
+  const separator = ": ";
+  const index = body.indexOf(separator);
+  const label = index >= 0 ? body.slice(0, index + separator.length) : "";
+  const hint = index >= 0 ? body.slice(index + separator.length) : body;
+  return <>{label}{Array.from(hint).map((character, index) => /\p{L}/u.test(character) ? <strong className="quiz-hint-letter" key={index}>{character}</strong> : <span key={index}>{character}</span>)}</>;
+}
+
 function formatSize(size: number) {
   if (size < 1024) return size + " Б";
   if (size < 1024 * 1024) return Math.max(1, Math.round(size / 1024)) + " КБ";
@@ -527,7 +535,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
             <div className="message-heading">{!dialog && !message.mine ? <button type="button" className="message-author-mention" title="Упомянуть в сообщении" onClick={() => mentionAuthor(message.author)}><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></button> : <strong><StyledName name={message.author} appearance={message.appearance} avatarUrl={message.avatarUrl} /></strong>}<time>{displayMessageTime(message)}</time></div>
             {(message.replyTo || message.body) && <div className="message-copy" title={message.body}>
               {message.replyTo && <button type="button" className="inline-reply" title={"Перейти к сообщению " + message.replyTo.author + " в " + localTime(message.replyTo.createdAt, message.replyTo.time)} onClick={() => jumpToMessage(message.replyTo!.id)}><Reply size={10} /><b>{message.replyTo.author}</b><time>{localTime(message.replyTo.createdAt, message.replyTo.time)}</time></button>}
-              {message.body && <span className={"message-body" + (isLargeEmojiMessage(message.body) ? " message-body-large-emoji" : "")}>{message.quizKind === "QUESTION" ? <><span>{message.body.split("\n")[0]}</span>{"\n"}<strong>{message.body.split("\n")[1]}</strong>{"\n"}<span>{message.body.split("\n").slice(2).join("\n")}</span></> : message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
+              {message.body && <span className={"message-body" + (isLargeEmojiMessage(message.body) ? " message-body-large-emoji" : "")}>{message.quizKind?.startsWith("HINT") ? <QuizHintText body={message.body} /> : message.quizKind === "QUESTION" ? <><span>{message.body.split("\n")[0]}</span>{"\n"}<strong>{message.body.split("\n")[1]}</strong>{"\n"}<span>{message.body.split("\n").slice(2).join("\n")}</span></> : message.adminVoice ? <span className="admin-voice-highlight">{message.body}</span> : <StyledMessageText appearance={message.appearance}>{message.body.replace(/^(@[\wа-яё-]+):\s*→\s*/i, "$1 → ").split(/(@[\wа-яё-]+)/gi).map((part, index) => part.startsWith("@") ? <mark className="mention" key={index}>{part}</mark> : part)}</StyledMessageText>}</span>}
             </div>}
             <div className="message-extras">
               {message.gifUrl && <img className="message-gif" src={message.gifUrl} alt="GIF" loading="lazy" />}
