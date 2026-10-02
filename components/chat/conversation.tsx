@@ -169,6 +169,15 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
   const deleteHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!reactionMenu) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest(".reaction-picker, .reaction-toggle")) setReactionMenu(null);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    return () => document.removeEventListener("pointerdown", closeOnOutside);
+  }, [reactionMenu]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const meterFrameRef = useRef<number | null>(null);
