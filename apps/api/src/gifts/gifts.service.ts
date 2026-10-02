@@ -19,7 +19,7 @@ export class GiftsService {
   }
   async inventory(userId: string) {
     const items = await this.prisma.giftInventory.findMany({ where: { recipientId: userId }, orderBy: { createdAt: "desc" }, take: 100, include: { gift: true, sender: { select: { id: true, displayName: true } } } });
-    return items.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), gift: { id: item.gift.id, name: item.giftName, description: item.giftDescription, emoji: item.giftEmoji, price: item.giftPrice, categoryId: item.gift.categoryId }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null, message: item.message }));
+    return items.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), gift: { id: item.gift.id, name: item.giftName, description: item.giftDescription, emoji: item.giftEmoji, price: item.giftPrice, categoryId: item.gift.categoryId, imageUrl: item.gift.imageKey }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null, message: item.message }));
   }
   async myCosmetics(userId: string) {
     const rows = await this.prisma.userCosmetic.findMany({ where: { userId } });

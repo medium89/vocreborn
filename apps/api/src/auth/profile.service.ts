@@ -43,7 +43,7 @@ export class ProfileService {
     return {
       ...this.toProfile(user),
       albums: user.photoAlbums.map((album) => this.toAlbum(album)),
-      gifts: user.receivedGifts.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), message: item.message, gift: { id: item.gift.id, name: item.giftName, description: item.giftDescription, emoji: item.giftEmoji, price: item.giftPrice, categoryId: item.gift.categoryId }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null })),
+      gifts: user.receivedGifts.map((item) => ({ id: item.id, createdAt: item.createdAt.toISOString(), message: item.message, gift: { id: item.gift.id, name: item.giftName, description: item.giftDescription, emoji: item.giftEmoji, price: item.giftPrice, categoryId: item.gift.categoryId, imageUrl: item.gift.imageKey }, sender: item.sender ? { id: item.sender.id, displayName: item.sender.displayName } : null })),
       communities: user.communityMemberships.map((membership) => ({ id: membership.community.id, name: membership.community.name, role: membership.role.toLowerCase() })),
       rooms: user.memberships.map((membership) => ({ id: membership.room.id, name: membership.room.name })),
       stats: { messages: user._count.messages, profilePosts: user._count.profilePosts },
