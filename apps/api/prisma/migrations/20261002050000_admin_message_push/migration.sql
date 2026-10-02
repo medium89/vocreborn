@@ -1,0 +1,1 @@
+ALTER TABLE "push_subscriptions" ADD COLUMN "admin_messages" BOOLEAN NOT NULL DEFAULT false;

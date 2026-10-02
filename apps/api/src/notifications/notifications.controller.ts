@@ -15,7 +15,7 @@ export class NotificationsController {
   @Get("history") history(@CurrentUser() user: AuthenticatedUser, @Query("page") page?: string, @Query("types") types?: string) { return this.notifications.history(user.id, page, types); }
   @Get("push") pushSettings(@CurrentUser() user: AuthenticatedUser) { return this.push.settings(user.id); }
   @Get("push/config") pushConfig() { return this.push.config(); }
-  @Post("push") @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "session" }) savePush(@CurrentUser() user: AuthenticatedUser, @Body() input: PushSubscriptionDto) { return this.push.saveSubscription(user.id, input, { direct: input.direct, mention: input.mention, adminPresence: input.adminPresence }); }
+  @Post("push") @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "session" }) savePush(@CurrentUser() user: AuthenticatedUser, @Body() input: PushSubscriptionDto) { return this.push.saveSubscription(user.id, input, { direct: input.direct, mention: input.mention, adminPresence: input.adminPresence, adminMessages: input.adminMessages }); }
   @Delete("push") @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "session" }) removePush(@CurrentUser() user: AuthenticatedUser, @Body() input: PushRemoveDto) { return this.push.removeSubscription(user.id, input.endpoint); }
   @Delete("all") @RateLimit({ limit: 6, windowMs: 60 * 1000, key: "session" }) clearAll(@CurrentUser() user: AuthenticatedUser) { return this.notifications.clearAll(user.id); }
   @Delete(":id") @RateLimit({ limit: 120, windowMs: 60 * 1000, key: "session" }) remove(@CurrentUser() user: AuthenticatedUser, @Param("id") id: string) { return this.notifications.remove(user.id, id); }

@@ -331,6 +331,7 @@ export class ChatService {
       this.notifications.createMentions(authorId, completed.id, completed.body),
       this.economy.awardForPublicMessage(authorId, completed.id, completed.body, completed.replyTo?.authorId ?? undefined),
     ]);
+    await this.push.adminMessage(authorId, roomId, authorName, completed.body);
     if (roomId === "main" && process.env.TUSOVA_QUIZ_ENABLED === "true") {
       await this.prisma.message.update({ where: { id: completed.id }, data: { quizAcceptedAt: new Date() } });
     }

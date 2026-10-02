@@ -971,6 +971,7 @@ model PushSubscription {
   direct        Boolean  @default(true)
   mention       Boolean  @default(true)
   adminPresence Boolean  @default(false) @map("admin_presence")
+  adminMessages Boolean  @default(false) @map("admin_messages")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)

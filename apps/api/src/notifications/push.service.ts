@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import webpush from "web-push";
 import { PrismaService } from "../database/prisma.service";
 
-type PushKind = "direct" | "mention" | "adminPresence";
+type PushKind = "direct" | "mention" | "adminPresence" | "adminMessages";
 type SubscriptionInput = { endpoint: string; keys: { p256dh: string; auth: string } };
 
 @Injectable()
@@ -32,7 +32,7 @@ export class PushService {
     const subscription = endpoint
       ? await this.prisma.pushSubscription.findUnique({ where: { endpoint } })
       : await this.prisma.pushSubscription.findFirst({ where: { userId }, orderBy: { updatedAt: "desc" } });
-    return { supported: this.enabled, subscribed: Boolean(subscription), direct: subscription?.direct ?? true, mention: subscription?.mention ?? true, adminPresence: subscription?.adminPresence ?? false };
+    return { supported: this.enabled, subscribed: Boolean(subscription), direct: subscription?.direct ?? true, mention: subscription?.mention ?? true, adminPresence: subscription?.adminPresence ?? false, adminMessages: subscription?.adminMessages ?? false };
   }
 
   async removeSubscription(userId: string, endpoint: string) { await this.prisma.pushSubscription.deleteMany({ where: { userId, endpoint } }); }
@@ -55,5 +55,10 @@ export class PushService {
   async adminPresence(name: string) {
     const admins = await this.prisma.user.findMany({ where: { role: "ADMIN", deletedAt: null }, select: { id: true } });
     await Promise.all(admins.map((admin) => this.send(admin.id, "adminPresence", "Пользователь вошёл в чат", name, "/")));
+  }
+  async adminMessage(authorId: string, roomId: string, authorName: string, preview: string) {
+    const admins = await this.prisma.user.findMany({ where: { role: "ADMIN", deletedAt: null, id: { not: authorId } }, select: { id: true } });
+    const room = roomId === "main" ? "Общий чат" : "Комната";
+    await Promise.all(admins.map((admin) => this.send(admin.id, "adminMessages", "Новое сообщение · " + room, authorName + ": " + (preview || "Вложение"), "/")));
   }
 }

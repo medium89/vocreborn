@@ -6,6 +6,7 @@ export class PushSubscriptionDto {
   @IsBoolean() direct!: boolean;
   @IsBoolean() mention!: boolean;
   @IsBoolean() adminPresence!: boolean;
+  @IsBoolean() adminMessages!: boolean;
 }
 
 export class PushRemoveDto { @IsString() @Length(1, 2048) endpoint!: string; }
