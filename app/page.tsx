@@ -485,11 +485,20 @@ export default function Home() {
     socketRef.current = socket;
 
     socket.on("connect", () => {
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      reconnectTimerRef.current = null;
+      setReconnecting(false);
       showNotice("");
       socket.emit("room:join", { roomId: activeRoomRef.current });
     });
     socket.on("disconnect", () => {
+      if (socketRef.current !== socket) return;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       setReconnecting(true);
+      reconnectTimerRef.current = setTimeout(() => {
+        if (socketRef.current === socket) setReconnecting(false);
+        reconnectTimerRef.current = null;
+      }, 5000);
     });
     socket.on("connect_error", (error) => {
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
