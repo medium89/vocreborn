@@ -886,7 +886,7 @@ export default function Home() {
     const allowed = ["image/png", "image/jpeg", "image/webp", "audio/mpeg", "audio/ogg", "audio/wav", "audio/x-wav", "audio/webm"];
     if (!allowed.includes(file.type)) { showNotice("Разрешены только PNG, JPEG, WebP, MP3, OGG, WAV и WebM."); return; }
     const image = file.type.startsWith("image/");
-    if (file.size > (image ? 5 : 8) * 1024 * 1024) { showNotice(image ? "Изображение должно быть не больше 5 МБ." : "Аудио должно быть не больше 8 МБ."); return; }
+    if (file.size > (image ? 20 : 8) * 1024 * 1024) { showNotice(image ? "Изображение должно быть не больше 20 МБ." : "Аудио должно быть не больше 8 МБ."); return; }
     setUploadingAttachment(true); showNotice("Загрузка вложения…");
     try { setAttachment(await uploadAttachment(file)); showNotice("Вложение загружено и готово к отправке."); }
     catch (reason) { showNotice(reason instanceof Error ? reason.message : "Не удалось загрузить вложение."); }

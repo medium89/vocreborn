@@ -11,9 +11,9 @@ import { PrismaService } from "../database/prisma.service";
 type UploadFile = { buffer: Buffer; mimetype: string; size: number; originalname: string };
 const DAY_MS = 24 * 60 * 60 * 1000;
 const formats: Record<string, { extension: string; kind: AttachmentKind; maxSize: number }> = {
-  "image/png": { extension: ".png", kind: "IMAGE", maxSize: 5 * 1024 * 1024 },
-  "image/jpeg": { extension: ".jpg", kind: "IMAGE", maxSize: 5 * 1024 * 1024 },
-  "image/webp": { extension: ".webp", kind: "IMAGE", maxSize: 5 * 1024 * 1024 },
+  "image/png": { extension: ".png", kind: "IMAGE", maxSize: 20 * 1024 * 1024 },
+  "image/jpeg": { extension: ".jpg", kind: "IMAGE", maxSize: 20 * 1024 * 1024 },
+  "image/webp": { extension: ".webp", kind: "IMAGE", maxSize: 20 * 1024 * 1024 },
   "audio/mpeg": { extension: ".mp3", kind: "AUDIO", maxSize: 8 * 1024 * 1024 },
   "audio/ogg": { extension: ".ogg", kind: "AUDIO", maxSize: 8 * 1024 * 1024 },
   "audio/wav": { extension: ".wav", kind: "AUDIO", maxSize: 8 * 1024 * 1024 },
@@ -47,22 +47,31 @@ export class AttachmentsService implements OnModuleInit, OnModuleDestroy {
 
     const directory = join(process.cwd(), "storage", "attachments");
     await mkdir(directory, { recursive: true });
-    const storageKey = this.generatedName(format.kind, format.extension);
-    let previewStorageKey: string | null = null;
-    await writeFile(join(directory, storageKey), file.buffer, { flag: "wx" });
+    let storedBuffer = file.buffer;
+    let storedFormat = format;
     if (format.kind === "IMAGE") {
+      try {
+        storedBuffer = await sharp(file.buffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(1500, 1500, { fit: "inside", withoutEnlargement: true }).webp({ quality: 82, effort: 5 }).toBuffer();
+        storedFormat = formats["image/webp"];
+      } catch {
+        throw new BadRequestException("Не удалось обработать изображение");
+      }
+    }
+    const storageKey = this.generatedName(storedFormat.kind, storedFormat.extension);
+    let previewStorageKey: string | null = null;
+    await writeFile(join(directory, storageKey), storedBuffer, { flag: "wx" });
+    if (storedFormat.kind === "IMAGE") {
       previewStorageKey = storageKey.replace(/\.[^.]+$/, "_preview.webp");
       try {
-        const preview = await sharp(file.buffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(240, 240, { fit: "inside", withoutEnlargement: true }).webp({ quality: 72, effort: 4 }).toBuffer();
+        const preview = await sharp(storedBuffer, { failOn: "error", limitInputPixels: 40_000_000 }).rotate().resize(240, 240, { fit: "inside", withoutEnlargement: true }).webp({ quality: 72, effort: 4 }).toBuffer();
         await writeFile(join(directory, previewStorageKey), preview, { flag: "wx" });
       } catch {
         await unlink(join(directory, storageKey)).catch(() => undefined);
         throw new BadRequestException("Не удалось создать миниатюру изображения");
       }
     }
-
     const attachment = await this.prisma.attachment.create({
-      data: { uploaderId: userId, kind: format.kind, status: "APPROVED", reviewedAt: new Date(), mimeType: file.mimetype, originalName: storageKey, storageKey, previewStorageKey, size: file.size },
+      data: { uploaderId: userId, kind: storedFormat.kind, status: "APPROVED", reviewedAt: new Date(), mimeType: storedFormat.kind === "IMAGE" ? "image/webp" : file.mimetype, originalName: storageKey, storageKey, previewStorageKey, size: storedBuffer.length },
     });
     return this.toApi(attachment);
   }

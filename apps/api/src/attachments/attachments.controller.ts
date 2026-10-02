@@ -14,7 +14,7 @@ class ReviewAttachmentDto { @IsIn(["APPROVED", "REJECTED"]) status!: "APPROVED" 
 @UseGuards(SessionGuard)
 export class AttachmentsController {
   constructor(private readonly attachments: AttachmentsService) {}
-  @Post() @RateLimit({ limit: 12, windowMs: 60 * 60 * 1000, key: "session" }) @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 8 * 1024 * 1024, files: 1 } }))
+  @Post() @RateLimit({ limit: 12, windowMs: 60 * 60 * 1000, key: "session" }) @UseInterceptors(FileInterceptor("file", { limits: { fileSize: 20 * 1024 * 1024, files: 1 } }))
   upload(@UploadedFile() file: { buffer: Buffer; mimetype: string; size: number; originalname: string } | undefined, @CurrentUser() user: AuthenticatedUser) { return this.attachments.upload(user.id, file); }
   @Get("pending") listPending(@CurrentUser() user: AuthenticatedUser) { return this.attachments.listPending(user); }
   @Patch(":id/review") review(@Param("id", new ParseUUIDPipe({ version: "4" })) id: string, @Body() input: ReviewAttachmentDto, @CurrentUser() user: AuthenticatedUser) { return this.attachments.review(user, id, input.status); }
