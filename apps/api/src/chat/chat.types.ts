@@ -61,7 +61,7 @@ export type ApiMessage = {
   system?: boolean;
   attachments: ApiAttachment[];
   reactions: ApiReaction[];
-  replyTo?: { id: string; authorId?: string; author: string; time: string; createdAt?: string };
+  replyTo?: { id: string; authorId?: string; author: string; body: string; time: string; createdAt?: string };
 };
 
 export type ApiPerson = {

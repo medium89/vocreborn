@@ -163,7 +163,7 @@ export type Message = {
   system?: boolean;
   attachments?: Attachment[];
   reactions?: Reaction[];
-  replyTo?: { id: string; authorId?: string; author: string; time: string; createdAt?: string };
+  replyTo?: { id: string; authorId?: string; author: string; body: string; time: string; createdAt?: string };
 };
 
 export type Person = {

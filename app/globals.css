@@ -2529,3 +2529,5 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .aura-profile-identity h2{margin:0 0 7px;font-size:clamp(25px,3vw,25px)}
 
 .quiz-hint-letter{font-weight:800}
+
+.inline-reply>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}

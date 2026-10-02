@@ -159,7 +159,7 @@ export class ChatService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } },
     });
     const hasMore = messages.length > 50;
     const page = messages.slice(0, 50);
@@ -213,7 +213,7 @@ export class ChatService {
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 30,
-      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } },
     });
     return messages.map((message) => this.toApiMessage(message, currentUserId));
   }
@@ -222,7 +222,7 @@ export class ChatService {
     await this.assertRoom(roomId);
     const message = await this.prisma.message.findFirst({
       where: { id: messageId, roomId, deletedAt: null },
-      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } },
     });
     if (!message) throw new NotFoundException("Сообщение не найдено");
     return this.toApiMessage(message, currentUserId);
@@ -265,7 +265,7 @@ export class ChatService {
     await this.assertReplyTarget(replyToId, { roomId });
 
     if (requestId) {
-      const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+      const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
       if (existing) {
         if (existing.authorId !== authorId || existing.roomId !== roomId) {
           throw new ConflictException("requestId уже использован");
@@ -325,7 +325,7 @@ export class ChatService {
       await this.prisma.message.delete({ where: { id: message.id } });
       throw error;
     }
-    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
     await Promise.all([
       this.notifications.createReply(authorId, completed.id, replyToId),
       this.notifications.createMentions(authorId, completed.id, completed.body),
@@ -404,7 +404,7 @@ export class ChatService {
 
     const peerIds = heads.map((head) => head.peerId);
     const [messages, peers, unreadGroups] = await Promise.all([
-      this.prisma.message.findMany({ where: { id: { in: heads.map((head) => head.messageId) } }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } }),
+      this.prisma.message.findMany({ where: { id: { in: heads.map((head) => head.messageId) } }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } }),
       this.prisma.user.findMany({
         where: { id: { in: peerIds }, deletedAt: null },
         include: { memberships: { orderBy: { joinedAt: "asc" }, take: 1 } },
@@ -467,7 +467,7 @@ export class ChatService {
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 51,
       ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
-      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } },
     });
     const hasMore = messages.length > 50;
     const page = messages.slice(0, 50);
@@ -493,7 +493,7 @@ export class ChatService {
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       take: 30,
-      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } },
+      include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } },
     });
     return messages.map((message) => this.toApiMessage(message, userId));
   }
@@ -514,7 +514,7 @@ export class ChatService {
     await this.assertPeer(authorId, recipientId);
     await this.assertReplyTarget(replyToId, { participantIds: [authorId, recipientId] });
 
-    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
     if (existing) {
       if (existing.authorId !== authorId || existing.recipientId !== recipientId) {
         throw new ConflictException("requestId уже использован");
@@ -539,7 +539,7 @@ export class ChatService {
     if (!created) {
       const duplicate = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: {
         author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } },
-        attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } },
+        attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } },
       } });
       return this.toApiMessage(duplicate, authorId);
     }
@@ -549,7 +549,7 @@ export class ChatService {
       await this.prisma.message.delete({ where: { id: message.id } });
       throw error;
     }
-    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
+    const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
     await this.notifications.createReply(authorId, completed.id, replyToId);
     await this.push.direct(recipientId, authorName, completed.body);
     for (const listener of this.messageListeners) {
@@ -680,7 +680,7 @@ export class ChatService {
     await unlink(join(process.cwd(), key.slice(1))).catch(() => undefined);
   }
 
-  private toApiMessage(message: Message & { author?: { avatarKey: string | null; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> } | null; attachments?: Attachment[]; reactions?: MessageReaction[]; replyTo?: { id: string; authorId: string | null; authorName: string; createdAt: Date } | null }, currentUserId?: string): ApiMessage {
+  private toApiMessage(message: Message & { author?: { avatarKey: string | null; cosmetics?: Array<{ effectKey: string; settings: Prisma.JsonValue }> } | null; attachments?: Attachment[]; reactions?: MessageReaction[]; replyTo?: { id: string; authorId: string | null; authorName: string; body: string; createdAt: Date } | null }, currentUserId?: string): ApiMessage {
     const grouped = new Map<ApiReactionType, { count: number; mine: boolean }>();
     for (const reaction of message.reactions ?? []) {
       const type = reaction.type.toLowerCase() as ApiReactionType;
@@ -703,7 +703,7 @@ export class ChatService {
       system: message.kind === "SYSTEM",
       attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),
       reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
-      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: formatChatTime(message.replyTo.createdAt), createdAt: message.replyTo.createdAt.toISOString() } : undefined,
+      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, body: message.replyTo.body, time: formatChatTime(message.replyTo.createdAt), createdAt: message.replyTo.createdAt.toISOString() } : undefined,
     };
   }
 }
