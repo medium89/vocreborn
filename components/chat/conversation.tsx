@@ -38,7 +38,7 @@ type ConversationProps = {
   radioControlsRef?: (element: HTMLDivElement | null) => void;
   currentUserId?: string; canUseAdminVoice: boolean; adminVoice: boolean; onAdminVoiceChange: (value: boolean) => void; appearance?: CosmeticAppearance; onAppearanceChanged: (appearance: CosmeticAppearance) => void; room: Room; dialog: string | null; dialogId: string | null; directConversations: DirectConversation[]; onOpenDirect: (person: Person) => void; onDismissDirect: (personId: string) => void; messages: Message[]; draft: string; muted: boolean;
   attachment: Attachment | null; gif: ChatGif | null; replyingTo: Message | null; uploadingAttachment: boolean;
-  canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; hasNewer: boolean; loadingOlder: boolean; notice: string;
+  canDelete: boolean; canReport: boolean; canReact: boolean; hasOlder: boolean; hasNewer: boolean; loadingOlder: boolean; reconnecting: boolean; notice: string;
   onDraftChange: (value: string) => void; onSend: FormEventHandler<HTMLFormElement>; onLoadOlder: () => void; onShowLatest: () => void;
   onFileSelect: (file: File) => void; onRemoveAttachment: () => void; onGifSelect: (gif: ChatGif) => void; onRemoveGif: () => void;
   onDelete: (messageId: string) => void; onReply: (message: Message) => void; onCancelReply: () => void; onReport: (messageId: string, label: string) => void;
@@ -164,7 +164,7 @@ function RoomInfoModal({ room, onClose }: { room: Room; onClose: () => void }) {
   </div>;
 }
 
-export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, gif, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onGifSelect, onRemoveGif, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
+export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, gif, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, reconnecting, notice, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onGifSelect, onRemoveGif, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
   const { theme, toggleTheme } = useSiteTheme();
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
@@ -541,7 +541,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     {replyingTo && <div className="composer-reply"><Reply size={13} /><span>Ответ для <b>{replyingTo.author}</b> в {replyingTo.time}</span><button type="button" aria-label="Отменить ответ" title="Отменить ответ" onClick={onCancelReply}><X size={14} /></button></div>}
     {attachment && <div className="composer-file"><span>{attachment.kind === "image" ? <FileImage size={15} /> : <FileAudio size={15} />}{attachment.originalName}<small>готово к отправке · хранится 24 часа</small></span><button type="button" aria-label="Убрать вложение" onClick={onRemoveAttachment}><X size={15} /></button></div>}
     {gif && <div className="composer-gif-selected"><img src={gif.previewUrl} alt="" /><span>GIF готов к отправке</span><button type="button" aria-label="Убрать GIF" onClick={onRemoveGif}><X size={15} /></button></div>}
-    <form className="composer" onSubmit={onSend}>
+    <form className="composer" onSubmit={onSend}>{reconnecting && <span className="composer-reconnecting" role="status"><LoaderCircle size={14} className="spin" />Обновляем</span>}
       <div className="composer-mobile-tools" ref={mobileToolsRef}>
         <button type="button" className="composer-mobile-tools-trigger" aria-label="Действия и настройки сообщения" title="Действия и настройки" aria-expanded={mobileToolsOpen} onClick={() => setMobileToolsOpen((open) => !open)}><Settings2 size={20} /></button>
         {mobileToolsOpen && <div className="composer-mobile-tools-menu" role="group" aria-label="Действия и настройки сообщения">

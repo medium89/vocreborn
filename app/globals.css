@@ -2517,3 +2517,6 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
   .system-message time{flex:0 0 auto;color:var(--muted);font-variant-numeric:tabular-nums}
 }
 @media(min-width:701px){.system-message{display:flex;align-items:center;gap:8px}.system-message time{color:var(--muted);font-variant-numeric:tabular-nums}}
+
+.composer{position:relative}.composer-reconnecting{position:absolute;right:8px;top:-27px;display:inline-flex;align-items:center;gap:5px;padding:4px 7px;border-radius:8px;background:var(--surface);color:var(--muted);font-size:10px;line-height:1;box-shadow:0 2px 8px #202b2c16;pointer-events:none}.composer-reconnecting .spin{animation:aura-spin .9s linear infinite}
+@media(max-width:700px){.composer-reconnecting{top:-24px;right:4px}}
