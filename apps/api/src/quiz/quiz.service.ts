@@ -80,9 +80,9 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
     this.prisma.moderationAudit.findMany({where:{action:"QUIZ_IMPORT"},orderBy:{createdAt:"desc"},take:20,select:{id:true,details:true,createdAt:true}})
   ]);return {runtimeEnabled:this.runtimeEnabled,config,themes,active,history:history.slice(0,30),nextCursor:history.length>30?history[29].id:null,ranking,imports};}
   async publicStatus(){await this.ensure();const config=await this.prisma.quizConfig.findUniqueOrThrow({where:{id:"main"}});const round=config.activeRoundId?await this.prisma.quizRound.findUnique({where:{id:config.activeRoundId}}):null;return {enabled:this.runtimeEnabled&&config.enabled&&!config.paused,nextAt:config.nextAt,timezone:config.timezone,attemptSeconds:2,playerDailyWins:config.playerDailyWins,playerDailyCredits:config.playerDailyCredits,active:round?{id:round.id,question:round.question,theme:round.themeTitle,reward:round.reward,endsAt:round.endsAt,mask:mask(round.answer,round.hintPositions,round.hintsSent)}:null};}
-  private async publish(tx:Prisma.TransactionClient,round:QuizRound,kind:string,body:string,rewardUserId?:string){
+  private async publish(tx:Prisma.TransactionClient,round:QuizRound,kind:string,body:string,rewardUserId?:string,requestSuffix?:string){
     if(!this.bot)throw new ServiceUnavailableException("Включите TUSOVA_QUIZ_ENABLED");
-    const message=await tx.message.create({data:{roomId:"main",authorId:this.bot.id,authorName:this.bot.displayName,body,quizKind:kind,quizRoundId:round.id,requestId:"quiz:"+round.id+":"+kind}});
+    const message=await tx.message.create({data:{roomId:"main",authorId:this.bot.id,authorName:this.bot.displayName,body,quizKind:kind,quizRoundId:round.id,requestId:"quiz:"+round.id+":"+kind+(requestSuffix?":"+requestSuffix:"")}});
     await tx.quizPublication.create({data:{messageId:message.id,roundId:round.id,kind,rewardUserId}});
   }
   private async close(tx:Prisma.TransactionClient,config:QuizConfig,status:string,reason:string){
@@ -120,7 +120,7 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
     },{timeout:15000});await this.flush();return this.overview(actor);
   }
   private async answers(tx:Prisma.TransactionClient,config:QuizConfig,round:QuizRound){
-    const messages=await tx.message.findMany({where:{roomId:"main",deletedAt:null,quizKind:null,editedAt:null,createdAt:{gte:round.startedAt,lt:round.endsAt},quizAcceptedAt:{gte:round.startedAt,lt:round.endsAt},author:{isBot:false,isGuest:false,deletedAt:null},OR:[{quizAcceptedAt:{gt:round.cursorAt}},...(round.cursorId?[{quizAcceptedAt:round.cursorAt,id:{gt:round.cursorId}}]:[{quizAcceptedAt:round.cursorAt}])]},orderBy:[{quizAcceptedAt:"asc"},{id:"asc"}],take:100,include:{author:true}});
+    const messages=await tx.message.findMany({where:{roomId:"main",deletedAt:null,quizKind:null,editedAt:null,createdAt:{gte:round.startedAt,lt:round.endsAt},quizAcceptedAt:{gte:round.startedAt,lt:round.endsAt},author:{isBot:false,deletedAt:null},OR:[{quizAcceptedAt:{gt:round.cursorAt}},...(round.cursorId?[{quizAcceptedAt:round.cursorAt,id:{gt:round.cursorId}}]:[{quizAcceptedAt:round.cursorAt}])]},orderBy:[{quizAcceptedAt:"asc"},{id:"asc"}],take:100,include:{author:true}});
     let last:typeof messages[number]|undefined;
     for(const message of messages){
       last=message;const user=message.author!;if(config.excludedUserIds.includes(user.id))continue;
@@ -128,6 +128,7 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
       if(previous&&message.quizAcceptedAt!.getTime()-previous.lastAt.getTime()<2000)continue;
       await tx.quizAttempt.upsert({where:{roundId_userId:{roundId:round.id,userId:user.id}},create:{roundId:round.id,userId:user.id,lastAt:message.quizAcceptedAt!},update:{lastAt:message.quizAcceptedAt!}});
       if(!round.acceptedAnswers.includes(answerText(message.body)))continue;
+      if(user.isGuest){await this.publish(tx,round,"GUEST_RIGHT","@"+user.username+", вы ответили верно, но Сова не может засчитать ответ: регистрация в чате ещё не пройдена. Пожалуйста, зарегистрируйтесь.",undefined,message.id);continue;}
       const blocked=await tx.user.findFirst({where:{id:user.id,OR:[{mutes:{some:{expiresAt:{gt:new Date()}}}},{chaos:{some:{revokedAt:null,expiresAt:{gt:new Date()}}}},{bans:{some:{revokedAt:null,OR:[{expiresAt:null},{expiresAt:{gt:new Date()}}]}}}]},select:{id:true}});if(blocked)continue;
       const stats=await tx.quizRound.aggregate({where:{winnerId:user.id,dayKey:round.dayKey,status:"WON"},_count:{_all:true},_sum:{reward:true}});
       if(stats._count._all>=round.playerDailyWins||(stats._sum.reward??0)+round.reward>round.playerDailyCredits||user.credits>2147483647-round.reward)continue;
