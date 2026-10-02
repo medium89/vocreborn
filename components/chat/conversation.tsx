@@ -501,7 +501,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
       {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
       {messages.map((message) => message.system
-        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}>{message.body}</div>
+        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}><span>{message.body}</span><time>{message.time}</time></div>
         : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.adminVoice ? "admin-voice " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted " : "") + (message.quizKind ? "quiz-message quiz-message-" + message.quizKind.toLowerCase() : "")} key={message.id}>
           <Avatar value={message.avatarUrl} name={message.author} className="message-avatar" />
           <div className="message-content">

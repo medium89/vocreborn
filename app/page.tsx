@@ -449,6 +449,15 @@ export default function Home() {
   }, [chatPeople]);
 
   useEffect(() => {
+    const viewport = window.visualViewport;
+    const syncViewportHeight = () => document.documentElement.style.setProperty("--tusova-app-height", Math.round(viewport?.height ?? window.innerHeight) + "px");
+    syncViewportHeight();
+    viewport?.addEventListener("resize", syncViewportHeight);
+    viewport?.addEventListener("scroll", syncViewportHeight);
+    return () => { viewport?.removeEventListener("resize", syncViewportHeight); viewport?.removeEventListener("scroll", syncViewportHeight); document.documentElement.style.removeProperty("--tusova-app-height"); };
+  }, []);
+
+  useEffect(() => {
     const loadingTimeout = window.setTimeout(() => setAuthReady(true), 5_000);
 
     Promise.allSettled([getMe(), fetchRooms()]).then(([meResult, roomsResult]) => {

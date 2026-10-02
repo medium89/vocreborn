@@ -22,7 +22,7 @@ import { SendDirectMessageDto, SendMessageDto } from "./dto/send-message.dto";
 import type { ReactionUpdate } from "./chat.types";
 
 type AuthenticatedSocket = Socket & { data: { user?: AuthenticatedUser } };
-const OFFLINE_DELAY_MS = 5000;
+const OFFLINE_DELAY_MS = 20 * 60 * 1000;
 
 function readCookie(header: string | undefined, name: string) {
   if (!header) return undefined;
@@ -127,6 +127,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
     const previousTimer = this.offlineTimers.get(user.id);
     if (previousTimer) clearTimeout(previousTimer);
+
+    void this.updatePresence(user, "away").catch(() => undefined);
 
     const timer = setTimeout(() => {
       this.offlineTimers.delete(user.id);

@@ -2510,3 +2510,9 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 :root[data-theme="dark"] .audio-progress{background:#40533e!important}
 :root[data-theme="dark"] .image-tooltip{border-color:#41543d;background:#1e2c24;box-shadow:0 14px 38px #050a0788}
 :root[data-theme="dark"] .image-attachment>button{border-color:#41543d;background:#1e2c24}
+@media(max-width:700px){
+  .shell{height:var(--tusova-app-height,100dvh);min-height:0}
+  .system-message{display:flex;align-items:center;justify-content:space-between;gap:10px;white-space:normal}
+  .system-message time{flex:0 0 auto;color:var(--muted);font-variant-numeric:tabular-nums}
+}
+@media(min-width:701px){.system-message{display:flex;align-items:center;gap:8px}.system-message time{color:var(--muted);font-variant-numeric:tabular-nums}}
