@@ -9,6 +9,7 @@ import sharp from "sharp";
 import { AttachmentsService } from "../attachments/attachments.service";
 import { PrismaService } from "../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { PushService } from "../notifications/push.service";
 import { EconomyService } from "../gifts/economy.service";
 import { cosmeticAppearance } from "../gifts/cosmetics";
 const MAX_ROOM_COVER_UPLOAD_BYTES = 10 * 1024 * 1024;
@@ -52,6 +53,7 @@ export class ChatService {
     private readonly prisma: PrismaService,
     private readonly attachments: AttachmentsService,
     private readonly notifications: NotificationsService,
+    private readonly push: PushService,
     private readonly economy: EconomyService,
     private readonly settings: ChatSettingsService,
   ) {}
@@ -548,6 +550,7 @@ export class ChatService {
     }
     const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, createdAt: true } } } });
     await this.notifications.createReply(authorId, completed.id, replyToId);
+    await this.push.direct(recipientId, authorName, completed.body);
     for (const listener of this.messageListeners) {
       listener({ recipientId, authorId, requestId, message: this.toApiMessage(completed) });
     }

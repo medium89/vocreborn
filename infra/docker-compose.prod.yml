@@ -43,6 +43,9 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM: ${SMTP_FROM}
       TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY:-}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@tusova.su}
     volumes:
       - avatar-data:/app/uploads
       - attachment-data:/app/storage

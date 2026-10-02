@@ -14,6 +14,7 @@ import { AuthService } from "../auth/auth.service";
 import { SESSION_COOKIE, type AuthenticatedUser } from "../auth/auth.types";
 import { RateLimitService } from "../security/rate-limit.service";
 import { NotificationsService } from "../notifications/notifications.service";
+import { PushService } from "../notifications/push.service";
 import { SessionRevocationService } from "../security/session-revocation.service";
 import { ChatService } from "./chat.service";
 import { JoinRoomDto } from "./dto/join-room.dto";
@@ -56,6 +57,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     private readonly limits: RateLimitService,
     sessionRevocation: SessionRevocationService,
     notifications: NotificationsService,
+    private readonly push: PushService,
   ) {
     chat.subscribeMessages(({ roomId, recipientId, authorId, requestId, message }) => {
       if (!this.server) return;
@@ -113,7 +115,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     } else if (firstConnection) {
       this.server.emit("presence:changed", { userId: user.id, status: "dnd" });
     }
-    if (firstConnection && !reconnecting) await this.announceMainRoom(user.displayName, "вошёл в чат");
+    if (firstConnection && !reconnecting) {
+      await this.announceMainRoom(user.displayName, "вошёл в чат");
+      await this.push.adminPresence(user.displayName);
+    }
   }
 
   handleDisconnect(client: AuthenticatedSocket) {

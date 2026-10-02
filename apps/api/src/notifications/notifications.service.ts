@@ -1,12 +1,13 @@
 import { Injectable, type OnModuleDestroy } from "@nestjs/common";
 import { NotificationType, type Message, type Prisma, type ReactionType } from "@prisma/client";
 import { PrismaService } from "../database/prisma.service";
+import { PushService } from "./push.service";
 type ChangeListener = (userId: string) => void;
 
 @Injectable()
 export class NotificationsService implements OnModuleDestroy {
   private readonly listeners = new Set<ChangeListener>();
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly push: PushService) {}
   subscribe(listener: ChangeListener) {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
@@ -117,6 +118,10 @@ export class NotificationsService implements OnModuleDestroy {
     if (existing) await this.prisma.notification.update({ where: { id: existing.id }, data: { readAt: null, createdAt: new Date(), metadata: input.metadata as any, reactionType: (input.metadata as any)?.reactionType ?? null } });
     else await this.prisma.notification.create({ data: { ...where, metadata: input.metadata as any, reactionType: (input.metadata as any)?.reactionType ?? null } });
     this.emit(input.userId);
+    if (input.type === NotificationType.MENTION) {
+      const actor = await this.prisma.user.findUnique({ where: { id: input.actorId }, select: { displayName: true } });
+      await this.push.mention(input.userId, actor?.displayName ?? "Участник", "Вас упомянули в сообщении");
+    }
   }
 
   async createProfilePost(actorId: string, postId: string, profileUserId: string, parentAuthorId?: string) {

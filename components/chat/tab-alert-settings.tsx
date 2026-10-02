@@ -1,4 +1,5 @@
 import { notificationTypeOptions, type NotificationPreferences, type TabAlertPreferences } from "@/lib/tab-alerts";
+import { PushAlertSettings } from "./push-alert-settings";
 
 const options: Array<{ key: keyof TabAlertPreferences; title: string; detail: string }> = [
   { key: "direct", title: "Личные сообщения", detail: "Показывать отправителя нового личного сообщения" },
@@ -6,7 +7,7 @@ const options: Array<{ key: keyof TabAlertPreferences; title: string; detail: st
   { key: "notifications", title: "Другие уведомления", detail: "Показывать новые события из центра уведомлений" },
 ];
 
-export function TabAlertSettings({ value, onChange, notificationPreferences, onNotificationPreferencesChange }: { value: TabAlertPreferences; onChange: (next: TabAlertPreferences) => void; notificationPreferences: NotificationPreferences; onNotificationPreferencesChange: (next: NotificationPreferences) => void }) {
+export function TabAlertSettings({ value, onChange, notificationPreferences, onNotificationPreferencesChange, admin }: { value: TabAlertPreferences; onChange: (next: TabAlertPreferences) => void; notificationPreferences: NotificationPreferences; onNotificationPreferencesChange: (next: NotificationPreferences) => void; admin: boolean }) {
   return <section className="profile-settings-content profile-alert-settings">
     <header><h2>Оповещения</h2><p>Настройте оповещения в чате, заголовок вкладки браузера и события на странице «Уведомления».</p></header>
     <div className="profile-settings-fields"><fieldset className="profile-tab-alerts">
@@ -31,6 +32,6 @@ export function TabAlertSettings({ value, onChange, notificationPreferences, onN
         <input type="checkbox" checked={notificationPreferences[key]} onChange={(event) => onNotificationPreferencesChange({ ...notificationPreferences, [key]: event.target.checked })} />
         <span><strong>{title}</strong><small>{detail}</small></span>
       </label>)}</div>
-    </fieldset></div>
+    </fieldset><PushAlertSettings admin={admin} /></div>
   </section>;
 }
