@@ -66,10 +66,10 @@ export class AuthService {
     return this.issueSession(user.id, this.toAuthenticatedUser(user));
   }
 
-  async registerGuest(turnstileToken: string, remoteIp?: string) {
+  async registerGuest(turnstileToken: string) {
     const { settings } = await this.settings.read();
     if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Гостевой вход временно закрыт администратором");
-    await this.turnstile.verify(turnstileToken, remoteIp);
+    await this.turnstile.verify(turnstileToken);
 
     let user;
     for (let attempt = 0; attempt < 5; attempt += 1) {

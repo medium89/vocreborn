@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 declare global {
   interface Window {
     turnstile?: {
-      render: (container: HTMLElement, options: { sitekey: string; theme: "light" | "dark"; callback: (token: string) => void; "error-callback": () => void; "expired-callback": () => void }) => string;
+      render: (container: HTMLElement, options: { sitekey: string; theme: "light" | "dark"; size: "flexible"; callback: (token: string) => void; "error-callback": () => void; "expired-callback": () => void }) => string;
       remove: (widgetId: string) => void;
     };
   }
@@ -39,6 +39,7 @@ export function Turnstile({ onVerify, onError }: { onVerify: (token: string) => 
       widgetRef.current = window.turnstile.render(containerRef.current, {
         sitekey: siteKey,
         theme: "dark",
+        size: "flexible",
         callback: (token) => callbacksRef.current.onVerify(token),
         "error-callback": () => callbacksRef.current.onError(),
         "expired-callback": () => callbacksRef.current.onError(),

@@ -32,8 +32,8 @@ export class AuthController {
   @Post("guest")
   @HttpCode(200)
   @RateLimit({ limit: 5, windowMs: 60 * 60 * 1000, key: "ip" })
-  async guest(@Body() input: GuestLoginDto, @Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    const session = await this.auth.registerGuest(input.turnstileToken, request.ip);
+  async guest(@Body() input: GuestLoginDto, @Res({ passthrough: true }) response: Response) {
+    const session = await this.auth.registerGuest(input.turnstileToken);
     setSessionCookie(response, session.token, session.expiresAt);
     return { user: session.user };
   }

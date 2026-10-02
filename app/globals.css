@@ -1506,7 +1506,8 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 .tusova-guest-dialog{position:relative;display:grid;gap:14px;width:min(100%,420px);padding:28px;border:1px solid #dce98d66;border-radius:22px;background:#0b1910;color:#edf0e4;box-shadow:0 24px 70px #000a}
 .tusova-guest-dialog h2,.tusova-guest-dialog p{margin:0}.tusova-guest-dialog h2{font-size:24px}.tusova-guest-dialog p{color:#cbd7bf;line-height:1.45}
 .tusova-guest-dialog-close{position:absolute;top:9px;right:12px;width:32px;height:32px;border-radius:50%;background:transparent;color:#dce6d4;font-size:26px;line-height:1}
-.tusova-turnstile{min-height:65px}.tusova-registration-dialog{width:min(100%,470px)}
+.tusova-turnstile{min-height:65px;width:100%;overflow:hidden}.tusova-turnstile>div{max-width:100%}.tusova-registration-dialog{width:min(100%,470px)}
+@media (max-width:420px){.tusova-guest-dialog-backdrop{padding:12px}.tusova-guest-dialog{width:100%;padding:20px 18px;border-radius:18px}}
 .tusova-entry-note{display:flex;align-items:center;justify-content:center;gap:14px;width:max-content;max-width:100%;margin:25px auto 0;color:#bdc8b6;font-size:16px;line-height:1.25;text-align:left}
 .tusova-entry-note img{display:block;flex:0 0 50px;width:50px;height:50px;object-fit:contain}
 .tusova-entry-note p{margin:0}
