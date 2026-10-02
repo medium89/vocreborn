@@ -121,6 +121,19 @@ function normalizeConversations(items: DirectConversation[], userId: string) {
   }));
 }
 
+function hiddenDirectsKey(userId: string) { return "tusova:hidden-directs:" + userId; }
+function loadHiddenDirectIds(userId: string) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(hiddenDirectsKey(userId)) ?? "[]");
+    return new Set(Array.isArray(saved) ? saved.filter((id): id is string => typeof id === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+function saveHiddenDirectIds(userId: string, ids: Set<string>) {
+  localStorage.setItem(hiddenDirectsKey(userId), JSON.stringify([...ids]));
+}
+
 export default function Home() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [authReady, setAuthReady] = useState(false);
@@ -275,6 +288,7 @@ export default function Home() {
     seenNotificationsRef.current.clear();
     notificationsBaselineReadyRef.current = false;
     if (user) {
+      setHiddenDirectIds(loadHiddenDirectIds(user.id));
       const next = loadTabAlertPreferences(user.id);
       tabAlertPreferencesRef.current = next;
       setTabAlertPreferences(next);
@@ -282,6 +296,7 @@ export default function Home() {
       notificationPreferencesRef.current = notificationNext;
       setNotificationPreferences(notificationNext);
     } else {
+      setHiddenDirectIds(new Set());
       tabAlertPreferencesRef.current = defaultTabAlertPreferences;
       setTabAlertPreferences(defaultTabAlertPreferences);
       notificationPreferencesRef.current = defaultNotificationPreferences;
@@ -361,6 +376,26 @@ export default function Home() {
         muteTimerRef.current = null;
       }, remaining);
     }
+  }
+
+  function hideDirect(peerId: string) {
+    if (!user) return;
+    setHiddenDirectIds((old) => {
+      const next = new Set(old).add(peerId);
+      saveHiddenDirectIds(user.id, next);
+      return next;
+    });
+  }
+
+  function revealDirect(peerId: string) {
+    if (!user) return;
+    setHiddenDirectIds((old) => {
+      if (!old.has(peerId)) return old;
+      const next = new Set(old);
+      next.delete(peerId);
+      saveHiddenDirectIds(user.id, next);
+      return next;
+    });
   }
 
   function dismissPrivateMessagePreview() {
@@ -532,6 +567,7 @@ export default function Home() {
       }
       recordConversation(payload.peerId, message, mine);
       if (!mine) {
+        revealDirect(payload.peerId);
         setChatPeople((old) => old.some((person) => person.id === payload.peerId) ? old : [...old, {
           id: payload.peerId,
           name: message.author,
@@ -798,11 +834,7 @@ export default function Home() {
     markDirectNewer(person.id, false);
     setDirect({});
     setDialog(person);
-    setHiddenDirectIds((old) => {
-      const next = new Set(old);
-      next.delete(person.id as string);
-      return next;
-    });
+    revealDirect(person.id);
     setReplyingTo(null);
     setConversations((old) => old.map((item) => item.peer.id === person.id ? { ...item, unread: 0 } : item));
     showNotice("Загрузка личной переписки…");
@@ -1179,7 +1211,7 @@ export default function Home() {
 
         <div className={"layout" + (profileOpen ? " profile-layout" : "")}>
           {profileOpen && user ? <ProfilePage user={user} muted={muted} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} tabAlertPreferences={tabAlertPreferences} onTabAlertPreferencesChange={changeTabAlertPreferences} notificationPreferences={notificationPreferences} onNotificationPreferencesChange={changeNotificationPreferences} onSave={saveProfile} onRefresh={() => void refreshFromServer()} onChangePassword={handleChangePassword} onClose={() => changeRoom(roomId)} /> : radioView && user ? <RadioPage user={user} mode={radioView} onMode={openRadio} onBack={() => changeRoom(roomId)} onBalance={balance => applyEconomyBalance(balance, user.id)} /> : moderationTarget && user ? <UserEditorPage key={moderationTarget.id} person={moderationTarget} actor={user} onBack={() => changeRoom(roomId)} onChanged={() => { void fetchUsers().then(setChatPeople).catch(() => showNotice("Не удалось обновить список пользователей.")); }} onModerate={(action, duration, reason) => moderatePerson(moderationTarget, action, duration, reason)} /> : communityChatOpen && myCommunity && user ? <CommunityChatPage community={myCommunity} user={user} rooms={rooms} roomId={roomId} mutedPeople={mutedPeople} onOpenProfile={setViewedProfile} onOpenPrivate={(person) => void openDialog(person)} onModerate={setModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} onBackToChat={() => changeRoom(roomId)} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : adminOpen && user?.role === "admin" ? <AdminModal user={user} rooms={rooms} onSaveRoom={saveRoom} onChangeRoom={changeRoom} onOpenRadio={() => openRadio("studio")} onUsersChanged={() => { void fetchUsers().then(setChatPeople).catch(() => showNotice("Не удалось обновить список пользователей.")); }} onBackToChat={() => changeRoom(roomId)} /> : reportsOpen && user && user.role !== "user" ? <ReportsModal canBan={user.role === "admin"} onBackToChat={() => changeRoom(roomId)} /> : notificationsOpen ? <NotificationsPage enabledTypes={notificationTypeOptions.filter(({ key }) => notificationPreferences[key]).map(({ key }) => key)} allNotificationsCount={notifications.length} onClearAll={clearAllNotificationsForUser} onOpen={openNotification} onDelete={deleteNotification} onClose={() => changeRoom(roomId)} /> : communitiesOpen && user ? <CommunitiesModal user={user} onBalanceChanged={() => refreshEconomy(user.id)} onBackToChat={() => changeRoom(roomId)} /> : giftsOpen && user ? <GiftShopPage user={user} people={chatPeople} onBackToChat={() => changeRoom(roomId)} onBalanceChanged={(balance) => applyEconomyBalance(balance, user.id)} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} /> : <>
-          <Conversation radioControlsRef={setRadioControlsTarget} currentUserId={user?.id} canUseAdminVoice={user?.role === "admin" || user?.role === "moderator"} adminVoice={adminVoice} onAdminVoiceChange={setAdminVoice} appearance={user?.appearance} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} room={room} dialog={dialog?.name ?? null} dialogId={dialog?.id ?? null} directConversations={visibleDirectConversations} onOpenDirect={(person) => void openDialog(person)} onDismissDirect={(personId) => setHiddenDirectIds((old) => new Set(old).add(personId))} messages={currentMessages} draft={draft} muted={muted || !user} attachment={attachment} gif={gif} replyingTo={replyingTo} uploadingAttachment={uploadingAttachment} canDelete={user?.role === "admin" || user?.role === "moderator"} canReport={Boolean(user)} canReact={Boolean(user)} hasOlder={dialog?.id ? Boolean(directCursors[dialog.id]) : Boolean(roomCursors[roomId])} hasNewer={dialog?.id ? Boolean(directHasNewer[dialog.id]) : Boolean(roomHasNewer[roomId])} loadingOlder={loadingOlder} reconnecting={reconnecting} notice={notice} onDraftChange={setDraft} onSend={send} onLoadOlder={() => void loadOlder()} onShowLatest={() => void showLatest()} onFileSelect={(file) => void handleFileSelect(file)} onRemoveAttachment={() => setAttachment(null)} onGifSelect={setGif} onRemoveGif={() => setGif(null)} onReply={setReplyingTo} onCancelReply={() => setReplyingTo(null)} onDelete={(messageId) => void handleDeleteMessage(messageId)} onReact={handleReaction} onRevealMessage={revealMessage} onReport={(messageId, label) => setReportTarget({ messageId, label })} onNotice={showNotice} onExitDialog={() => changeRoom(roomId)} mentionCandidates={currentPeople} mentionFocusRequest={mentionFocusRequest} />
+          <Conversation radioControlsRef={setRadioControlsTarget} currentUserId={user?.id} canUseAdminVoice={user?.role === "admin" || user?.role === "moderator"} adminVoice={adminVoice} onAdminVoiceChange={setAdminVoice} appearance={user?.appearance} onAppearanceChanged={(appearance) => setUser((current) => current ? { ...current, appearance } : current)} room={room} dialog={dialog?.name ?? null} dialogId={dialog?.id ?? null} directConversations={visibleDirectConversations} onOpenDirect={(person) => void openDialog(person)} onDismissDirect={hideDirect} messages={currentMessages} draft={draft} muted={muted || !user} attachment={attachment} gif={gif} replyingTo={replyingTo} uploadingAttachment={uploadingAttachment} canDelete={user?.role === "admin" || user?.role === "moderator"} canReport={Boolean(user)} canReact={Boolean(user)} hasOlder={dialog?.id ? Boolean(directCursors[dialog.id]) : Boolean(roomCursors[roomId])} hasNewer={dialog?.id ? Boolean(directHasNewer[dialog.id]) : Boolean(roomHasNewer[roomId])} loadingOlder={loadingOlder} reconnecting={reconnecting} notice={notice} onDraftChange={setDraft} onSend={send} onLoadOlder={() => void loadOlder()} onShowLatest={() => void showLatest()} onFileSelect={(file) => void handleFileSelect(file)} onRemoveAttachment={() => setAttachment(null)} onGifSelect={setGif} onRemoveGif={() => setGif(null)} onReply={setReplyingTo} onCancelReply={() => setReplyingTo(null)} onDelete={(messageId) => void handleDeleteMessage(messageId)} onReact={handleReaction} onRevealMessage={revealMessage} onReport={(messageId, label) => setReportTarget({ messageId, label })} onNotice={showNotice} onExitDialog={() => changeRoom(roomId)} mentionCandidates={currentPeople} mentionFocusRequest={mentionFocusRequest} />
           </>}
           {!profileOpen && (moderationTarget || !(communityChatOpen && myCommunity && user)) && <PeoplePanel showMobileToggle={!moderationTarget && !adminOpen && !reportsOpen && !notificationsOpen && !communitiesOpen && !giftsOpen} people={currentPeople} rooms={rooms} roomId={roomId} currentUserId={user?.id ?? null} canModerate={user?.role === "admin" || user?.role === "moderator"} privateMessagePreview={privateMessagePreview} onOpenDialog={setViewedProfile} onMention={(person) => { leaveFullScreenSections(); const prefix = "@" + (person.username ?? person.name) + ": "; setDraft((current) => current + (current && !current.endsWith(" ") ? " " : "") + prefix); setMentionFocusRequest((value) => value + 1); }} onOpenPrivate={(person) => { leaveFullScreenSections(); void openDialog(person); }} onModerate={setQuickModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} mutedPeople={mutedPeople} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} />}
         </div>
