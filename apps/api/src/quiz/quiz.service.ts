@@ -57,14 +57,14 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
   async theme(actor:AuthenticatedUser,id:string,enabled?:boolean,remove=false){this.admin(actor);await this.ensure();return this.prisma.$transaction(async tx=>{await this.lock(tx);const theme=remove?await tx.quizTheme.delete({where:{id}}):await tx.quizTheme.update({where:{id},data:{enabled}});await this.audit(tx,actor,"QUIZ_THEME",{id,enabled:enabled??false,remove});return theme;});}
   async settings(actor:AuthenticatedUser,input:Record<string,unknown>){
     this.admin(actor);await this.ensure();
-    const allowed=["enabled","timezone","windows","intervalSeconds","durationSeconds","hint1Seconds","hint2Seconds","reward","minOnline","dailyQuestions","dailyBudget","playerDailyWins","playerDailyCredits","noRepeatHours","randomOrder","recycle","excludedUserIds"];
+    const allowed=["enabled","timezone","windows","intervalSeconds","durationSeconds","hint1Seconds","hint2Seconds","hint3Seconds","reward","minOnline","dailyQuestions","dailyBudget","playerDailyWins","playerDailyCredits","noRepeatHours","randomOrder","recycle","excludedUserIds"];
     if(Object.keys(input).some(key=>!allowed.includes(key)))throw new BadRequestException("Неизвестная настройка викторины");
     await this.prisma.$transaction(async tx=>{
       const current=await this.lock(tx),next={...current,...input};
       for(const field of ["enabled","randomOrder","recycle"]){if(typeof next[field as keyof typeof next]!=="boolean")throw new BadRequestException(field+": ожидается true/false");}
-      const bounds:Record<string,[number,number]>={intervalSeconds:[5,86400],durationSeconds:[10,600],hint1Seconds:[1,599],hint2Seconds:[2,599],reward:[1,1000],minOnline:[1,1000],dailyQuestions:[1,10000],dailyBudget:[1,1000000],playerDailyWins:[1,1000],playerDailyCredits:[1,100000],noRepeatHours:[0,720]};
+      const bounds:Record<string,[number,number]>={intervalSeconds:[5,86400],durationSeconds:[10,600],hint1Seconds:[1,599],hint2Seconds:[2,599],hint3Seconds:[3,599],reward:[1,1000],minOnline:[1,1000],dailyQuestions:[1,10000],dailyBudget:[1,1000000],playerDailyWins:[1,1000],playerDailyCredits:[1,100000],noRepeatHours:[0,720]};
       for(const[field,[min,max]]of Object.entries(bounds)){const value=next[field as keyof typeof next];if(typeof value!=="number"||!Number.isInteger(value)||value<min||value>max)throw new BadRequestException(field+": целое число "+min+"–"+max);}
-      if(next.hint1Seconds>=next.hint2Seconds||next.hint2Seconds>=next.durationSeconds)throw new BadRequestException("Подсказка 1 < подсказка 2 < конец раунда");
+      if(next.hint1Seconds>=next.hint2Seconds||next.hint2Seconds>=next.hint3Seconds||next.hint3Seconds>=next.durationSeconds)throw new BadRequestException("Подсказка 1 < подсказка 2 < подсказка 3 < конец раунда");
       if(next.reward>next.dailyBudget||next.reward>next.playerDailyCredits)throw new BadRequestException("Награда не должна превышать дневные бюджеты");
       if(typeof next.timezone!=="string"||next.timezone.length>64)throw new BadRequestException("Неверный часовой пояс");
       validateWindows(next.windows,next.timezone);
@@ -103,7 +103,7 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
     const candidates=await tx.quizQuestion.findMany({where:{theme:{enabled:true},...(config.recycle?{}:{askedCount:0}),OR:[{lastAskedAt:null},{lastAskedAt:{lte:new Date(now.getTime()-config.noRepeatHours*3600000)}}]},include:{theme:true},orderBy:[{askedCount:"asc"},{themeId:"asc"},{position:"asc"}],take:7000});
     if(!candidates.length)throw new BadRequestException("Нет вопросов: включите тему или дождитесь периода повторения");
     const minimum=candidates[0].askedCount,pool=candidates.filter(q=>q.askedCount===minimum),question=config.randomOrder?pool[Math.floor(Math.random()*pool.length)]:pool[0];
-    const round=await tx.quizRound.create({data:{id:randomUUID(),themeId:question.themeId,questionId:question.id,themeTitle:question.theme.title,revision:question.theme.revision,question:question.question,answer:question.answer,acceptedAnswers:[question.answer,...question.acceptedAnswers].map(normalizeAnswer),hintPositions:hintPositions(question.answer),hint1At:new Date(now.getTime()+config.hint1Seconds*1000),hint2At:new Date(now.getTime()+config.hint2Seconds*1000),startedAt:now,endsAt:new Date(now.getTime()+config.durationSeconds*1000),dayKey:day,reward:config.reward,playerDailyWins:config.playerDailyWins,playerDailyCredits:config.playerDailyCredits,cursorAt:now}});
+    const round=await tx.quizRound.create({data:{id:randomUUID(),themeId:question.themeId,questionId:question.id,themeTitle:question.theme.title,revision:question.theme.revision,question:question.question,answer:question.answer,acceptedAnswers:[question.answer,...question.acceptedAnswers].map(normalizeAnswer),hintPositions:hintPositions(question.answer),hint1At:new Date(now.getTime()+config.hint1Seconds*1000),hint2At:new Date(now.getTime()+config.hint2Seconds*1000),hint3At:new Date(now.getTime()+config.hint3Seconds*1000),startedAt:now,endsAt:new Date(now.getTime()+config.durationSeconds*1000),dayKey:day,reward:config.reward,playerDailyWins:config.playerDailyWins,playerDailyCredits:config.playerDailyCredits,cursorAt:now}});
     await tx.quizQuestion.update({where:{id:question.id},data:{askedCount:{increment:1},lastAskedAt:now}});
     await tx.quizConfig.update({where:{id:"main"},data:{activeRoundId:round.id,nextAt:null,lastReason:null}});
     await this.publish(tx,round,"QUESTION","🦉 Викторина · "+round.themeTitle+"\n"+round.question+"\nОтветьте в главной комнате за "+config.durationSeconds+" сек. Награда: "+round.reward+" кредитов. Только зарегистрированные участники, попытка раз в 2 сек.; лимит за день: "+round.playerDailyWins+" побед / "+round.playerDailyCredits+" кредитов.");return round;
@@ -152,8 +152,8 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
           if(this.recovering&&round.endsAt<=now){await this.close(tx,config,"TIMEOUT","Время истекло во время перезапуска. Никто не угадал");return;}
           if(await this.answers(tx,config,round))return;
           if(round.endsAt<=now){await this.close(tx,config,"TIMEOUT","Время вышло. Никто не угадал");return;}
-          const target=now>=round.hint2At?2:now>=round.hint1At?1:0;
-          if(target>round.hintsSent){await tx.quizRound.update({where:{id:round.id},data:{hintsSent:target}});await this.publish(tx,round,"HINT"+target,"Подсказка "+target+"/2: "+mask(round.answer,round.hintPositions,target));}
+          const target=now>=round.hint3At?3:now>=round.hint2At?2:now>=round.hint1At?1:0;
+          if(target>round.hintsSent){await tx.quizRound.update({where:{id:round.id},data:{hintsSent:target}});await this.publish(tx,round,"HINT"+target,"Подсказка "+target+"/3: "+mask(round.answer,round.hintPositions,target));}
         }else if(config.enabled&&!config.paused&&(!config.nextAt||config.nextAt<=now)){
           const next=nextWindow(now,config.durationSeconds,config.timezone,config.windows as unknown as QuizWindow[]);
           if(!next||next>now){await tx.quizConfig.update({where:{id:"main"},data:{nextAt:next??new Date(now.getTime()+3600000),lastReason:"Вне рабочего окна"}});return;}

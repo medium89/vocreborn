@@ -19,7 +19,7 @@ export function parseDocument(raw: unknown): QuizDocument {
     const row = item as Record<string,unknown>, label = "Вопрос "+(i+1), id = identifier(row.id,label);
     if (ids.has(id)) return fail(label+": повторяющийся id "+id); ids.add(id);
     const answer = text(row.answer,label+".answer",100);
-    if (Array.from(answer).filter(c=>/\p{L}/u.test(c)).length < 3) return fail(label+".answer: нужны минимум 3 буквы для двух подсказок");
+    if (Array.from(answer).filter(c=>/\p{L}/u.test(c)).length < 3) return fail(label+".answer: нужны минимум 3 буквы для подсказок");
     if (row.acceptedAnswers !== undefined && (!Array.isArray(row.acceptedAnswers) || row.acceptedAnswers.length > 20)) return fail(label+".acceptedAnswers: массив до 20 вариантов");
     const acceptedAnswers = ((row.acceptedAnswers ?? []) as unknown[]).map((value,n)=>text(value,label+".acceptedAnswers["+n+"]",100));
     const answers = [answer,...acceptedAnswers].map(normalizeAnswer);
@@ -59,5 +59,5 @@ export function nextWindow(now: Date, seconds: number, timezone: string, windows
   return null;
 }
 export function dayKey(now: Date, timezone: string) { const p=parts(now,timezone);return timezone+":"+p.year+"-"+p.month+"-"+p.day; }
-export function hintPositions(answer: string) { const positions=Array.from(answer).flatMap((c,i)=>/\p{L}/u.test(c)?[i]:[]); for(let i=positions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}return positions.slice(0,2); }
-export function mask(answer: string, positions: number[], revealed: number) { return Array.from(answer).map((c,i)=>!/[\p{L}\p{N}]/u.test(c)||positions.slice(0,revealed).includes(i)?c:"▢").join(""); }
+export function hintPositions(answer: string) { const positions=Array.from(answer).flatMap((c,i)=>/\p{L}/u.test(c)?[i]:[]); for(let i=positions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}return positions.slice(0,Math.ceil(positions.length*0.6)); }
+export function mask(answer: string, positions: number[], revealed: number) { return Array.from(answer).map((c,i)=>!/[\p{L}\p{N}]/u.test(c)||positions.slice(0,Math.ceil(positions.length*revealed/3)).includes(i)?c:"▢").join(""); }
