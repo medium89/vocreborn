@@ -45,6 +45,11 @@ type ConversationProps = {
   onReact: (messageId: string, type: ReactionType) => Promise<void>; onExitDialog: () => void; onRevealMessage: (message: Message) => void; onNotice: (message: string) => void; mentionCandidates: Person[]; mentionFocusRequest: number;
 };
 
+function displayMessageTime(message: Message) {
+  if (!message.mine || !message.createdAt) return message.time;
+  return new Date(message.createdAt).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
 function formatSize(size: number) {
   if (size < 1024) return size + " Б";
   if (size < 1024 * 1024) return Math.max(1, Math.round(size / 1024)) + " КБ";
@@ -501,7 +506,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
       {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
       {messages.map((message) => message.system
-        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}><span>{message.body}</span><time>{message.time}</time></div>
+        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}><span>{message.body}</span><time>{displayMessageTime(message)}</time></div>
         : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.adminVoice ? "admin-voice " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted " : "") + (message.quizKind ? "quiz-message quiz-message-" + message.quizKind.toLowerCase() : "")} key={message.id}>
           <Avatar value={message.avatarUrl} name={message.author} className="message-avatar" />
           <div className="message-content">

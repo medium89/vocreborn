@@ -15,6 +15,9 @@ const MAX_ROOM_COVER_UPLOAD_BYTES = 10 * 1024 * 1024;
 const MAX_ROOM_COVER_BYTES = 2 * 1024 * 1024;
 type RoomCoverFile = { buffer: Buffer; mimetype: string; size: number };
 
+const chatTimeFormatter = new Intl.DateTimeFormat("ru-RU", { timeZone: "Europe/Moscow", hour: "2-digit", minute: "2-digit" });
+function formatChatTime(value: Date) { return chatTimeFormatter.format(value); }
+
 function normalizeGifUrl(value?: string) {
   if (!value) return undefined;
   try {
@@ -691,12 +694,12 @@ export class ChatService {
       avatarUrl: message.author?.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + message.author.avatarKey : undefined,
       body: message.body,
       gifUrl: message.gifUrl ?? undefined,
-      time: message.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }),
+      time: formatChatTime(message.createdAt),
       createdAt: message.createdAt.toISOString(),
       system: message.kind === "SYSTEM",
       attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),
       reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
-      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: message.replyTo.createdAt.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) } : undefined,
+      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: formatChatTime(message.replyTo.createdAt) } : undefined,
     };
   }
 }

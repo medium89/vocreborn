@@ -14,7 +14,7 @@ export function RadioPlayer({ user, controlsTarget }: { user: AuthUser; controls
   const [microphone, setMicrophone] = useState(false);
   useEffect(() => {
     let active = true;
-    const update = () => void getRadioStatus().then(next => { if (active) setState(next); }).catch(() => { if (active) setError("Нет связи с радио"); });
+    const update = () => void getRadioStatus().then(next => { if (active) { setState(next); setError(""); } }).catch(() => undefined);
     update(); const timer = setInterval(update, 5000);
     return () => { active = false; clearInterval(timer); };
   }, [user.id]);
