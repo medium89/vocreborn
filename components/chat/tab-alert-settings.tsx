@@ -10,7 +10,7 @@ const options: Array<{ key: keyof TabAlertPreferences; title: string; detail: st
 export function TabAlertSettings({ value, onChange, notificationPreferences, onNotificationPreferencesChange, admin }: { value: TabAlertPreferences; onChange: (next: TabAlertPreferences) => void; notificationPreferences: NotificationPreferences; onNotificationPreferencesChange: (next: NotificationPreferences) => void; admin: boolean }) {
   return <section className="profile-settings-content profile-alert-settings">
     <header><h2>Оповещения</h2><p>Настройте оповещения в чате, заголовок вкладки браузера и события на странице «Уведомления».</p></header>
-    <div className="profile-settings-fields"><fieldset className="profile-tab-alerts">
+    <div className="profile-settings-fields"><PushAlertSettings admin={admin} /><fieldset className="profile-tab-alerts">
     <legend>Оповещения во вкладке</legend>
     <p>Настройки применяются сразу и сохраняются в этом браузере.</p>
     {options.map(({ key, title, detail }) => <label className="profile-tab-alert-option" key={key}>
@@ -32,6 +32,6 @@ export function TabAlertSettings({ value, onChange, notificationPreferences, onN
         <input type="checkbox" checked={notificationPreferences[key]} onChange={(event) => onNotificationPreferencesChange({ ...notificationPreferences, [key]: event.target.checked })} />
         <span><strong>{title}</strong><small>{detail}</small></span>
       </label>)}</div>
-    </fieldset><PushAlertSettings admin={admin} /></div>
+    </fieldset></div>
   </section>;
 }

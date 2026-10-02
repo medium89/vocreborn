@@ -17,7 +17,7 @@ export function PushAlertSettings({ admin }: { admin: boolean }) {
     const config = await request("/api/notifications/push/config").then((response) => response.json());
     const registration = await navigator.serviceWorker.register("/push-sw.js");
     const subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: base64UrlToBytes(config.publicKey) });
-    await save(subscription, { direct: true, mention: true, adminPresence: admin && settings.adminPresence }); setMessage("Уведомления включены.");
+    await save(subscription, { direct: true, mention: true, adminPresence: admin }); setMessage("Уведомления включены.");
   }
   async function save(subscription: PushSubscription, next: Pick<Settings, "direct" | "mention" | "adminPresence">) {
     const json = subscription.toJSON(); const response = await request("/api/notifications/push", { method: "POST", body: JSON.stringify({ endpoint: json.endpoint, keys: json.keys, ...next }) });
@@ -28,5 +28,6 @@ export function PushAlertSettings({ admin }: { admin: boolean }) {
     try { await save(subscription, { direct: settings.direct, mention: settings.mention, adminPresence: settings.adminPresence, [key]: value }); } catch { setMessage("Не удалось сохранить настройку."); }
   }
   if (!settings) return null;
-  return <fieldset className="profile-tab-alerts"><legend>Уведомления на устройстве</legend><p>Приходят, когда сайт свёрнут или закрыт. Разрешение запрашивает браузер.</p>{!settings.subscribed ? <button type="button" className="action-button" onClick={() => void enable()}>Включить push-уведомления</button> : <>{([ ["direct", "Личные сообщения", "Сообщать о новых личных сообщениях"], ["mention", "Упоминания", "Сообщать, когда вас упомянули в чате"], ...(admin ? [["adminPresence", "Входы пользователей", "Сообщать, когда пользователь входит в чат"]] : []) ] as Array<["direct" | "mention" | "adminPresence", string, string]>).map(([key, title, detail]) => <label className="profile-tab-alert-option" key={key}><input type="checkbox" checked={settings[key]} onChange={(event) => void change(key, event.target.checked)} /><span><strong>{title}</strong><small>{detail}</small></span></label>)}</>}{message && <p>{message}</p>}</fieldset>;
+  const options: Array<["direct" | "mention" | "adminPresence", string, string]> = [["direct", "Личные сообщения", "Сообщать о новых личных сообщениях"], ["mention", "Упоминания", "Сообщать, когда вас упомянули в чате"], ...(admin ? ([ ["adminPresence", "Входы пользователей", "Сообщать, когда пользователь входит в чат"] ] as Array<["adminPresence", string, string]>) : [])];
+  return <fieldset className="profile-tab-alerts"><legend>Уведомления на устройстве</legend><p>Приходят, когда сайт свёрнут или закрыт. Сначала подключите это устройство.</p>{!settings.subscribed && <button type="button" className="action-button" onClick={() => void enable()}>Включить push-уведомления</button>}{options.map(([key, title, detail]) => <label className="profile-tab-alert-option" key={key}><input type="checkbox" disabled={!settings.subscribed} checked={settings[key]} onChange={(event) => void change(key, event.target.checked)} /><span><strong>{title}</strong><small>{settings.subscribed ? detail : "Станет доступно после подключения устройства"}</small></span></label>)}{message && <p>{message}</p>}</fieldset>;
 }
