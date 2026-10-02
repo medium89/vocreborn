@@ -161,6 +161,7 @@ export type Message = {
   createdAt?: string;
   mine?: boolean;
   system?: boolean;
+  greetingRecipientId?: string;
   attachments?: Attachment[];
   reactions?: Reaction[];
   replyTo?: { id: string; authorId?: string; author: string; body: string; time: string; createdAt?: string };

@@ -116,7 +116,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
       this.server.emit("presence:changed", { userId: user.id, status: "dnd" });
     }
     if (firstConnection && !reconnecting) {
-      await this.announceMainRoom(user.displayName, "вошёл в чат");
+      await this.announceMainRoom(user.displayName, "вошёл в чат", user.id);
       await this.push.adminPresence(user.displayName);
     }
   }
@@ -242,8 +242,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     this.server.to(roomId).emit("message:deleted", { roomId, messageId });
   }
 
-  private async announceMainRoom(displayName: string, action: string) {
-    const message = await this.chat.createSystemMessage("Пользователь " + displayName + " " + action + ".");
+  private async announceMainRoom(displayName: string, action: string, greetingRecipientId?: string) {
+    const message = await this.chat.createSystemMessage("Пользователь " + displayName + " " + action + ".", greetingRecipientId);
     this.server.to("main").emit("message:created", { roomId: "main", message });
   }
 

@@ -114,3 +114,7 @@ export function fetchRoomMessage(roomId: string, messageId: string) {
 export function searchDirectMessages(peerId: string, query: string) {
   return request<Message[]>("/api/direct/" + encodeURIComponent(peerId) + "/search?q=" + encodeURIComponent(query));
 }
+
+export function greetRoomJoin(messageId: string) {
+  return request<Message>("/api/rooms/main/messages/" + encodeURIComponent(messageId) + "/greet", { method: "POST" });
+}

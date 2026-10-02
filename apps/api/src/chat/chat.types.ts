@@ -59,6 +59,7 @@ export type ApiMessage = {
   adminVoice?: boolean;
   mine?: boolean;
   system?: boolean;
+  greetingRecipientId?: string;
   attachments: ApiAttachment[];
   reactions: ApiReaction[];
   replyTo?: { id: string; authorId?: string; author: string; body: string; time: string; createdAt?: string };

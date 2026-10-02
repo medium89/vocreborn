@@ -351,12 +351,33 @@ export class ChatService {
     return this.toApiMessage(message);
   }
 
-  async createSystemMessage(body: string): Promise<ApiMessage> {
+  async createSystemMessage(body: string, greetingRecipientId?: string): Promise<ApiMessage> {
     const message = await this.prisma.message.create({
-      data: { roomId: "main", authorName: "Система", body, kind: "SYSTEM" },
+      data: { roomId: "main", authorName: "Система", body, kind: "SYSTEM", requestId: greetingRecipientId ? "presence:" + greetingRecipientId + ":" + randomUUID() : undefined },
       include: { attachments: true, reactions: true },
     });
     return this.toApiMessage(message);
+  }
+  async greetJoin(actorId: string, joinedMessageId: string): Promise<ApiMessage> {
+    const joined = await this.prisma.message.findFirst({ where: { id: joinedMessageId, roomId: "main", kind: "SYSTEM", requestId: { startsWith: "presence:" }, body: { endsWith: " вошёл в чат." }, deletedAt: null }, select: { id: true, requestId: true } });
+    const targetId = joined?.requestId?.split(":")[1];
+    if (!targetId) throw new NotFoundException("Оповещение о входе не найдено");
+    if (targetId === actorId) throw new ForbiddenException("Нельзя приветствовать самого себя");
+    const requestId = "greeting:" + targetId + ":" + joined.id;
+    const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { attachments: true, reactions: true } });
+    if (existing) return this.toApiMessage(existing);
+    const [actor, target] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: actorId }, select: { displayName: true, deletedAt: true } }),
+      this.prisma.user.findUnique({ where: { id: targetId }, select: { displayName: true, deletedAt: true } }),
+    ]);
+    if (!actor || actor.deletedAt || !target || target.deletedAt) throw new NotFoundException("Участник недоступен");
+    const message = await this.prisma.message.create({
+      data: { roomId: "main", authorName: "Система", body: "Пользователь " + actor.displayName + " приветствует " + target.displayName + ".", kind: "SYSTEM", requestId },
+      include: { attachments: true, reactions: true },
+    });
+    const apiMessage = this.toApiMessage(message);
+    for (const listener of this.messageListeners) listener({ roomId: "main", authorId: actorId, requestId, message: apiMessage });
+    return apiMessage;
   }
 
   async listUsers(currentUserId: string): Promise<ApiPerson[]> {
@@ -701,6 +722,7 @@ export class ChatService {
       time: formatChatTime(message.createdAt),
       createdAt: message.createdAt.toISOString(),
       system: message.kind === "SYSTEM",
+      greetingRecipientId: message.kind === "SYSTEM" ? message.requestId?.match(/^(?:presence|greeting):([a-f0-9-]{36}):/i)?.[1] : undefined,
       attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),
       reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
       replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, body: message.replyTo.body, time: formatChatTime(message.replyTo.createdAt), createdAt: message.replyTo.createdAt.toISOString() } : undefined,

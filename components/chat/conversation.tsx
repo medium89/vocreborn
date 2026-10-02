@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FormEventHandler } from "react";
 import { createPortal } from "react-dom";
 import { ArrowLeft, AtSign, ChevronDown, Ellipsis, FileAudio, FileImage, Flag, LoaderCircle, Maximize2, Megaphone, Mic, Moon, Paperclip, Pause, Play, Reply, Search, Send, Settings2, Smile, SmilePlus, Square, Sun, Trash2, Users, X } from "lucide-react";
-import { API_URL, fetchDirectResources, fetchRoomMessage, fetchRoomResources, searchDirectMessages, searchRoomMessages } from "@/lib/chat-api";
+import { API_URL, fetchDirectResources, fetchRoomMessage, fetchRoomResources, greetRoomJoin, searchDirectMessages, searchRoomMessages } from "@/lib/chat-api";
 import type { Attachment, CosmeticAppearance, DirectConversation, Message, Person, ReactionType, Room, RoomResources } from "@/lib/chat-contract";
 import { Avatar } from "./avatar";
 import { messagePreviewStyle } from "@/lib/message-preview-size";
@@ -224,6 +224,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [searchResults, setSearchResults] = useState<Message[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | number | null>(null);
+  const [greetingMessageIds, setGreetingMessageIds] = useState<Set<string | number>>(() => new Set());
   const mentionMatch = draft.match(/(?:^|\s)@([^\s@]*)$/);
   const mentionQuery = mentionMatch?.[1].toLowerCase() ?? "";
   const mentionOptions = mentionMatch ? mentionCandidates.filter((person) =>
@@ -500,6 +501,12 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   }
 
   function mentionAuthor(name: string) { const person = mentionCandidates.find((item) => item.name === name); const handle = person?.username ?? person?.name ?? name; onDraftChange(draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": "); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange((draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": ").length, (draft + (draft && !draft.endsWith(" ") ? " " : "") + "@" + handle + ": ").length); }); }
+  async function greetJoinedUser(messageId: string | number) {
+    if (typeof messageId !== "string" || greetingMessageIds.has(messageId)) return;
+    setGreetingMessageIds((ids) => new Set(ids).add(messageId));
+    try { await greetRoomJoin(messageId); }
+    catch (error) { setGreetingMessageIds((ids) => { const next = new Set(ids); next.delete(messageId); return next; }); onNotice(error instanceof Error ? error.message : "Не удалось отправить приветствие."); }
+  }
   function chooseContent(tab: "chat" | "media" | "links") { setContentTab(tab); setContentMenuOpen(false); }
   function returnToRoomChat() { chooseContent("chat"); if (dialog) onExitDialog(); }
 
@@ -532,7 +539,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
       {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
       {messages.filter((message) => !hideQuizMessages || !message.quizKind).map((message) => message.system
-        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "")} key={message.id}><span>{message.body}</span><time>{displayMessageTime(message)}</time></div>
+        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "") + (message.greetingRecipientId === currentUserId && !message.body.endsWith(" вошёл в чат.") ? " system-message-greeting-for-me" : "")} key={message.id}><span>{message.body}</span>{message.body.endsWith(" вошёл в чат.") && message.greetingRecipientId !== currentUserId && <button type="button" className="system-message-greet" disabled={greetingMessageIds.has(message.id)} onClick={() => void greetJoinedUser(message.id)}>{greetingMessageIds.has(message.id) ? "Приветствие отправлено" : "Поприветствовать"}</button>}<time>{displayMessageTime(message)}</time></div>
         : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.adminVoice ? "admin-voice " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted " : "") + (message.quizKind ? "quiz-message quiz-message-" + message.quizKind.toLowerCase() : "")} key={message.id}>
           <Avatar value={message.avatarUrl} name={message.author} className="message-avatar" />
           <div className="message-content">

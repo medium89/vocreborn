@@ -2531,3 +2531,5 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .quiz-hint-letter{font-weight:800}
 
 .inline-reply>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+
+.system-message-greet{margin-left:8px;padding:3px 7px;border-radius:999px;background:var(--brand-soft);color:#506426;font-size:10px;font-weight:700}.system-message-greet:disabled{opacity:.65;cursor:default}.system-message-greeting-for-me{background:color-mix(in srgb,var(--brand-soft) 80%,var(--surface));color:#4f6520;box-shadow:inset 3px 0 0 var(--brand-strong);font-weight:700}:root[data-theme="dark"] .system-message-greeting-for-me{background:color-mix(in srgb,var(--brand-soft) 40%,var(--surface));color:#e0efbf}

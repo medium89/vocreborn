@@ -86,6 +86,13 @@ export class ChatController {
     return this.chat.getRoomMessage(roomId, messageId, user.id);
   }
 
+  @Post("main/messages/:messageId/greet")
+  @UseGuards(SessionGuard)
+  @RateLimit({ limit: 30, windowMs: 60 * 1000, key: "session" })
+  greetJoin(@Param("messageId", new ParseUUIDPipe({ version: "4" })) messageId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.chat.greetJoin(user.id, messageId);
+  }
+
   @Post(":roomId/messages")
   @UseGuards(SessionGuard)
   @RateLimit({ limit: 60, windowMs: 10 * 1000, key: "session" })
