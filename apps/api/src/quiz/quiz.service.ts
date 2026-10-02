@@ -106,7 +106,7 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
     const round=await tx.quizRound.create({data:{id:randomUUID(),themeId:question.themeId,questionId:question.id,themeTitle:question.theme.title,revision:question.theme.revision,question:question.question,answer:question.answer,acceptedAnswers:[question.answer,...question.acceptedAnswers].map(normalizeAnswer),hintPositions:hintPositions(question.answer),hint1At:new Date(now.getTime()+config.hint1Seconds*1000),hint2At:new Date(now.getTime()+config.hint2Seconds*1000),hint3At:new Date(now.getTime()+config.hint3Seconds*1000),startedAt:now,endsAt:new Date(now.getTime()+config.durationSeconds*1000),dayKey:day,reward:config.reward,playerDailyWins:config.playerDailyWins,playerDailyCredits:config.playerDailyCredits,cursorAt:now}});
     await tx.quizQuestion.update({where:{id:question.id},data:{askedCount:{increment:1},lastAskedAt:now}});
     await tx.quizConfig.update({where:{id:"main"},data:{activeRoundId:round.id,nextAt:null,lastReason:null}});
-    await this.publish(tx,round,"QUESTION","Тема · "+round.themeTitle+"\n"+round.question);return round;
+    await this.publish(tx,round,"QUESTION","Тема · "+round.themeTitle+"\n"+round.question+"\nВикторина мешает? В меню ⋯ выберите «Скрыть сообщения викторины».");return round;
   }
   async command(actor:AuthenticatedUser,action:string,confirmed=false){
     this.admin(actor);if(!this.runtimeEnabled)throw new ServiceUnavailableException("Включите TUSOVA_QUIZ_ENABLED и перезапустите API");await this.ensure();
