@@ -703,7 +703,7 @@ export class ChatService {
       system: message.kind === "SYSTEM",
       attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),
       reactions: [...grouped.entries()].map(([type, value]) => ({ type, ...value })),
-      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: formatChatTime(message.replyTo.createdAt) } : undefined,
+      replyTo: message.replyTo ? { id: message.replyTo.id, authorId: message.replyTo.authorId ?? undefined, author: message.replyTo.authorName, time: formatChatTime(message.replyTo.createdAt), createdAt: message.replyTo.createdAt.toISOString() } : undefined,
     };
   }
 }
