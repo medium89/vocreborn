@@ -2582,3 +2582,4 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .tusova-guest-explain{display:block;margin:10px 0 0;color:#d4dfb9;font-size:12px;text-align:center;text-underline-offset:3px}
 
 @media(max-width:700px){.seo-page{background-attachment:scroll}}
+html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:100%;overflow-x:hidden;overflow-y:auto}.tusova-info-page{height:auto;min-height:100dvh;overflow:visible}
