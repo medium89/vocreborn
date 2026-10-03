@@ -1175,7 +1175,7 @@ export default function Home() {
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, [user]);
 
-  if (!authReady) return <div className="tusova-loading" role="status" aria-label="Загрузка TUSOVA"><img src="/brand/tusova-chat-logo.png" alt="TUSOVA" /></div>;
+  if (!authReady) return <AuthModal onAuthenticated={handleAuthenticated} />;
   if (!user) return <AuthModal onAuthenticated={handleAuthenticated} />;
   return (
     <main className="shell">

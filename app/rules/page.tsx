@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import {
   ArrowRight, Ban, Camera, ChevronRight, Clock3, Flag, Heart,
   Megaphone, MessageCircleMore, MessageSquareX, Moon, ShieldCheck,
@@ -7,10 +8,7 @@ import {
 import { AboutThemeFrame } from "@/components/site/about-theme-frame";
 import { SiteHeader } from "@/components/site/site-header";
 
-export const metadata: Metadata = {
-  title: "Правила — TUSOVA",
-  description: "Простые правила приятного и безопасного общения в TUSOVA.",
-};
+export const metadata: Metadata = pageMetadata("/rules", "Правила общения в TUSOVA", "Простые правила общего чата TUSOVA: уважение к собеседникам, безопасность и комфортное общение.");
 
 const principles = [
   { icon: Heart, title: "Уважай других", text: "Будь вежливым и доброжелательным. Уважай мнение и личные границы собеседников." },

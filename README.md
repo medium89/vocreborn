@@ -81,3 +81,15 @@ Production API пишет однострочные JSON-логи с `X-Request-I
 Backup содержит PostgreSQL dump, архив аватаров и вложений и SHA-256 manifest. Подробные команды мониторинга, webhook-оповещений, backup и проверки восстановления приведены в `docs/deployment.md`.
 
 Схема БД находится в `apps/api/prisma/schema.prisma`. Контракт API описан в `docs/api-contract.md`, прогресс — в `ready.md`, очередь — в `todo.md`.
+
+
+## SEO Setup
+
+Публичный индексируемый адрес: `https://tusova.su` без `www` и завершающего слеша. Caddy перенаправляет HTTP на HTTPS, а `www.tusova.su` — на основной домен (для этого DNS `www` должен указывать на сервер).
+
+- Добавьте `GOOGLE_SITE_VERIFICATION` и `YANDEX_SITE_VERIFICATION` в окружение web-сервиса. Значения берутся из Google Search Console и Яндекс Вебмастера; вымышленные токены не подходят.
+- Карта сайта: `https://tusova.su/sitemap.xml`. Правила обхода: `https://tusova.su/robots.txt`.
+- В sitemap входят главная, пять посадочных страниц, блог и статьи, а также `/about`, `/help`, `/rules`.
+- `/recover`, `/verify-email`, `/radio/requests` и `/radio/studio` получают `noindex, follow`. Внутренние экраны чата не имеют отдельных URL.
+- Заголовки, описания и canonical задаются в `lib/seo.ts`; посадочные — в `lib/seo-landings.ts`, статьи — в `lib/seo-articles.ts`. Новую статью достаточно добавить в массив: маршрут и sitemap создаются автоматически.
+- После публикации подтвердите домен в обеих панелях вебмастеров и отправьте sitemap. Аналитику проект пока не подключает.
