@@ -372,7 +372,7 @@ export class ChatService {
     ]);
     if (!actor || actor.deletedAt || !target || target.deletedAt) throw new NotFoundException("Участник недоступен");
     const message = await this.prisma.message.create({
-      data: { roomId: "main", authorName: "Система", body: "Пользователь " + actor.displayName + " приветствует " + target.displayName + ".", kind: "SYSTEM", requestId },
+      data: { roomId: "main", authorName: "Система", body: "Пользователь " + actor.displayName + " приветствует " + target.displayName + " 👋", kind: "SYSTEM", requestId },
       include: { attachments: true, reactions: true },
     });
     const apiMessage = this.toApiMessage(message);
