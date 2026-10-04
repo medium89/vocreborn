@@ -92,6 +92,8 @@ export async function uploadRoomCover(roomId: string, file: File) {
   return response.json() as Promise<Room>;
 }
 
+export function deleteRoom(roomId: string) { return request<{ roomId: string; deleted: true }>("/api/rooms/" + encodeURIComponent(roomId), { method: "DELETE" }); }
+
 export function leaveRoom(roomId: string) {
   return request<{ roomId: string; joined: false }>("/api/rooms/" + encodeURIComponent(roomId) + "/members/me", { method: "DELETE" });
 }

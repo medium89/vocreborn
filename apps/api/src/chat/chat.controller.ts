@@ -36,6 +36,12 @@ export class ChatController {
     return this.chat.updateRoom(roomId, user.id, user.role, input);
   }
 
+  @Delete(":roomId")
+  @UseGuards(SessionGuard)
+  @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "session" })
+  deleteRoom(@Param("roomId") roomId: string, @CurrentUser() user: AuthenticatedUser) {
+    return this.chat.deleteRoom(roomId, user.id, user.role);
+  }
   @Post(":roomId/cover")
   @UseGuards(SessionGuard)
   @UseInterceptors(FileInterceptor("cover", { limits: { fileSize: 10 * 1024 * 1024, files: 1 } }))

@@ -25,6 +25,7 @@ import { changePassword, getMe, logout, updateProfile, uploadAvatar } from "@/li
 import {
   API_URL,
   createRoom,
+  deleteRoom,
   fetchDirectConversations,
   fetchDirectMessagePage,
   fetchRoomMessagePage,
@@ -1122,6 +1123,12 @@ export default function Home() {
   function controlVideo(action: "play" | "pause" | "seek", position?: number) {
     socketRef.current?.emit("video:control", { roomId, action, position }, (state: VideoRoomState | undefined) => { if (state?.roomId) setVideoSessions((old) => ({ ...old, [state.roomId]: state })); });
   }
+  async function removeRoom(roomToDelete: Room) {
+    await deleteRoom(roomToDelete.id);
+    setRooms((old) => old.filter((item) => item.id !== roomToDelete.id));
+    if (roomId === roomToDelete.id) changeRoom("main");
+    showNotice("Комната удалена.");
+  }
   async function saveProfile(input: { bio: string; gender: "male" | "female" | "unspecified"; hideRole?: boolean }, avatar: File | null) {
     let updated = await updateProfile(input);
     if (avatar) updated = await uploadAvatar(avatar);
@@ -1240,7 +1247,7 @@ export default function Home() {
           {!profileOpen && (moderationTarget || !(communityChatOpen && myCommunity && user)) && <PeoplePanel showMobileToggle={!moderationTarget && !adminOpen && !reportsOpen && !notificationsOpen && !communitiesOpen && !giftsOpen} people={currentPeople} rooms={rooms} roomId={roomId} currentUserId={user?.id ?? null} canModerate={user?.role === "admin" || user?.role === "moderator"} privateMessagePreview={privateMessagePreview} onOpenDialog={setViewedProfile} onMention={(person) => { leaveFullScreenSections(); const prefix = "@" + person.name + ": "; setDraft((current) => current + (current && !current.endsWith(" ") ? " " : "") + prefix); setMentionFocusRequest((value) => value + 1); }} onOpenPrivate={(person) => { leaveFullScreenSections(); void openDialog(person); }} onModerate={setQuickModerationTarget} onReport={(person) => person.id && setReportTarget({ userId: person.id, label: "Пользователь " + person.name })} onChangeRoom={changeRoom} onOpenRooms={() => openOverlay(setRoomsOpen)} mutedPeople={mutedPeople} onToggleMute={(person, isMuted) => void toggleQuickMute(person, isMuted)} />}
         </div>
       </section>
-      {roomsOpen && <RoomsModal rooms={rooms} user={user} onChangeRoom={changeRoom} onSaveRoom={saveRoom} onClose={() => setRoomsOpen(false)} />}
+      {roomsOpen && <RoomsModal rooms={rooms} user={user} onChangeRoom={changeRoom} onSaveRoom={saveRoom} onDeleteRoom={removeRoom} onClose={() => setRoomsOpen(false)} />}
       {reportTarget && user && <ReportModal target={reportTarget} onSubmit={submitReport} onClose={() => setReportTarget(null)} />}
       {quickModerationTarget && (user?.role === "admin" || user?.role === "moderator") && <ModerationModal key={quickModerationTarget.id} person={quickModerationTarget} canBan={user.role === "admin"} onAction={(action, duration, reason) => moderatePerson(quickModerationTarget, action, duration, reason)} onClose={() => setQuickModerationTarget(null)} />}
       {viewedProfile && user && <PublicProfileModal person={viewedProfile} currentUser={user} onOpenFriend={setViewedProfile} onBalanceChanged={() => void refreshEconomy(user.id)} onWriteDirect={async () => { const person = viewedProfile; await openDialog(person); setViewedProfile(null); }} onClose={() => setViewedProfile(null)} />}

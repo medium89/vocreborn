@@ -88,6 +88,7 @@ export class ChatService {
 
   async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean }) {
     const room = await this.assertRoom(roomId);
+    if (input.isVideoRoom !== undefined && role !== "admin") throw new ForbiddenException("Видеокомнату может создать или изменить только администратор");
     if (role !== "admin") {
       const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
       if (membership?.role !== "OWNER") throw new ForbiddenException("Изменять комнату может только владелец или администратор");
@@ -99,9 +100,17 @@ export class ChatService {
     return this.toApiRoom(updated);
   }
 
+  async deleteRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin") {
+    if (roomId === "main") throw new BadRequestException("Главную комнату нельзя удалить");
+    const room = await this.assertRoom(roomId);
+    if (role !== "admin" && room.createdById !== userId) throw new ForbiddenException("Удалять комнату может только её владелец или администратор");
+    await this.prisma.room.delete({ where: { id: room.id } });
+    await Promise.all([this.deleteRoomCover(room.coverKey), this.deleteRoomCover(room.coverThumbKey)]);
+    return { roomId, deleted: true };
+  }
   async saveRoomCover(roomId: string, userId: string, role: "user" | "moderator" | "admin", file?: RoomCoverFile) {
     const room = await this.assertRoom(roomId);
-    if (role !== "admin") {
+   if (role !== "admin") {
       const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
       if (membership?.role !== "OWNER") throw new ForbiddenException("Изменять обложку может только владелец или администратор");
     }
