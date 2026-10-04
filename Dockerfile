@@ -18,7 +18,7 @@ ENV GOOGLE_SITE_VERIFICATION=$GOOGLE_SITE_VERIFICATION
 ENV YANDEX_SITE_VERIFICATION=$YANDEX_SITE_VERIFICATION
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npm run build
+RUN NODE_OPTIONS=--max-old-space-size=768 npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
