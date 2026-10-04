@@ -56,6 +56,7 @@ export type ApiMessage = {
   gifUrl?: string;
   time: string;
   createdAt?: string;
+  editedAt?: string;
   adminVoice?: boolean;
   mine?: boolean;
   system?: boolean;
