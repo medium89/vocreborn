@@ -91,9 +91,9 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
 
       <div className="tusova-hero">
         <section className="tusova-copy" aria-label="О TUSOVA">
-          <img className="tusova-hero-logo" src="/brand/tusova-hero-logo.png" alt="TUSOVA" />
+          <img className="tusova-hero-logo" src="/brand/tusova-hero-logo.png" alt="TUSOVA" width={620} height={207} />
           <p className="tusova-script" id="tusova-night">Ночные разговоры <span>с особенными людьми</span></p>
-          <p className="tusova-intro" id="tusova-about">TUSOVA — это чат для тех, кто оживает, когда другие спят. Здесь всегда есть с кем поговорить: о важном, о смешном, о жизни и о чём угодно.</p>
+          <p className="tusova-intro" id="tusova-about">TUSOVA — живой онлайн чат для общения. Заходи в общий разговор, находи новых собеседников и общайся вечером, ночью или когда просто хочется с кем-нибудь поговорить.</p>
           <ul className="tusova-benefits" id="tusova-community">
             <li><span className="tusova-benefit-icon"><MessageCircle size={22} /></span><span>Живое общение 24/7</span></li>
             <li><span className="tusova-benefit-icon"><HeartHandshake size={22} /></span><span>Уютное комьюнити без осуждения</span></li>
@@ -104,7 +104,7 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
 
         <section className="tusova-entry" id="tusova-entry" aria-labelledby="tusova-entry-title">
           <div className="tusova-entry-heading">
-            <h1 id="tusova-entry-title">Снова ночь. Снова TUSOVA <span aria-hidden="true">☾</span></h1>
+            <h1 id="tusova-entry-title">TUSOVA — место, где кто-то всегда не спит <span aria-hidden="true">☾</span></h1>
           </div>
           <div className="tusova-auth-tabs" role="tablist" aria-label="Способ входа">
             <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => switchMode("login")}>Вход</button>
@@ -133,6 +133,7 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
           {mode === "register" && <p className="tusova-email-hint">После регистрации проверь почту и подтверди адрес по ссылке из письма.</p>}
           <div className="tusova-divider"><span>или</span></div>
           <button type="button" className="tusova-guest" onClick={() => { setGuestError(""); setGuestDialogOpen(true); }}><UserRound size={22} aria-hidden="true" />Войти как гость</button>
+          <a className="tusova-guest-explain" href="/chat-bez-registracii">Как работает вход без регистрации</a>
           {guestDialogOpen && <div className="tusova-guest-dialog-backdrop" role="presentation">
             <section className="tusova-guest-dialog" role="dialog" aria-modal="true" aria-labelledby="guest-entry-title">
               <button type="button" className="tusova-guest-dialog-close" onClick={() => setGuestDialogOpen(false)} aria-label="Закрыть">×</button>
@@ -149,6 +150,12 @@ export function AuthModal({ onAuthenticated }: { onAuthenticated: (user: AuthUse
           </div>
         </section>
       </div>
+      <section className="tusova-seo-home" aria-label="О чате TUSOVA">
+        <div><h2>Живое общение</h2><p>Здесь уже идёт разговор: можно зайти в общий чат и присоединиться. Вместо бесконечной ленты — люди, которым тоже хочется общаться онлайн.</p><a href="/chat-dlya-obshcheniya">Чат для общения →</a></div>
+        <div><h2>Кто не спит?</h2><p>Вечером и ночью особенно приятно встретить тех, кто тоже на связи. Ночной чат открыт, когда хочется поговорить после долгого дня.</p><a href="/nochnoi-chat">Ночной чат →</a></div>
+        <div><h2>Новые люди</h2><p>Начни с простого «привет» и познакомься с новыми собеседниками в общей комнате. Разговор складывается сам, без анкет и подбора пар.</p><a href="/chat-s-neznakomcami">Чат с новыми людьми →</a></div>
+        <div><h2>Просто поговорить</h2><p>Необязательно искать особый повод. Если хочется найти собеседника, заходи и выбирай разговор, который тебе близок.</p><a href="/nayti-sobesednika">Найти собеседника →</a></div>
+      </section>
     </div>
   </main>;
 }

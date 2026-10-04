@@ -49,3 +49,7 @@
     -Server
   }
 }
+
+www.tusova.su {
+  redir https://tusova.su{uri} permanent
+}

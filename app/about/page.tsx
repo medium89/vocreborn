@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
+import { pageMetadata } from "@/lib/seo";
 import { ArrowRight, Heart, MessageCircleMore, Moon, ShieldCheck, Sparkles, Star, UsersRound } from "lucide-react";
 import { AboutThemeFrame } from "@/components/site/about-theme-frame";
 import { SiteHeader } from "@/components/site/site-header";
 
-export const metadata: Metadata = {
-  title: "О нас — TUSOVA",
-  description: "TUSOVA — место для ночных разговоров, дружбы и общения без лишних формальностей.",
-};
+export const metadata: Metadata = pageMetadata("/about", "О TUSOVA — сообщество для общения", "О TUSOVA: живой общий чат, новые собеседники и дружелюбное общение в любое время суток.");
 
 const features = [
   { icon: MessageCircleMore, title: "Живое общение", text: "Интересные люди и настоящие разговоры" },
