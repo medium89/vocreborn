@@ -76,11 +76,11 @@ export function markDirectRead(peerId: string) {
     method: "POST",
   });
 }
-export function createRoom(input: { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private" }) {
+export function createRoom(input: { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; isVideoRoom?: boolean }) {
   return request<Room>("/api/rooms", { method: "POST", body: JSON.stringify(input) });
 }
 
-export function updateRoom(roomId: string, input: { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private" }) {
+export function updateRoom(roomId: string, input: { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; isVideoRoom?: boolean }) {
   return request<Room>("/api/rooms/" + encodeURIComponent(roomId), { method: "PATCH", body: JSON.stringify(input) });
 }
 

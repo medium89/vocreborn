@@ -14,7 +14,7 @@ import type { NotificationPreferences, TabAlertPreferences } from "@/lib/tab-ale
 
 const roleLabels = { user: "УЧАСТНИК", moderator: "МОДЕРАТОР", admin: "АДМИНИСТРАТОР" } as const;
 
-type RoomInput = { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; coverFile: File | null };
+type RoomInput = { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; isVideoRoom: boolean; coverFile: File | null };
 type RoomsModalProps = {
   embedded?: boolean;
   rooms: Room[];
@@ -33,6 +33,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
   const [rules, setRules] = useState("");
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [isVideoRoom, setIsVideoRoom] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [error, setError] = useState("");
@@ -47,6 +48,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
     setCoverEmoji(selected?.coverEmoji ?? "✦");
     setRules(selected?.rules ?? "");
     setVisibility(selected?.visibility ?? "public");
+    setIsVideoRoom(Boolean(selected?.isVideoRoom));
     setCoverFile(null);
   }
 
@@ -54,8 +56,8 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
     event.preventDefault();
     setBusy(true); setError("");
     try {
-      await onSaveRoom(editingId || null, { name, description, tone, coverEmoji, rules, visibility, coverFile });
-      setEditingId(""); setName(""); setDescription(""); setTone("lime"); setCoverEmoji("✦"); setRules(""); setVisibility("public"); setCoverFile(null);
+      await onSaveRoom(editingId || null, { name, description, tone, coverEmoji, rules, visibility, isVideoRoom, coverFile });
+      setEditingId(""); setName(""); setDescription(""); setTone("lime"); setCoverEmoji("✦"); setRules(""); setVisibility("public"); setIsVideoRoom(false); setCoverFile(null);
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Не удалось сохранить комнату");
     } finally {
@@ -84,7 +86,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
           <label>Описание<input value={description} maxLength={300} onChange={(event) => setDescription(event.target.value)} /></label>
           <label>Символ обложки<input value={coverEmoji} maxLength={12} onChange={(event) => setCoverEmoji(event.target.value)} placeholder="✦" /></label>
           <label>Фото обложки<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} /><small>{coverFile ? coverFile.name : "PNG, JPEG или WebP, до 10 МБ"}</small></label>
-          <label>Видимость<StyledSelect value={visibility} onChange={(event) => setVisibility(event.target.value as "public" | "private")}><option value="public">Публичная</option><option value="private">Приватная</option></StyledSelect></label>
+          <label>Видимость<StyledSelect value={visibility} onChange={(event) => setVisibility(event.target.value as "public" | "private")}><option value="public">Публичная</option><option value="private">Приватная</option></StyledSelect></label>{user?.role === "admin" && <label className="room-video-kind"><input type="checkbox" checked={isVideoRoom} onChange={(event) => setIsVideoRoom(event.target.checked)} /><span>Комната совместного просмотра видео</span></label>}
           <label>Правила комнаты<textarea value={rules} maxLength={1000} rows={3} onChange={(event) => setRules(event.target.value)} placeholder="Краткие правила для участников" /></label>
           <label>Цвет<StyledSelect value={tone} onChange={(event) => setTone(event.target.value)}><option value="lime">Салатовый</option><option value="gray">Серый</option></StyledSelect></label>
           {error && <div className="auth-error">{error}</div>}

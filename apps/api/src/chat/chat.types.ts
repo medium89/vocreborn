@@ -9,11 +9,14 @@ export type ApiRoom = {
   coverThumbnailUrl?: string;
   rules: string;
   visibility: "public" | "private";
-  kind: "general" | "public" | "private";
+  kind: "general" | "public" | "private" | "video";
+  isVideoRoom: boolean;
   createdAt: string;
   memberCount: number;
   createdById?: string;
 };
+
+export type VideoRoomState = { roomId: string; provider: "youtube" | "vk" | "rutube" | null; videoUrl: string | null; controllerId: string | null; position: number; playing: boolean; updatedAt: string; };
 
 export type ApiAttachment = {
   id: string;
@@ -94,4 +97,5 @@ export type RoomSnapshot = {
   room: ApiRoom;
   messages: ApiMessage[];
   people: [];
+  videoSession?: VideoRoomState;
 };

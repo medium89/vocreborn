@@ -142,12 +142,14 @@ export type Room = {
   coverThumbnailUrl?: string;
   rules: string;
   visibility: "public" | "private";
-  kind: "general" | "public" | "private";
+  kind: "general" | "public" | "private" | "video";
+  isVideoRoom: boolean;
   createdAt: string;
   memberCount: number;
   createdById?: string;
 };
 
+export type VideoRoomState = { roomId: string; provider: "youtube" | "vk" | "rutube" | null; videoUrl: string | null; controllerId: string | null; position: number; playing: boolean; updatedAt: string };
 export type Message = {
   quizKind?: string;
   quizRoundId?: string;
@@ -201,10 +203,13 @@ export type ClientToServerEvents = {
   "direct:send": { recipientId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string };
   "presence:update": { status: UserStatus };
   "presence:active": undefined;
+  "video:set": { roomId: string; videoUrl: string };
+  "video:control": { roomId: string; action: "play" | "pause" | "seek"; position?: number };
 };
 
 export type ServerToClientEvents = {
-  "room:snapshot": { room: Room; messages: Message[]; people: Person[] };
+  "room:snapshot": { room: Room; messages: Message[]; people: Person[]; videoSession?: VideoRoomState };
+  "video:state": VideoRoomState;
   "message:created": { roomId: string; message: Message; requestId?: string };
   "direct:created": { peerId: string; message: Message; requestId?: string };
   "message:updated": { message: Message };

@@ -276,6 +276,7 @@ model Room {
   coverThumbKey String?        @map("cover_thumb_key") @db.VarChar(255)
   rules       String           @default("") @db.VarChar(1000)
   visibility  RoomVisibility   @default(PUBLIC)
+  isVideoRoom Boolean          @default(false) @map("is_video_room")
   position    Int              @default(0)
   createdById String?          @map("created_by_id") @db.Uuid
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -283,8 +284,22 @@ model Room {
   createdBy   User?            @relation("RoomCreator", fields: [createdById], references: [id], onDelete: SetNull)
   memberships RoomMembership[]
   messages    Message[]
+  videoSession VideoRoomSession?
 
   @@map("rooms")
+}
+
+model VideoRoomSession {
+  roomId       String    @id @map("room_id") @db.VarChar(64)
+  provider     String?   @db.VarChar(16)
+  videoUrl     String?   @map("video_url") @db.Text
+  controllerId String?   @map("controller_id") @db.Uuid
+  position     Float     @default(0)
+  playing      Boolean   @default(false)
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@map("video_room_sessions")
 }
 
 model RoomMembership {

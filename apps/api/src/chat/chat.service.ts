@@ -63,8 +63,9 @@ export class ChatService {
     return Promise.all(rooms.map((room) => this.toApiRoom(room)));
   }
 
-  async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string }) {
+  async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean }) {
     const [{ settings }, actor] = await Promise.all([this.settings.read(), this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })]);
+    if (input.isVideoRoom && actor?.role !== "ADMIN") throw new ForbiddenException("Видеокомнату может создать только администратор");
     if (actor?.role !== "ADMIN" && (!settings.allowUserRooms || settings.maintenance)) throw new ForbiddenException("Создание комнат отключено администратором");
     const position = await this.prisma.room.count();
     const room = await this.prisma.room.create({
@@ -76,6 +77,7 @@ export class ChatService {
         coverEmoji: input.coverEmoji ?? "✦",
         rules: input.rules ?? "",
         visibility: input.visibility === "private" ? "PRIVATE" : "PUBLIC",
+        isVideoRoom: Boolean(input.isVideoRoom),
         position,
         createdById: userId,
         memberships: { create: { userId, role: "OWNER" } },
@@ -84,7 +86,7 @@ export class ChatService {
     return this.toApiRoom(room);
   }
 
-  async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string }) {
+  async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean }) {
     const room = await this.assertRoom(roomId);
     if (role !== "admin") {
       const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
@@ -238,6 +240,7 @@ export class ChatService {
       room: await this.toApiRoom(room),
       messages,
       people: [],
+      videoSession: await this.getVideoState(roomId),
     };
   }
 
@@ -662,6 +665,58 @@ export class ChatService {
     });
   }
 
+  async setVideoSource(roomId: string, userId: string, videoUrl: string) {
+    const room = await this.assertRoom(roomId);
+    if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
+    await this.assertVideoMembership(roomId, userId);
+    const source = this.normalizeVideoUrl(videoUrl);
+    const session = await this.prisma.videoRoomSession.upsert({
+      where: { roomId },
+      create: { roomId, provider: source.provider, videoUrl: source.url, controllerId: userId, position: 0, playing: false },
+      update: { provider: source.provider, videoUrl: source.url, controllerId: userId, position: 0, playing: false },
+    });
+    return this.toVideoState(session);
+  }
+
+  async controlVideo(roomId: string, userId: string, action: "play" | "pause" | "seek", position?: number) {
+    const room = await this.assertRoom(roomId);
+    if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
+    await this.assertVideoMembership(roomId, userId);
+    const current = await this.prisma.videoRoomSession.findUnique({ where: { roomId } });
+    if (!current?.videoUrl) throw new BadRequestException("Сначала укажите ссылку на видео");
+    if (current.controllerId !== userId) throw new ForbiddenException("Управлять просмотром может пользователь, который указал ссылку");
+    const nextPosition = Math.max(0, position ?? this.actualVideoPosition(current));
+    const session = await this.prisma.videoRoomSession.update({ where: { roomId }, data: { position: nextPosition, playing: action === "play" ? true : action === "pause" ? false : current.playing } });
+    return this.toVideoState(session);
+  }
+
+  async getVideoState(roomId: string) {
+    const session = await this.prisma.videoRoomSession.findUnique({ where: { roomId } });
+    return session ? this.toVideoState(session) : undefined;
+  }
+
+  private async assertVideoMembership(roomId: string, userId: string) {
+    const member = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
+    if (!member) throw new ForbiddenException("Сначала войдите в комнату");
+  }
+
+  private normalizeVideoUrl(value: string) {
+    let url: URL;
+    try { url = new URL(value.trim()); } catch { throw new BadRequestException("Некорректная ссылка на видео"); }
+    if (url.protocol !== "https:") throw new BadRequestException("Нужна защищённая ссылка https");
+    const host = url.hostname.toLowerCase().replace(/^www\./, "");
+    const provider = host === "youtu.be" || host.endsWith("youtube.com") ? "youtube" : host.endsWith("vk.com") || host.endsWith("vkvideo.ru") ? "vk" : host.endsWith("rutube.ru") ? "rutube" : null;
+    if (!provider) throw new BadRequestException("Поддерживаются ссылки YouTube, VK Видео и Rutube");
+    return { provider, url: url.toString() };
+  }
+
+  private actualVideoPosition(session: { position: number; playing: boolean; updatedAt: Date }) {
+    return Math.max(0, session.position + (session.playing ? (Date.now() - session.updatedAt.getTime()) / 1000 : 0));
+  }
+
+  private toVideoState(session: { roomId: string; provider: string | null; videoUrl: string | null; controllerId: string | null; position: number; playing: boolean; updatedAt: Date }) {
+    return { roomId: session.roomId, provider: session.provider as "youtube" | "vk" | "rutube" | null, videoUrl: session.videoUrl, controllerId: session.controllerId, position: this.actualVideoPosition(session), playing: session.playing, updatedAt: session.updatedAt.toISOString() };
+  }
   private async assertPeer(userId: string, peerId: string) {
     if (userId === peerId) throw new BadRequestException("Нельзя написать самому себе");
     const peer = await this.prisma.user.findFirst({ where: { id: peerId, deletedAt: null } });
@@ -691,7 +746,8 @@ export class ChatService {
       coverThumbnailUrl: room.coverThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + room.coverThumbKey : undefined,
       rules: room.rules,
       visibility,
-      kind: room.id === "main" ? "general" : visibility,
+      kind: room.id === "main" ? "general" : room.isVideoRoom ? "video" : visibility,
+      isVideoRoom: room.isVideoRoom,
       createdAt: room.createdAt.toISOString(),
       memberCount,
       online,
