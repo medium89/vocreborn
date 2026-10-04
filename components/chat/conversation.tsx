@@ -216,6 +216,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [contentTab, setContentTab] = useState<"chat" | "media" | "links">("chat");
   const [contentMenuOpen, setContentMenuOpen] = useState(false);
+  const [messageTextSize, setMessageTextSize] = useState<"small" | "medium" | "large">("small");
   const [hideQuizMessages, setHideQuizMessages] = useState(false);
   const [resources, setResources] = useState<RoomResources | null>(null);
   const [resourcesLoading, setResourcesLoading] = useState(false);
@@ -228,7 +229,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const mentionMatch = draft.match(/(?:^|\s)@([^\s@]*)$/);
   const mentionQuery = mentionMatch?.[1].toLowerCase() ?? "";
   const mentionOptions = mentionMatch ? mentionCandidates.filter((person) =>
-    person.name.toLowerCase().includes(mentionQuery) || person.username?.toLowerCase().includes(mentionQuery)
+    person.name.toLowerCase().includes(mentionQuery)
   ).slice(0, 5) : [];
   const composerInputRef = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
@@ -249,7 +250,9 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   const canSend = !muted && !uploadingAttachment && Boolean(draft.trim() || attachment || gif);
   const emojiStorageKey = "tusova:frequent-emojis:" + (currentUserId ?? "guest");
   const hideQuizStorageKey = "tusova:hide-quiz-messages:" + (currentUserId ?? "guest");
+  const messageTextSizeStorageKey = "tusova:message-text-size:" + (currentUserId ?? "guest") + ":" + room.id;
   useEffect(() => { setHideQuizMessages(window.localStorage.getItem(hideQuizStorageKey) === "true"); }, [hideQuizStorageKey]);
+  useEffect(() => { const saved = window.localStorage.getItem(messageTextSizeStorageKey); setMessageTextSize(saved === "medium" || saved === "large" ? saved : "small"); }, [messageTextSizeStorageKey]);
   function toggleQuizMessages() { setHideQuizMessages((hidden) => { const next = !hidden; window.localStorage.setItem(hideQuizStorageKey, String(next)); return next; }); setContentMenuOpen(false); }
   useEffect(() => { try { const legacyKey = emojiStorageKey.replace("tusova:", "aura:"); const saved = localStorage.getItem(emojiStorageKey) ?? localStorage.getItem(legacyKey) ?? "[]"; setFrequentEmojis(JSON.parse(saved).slice(0, 10)); if (localStorage.getItem(legacyKey)) { localStorage.setItem(emojiStorageKey, saved); localStorage.removeItem(legacyKey); } } catch { setFrequentEmojis([]); } }, [emojiStorageKey]);
   function insertEmoji(emoji: string) { const field = composerInputRef.current; const start = field?.selectionStart ?? draft.length; const end = field?.selectionEnd ?? draft.length; onDraftChange(draft.slice(0, start) + emoji + draft.slice(end)); const next = [emoji, ...frequentEmojis.filter((item) => item !== emoji)].slice(0, 10); setFrequentEmojis(next); localStorage.setItem(emojiStorageKey, JSON.stringify(next)); setEmojiOpen(false); requestAnimationFrame(() => { composerInputRef.current?.focus(); composerInputRef.current?.setSelectionRange(start + emoji.length, start + emoji.length); }); }
@@ -510,7 +513,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
   function chooseContent(tab: "chat" | "media" | "links") { setContentTab(tab); setContentMenuOpen(false); }
   function returnToRoomChat() { chooseContent("chat"); if (dialog) onExitDialog(); }
 
-  return <section className="conversation">
+  return <section className={"conversation message-text-size-" + messageTextSize}>
     <div className={"conversation-head " + (dialog ? "dialog-head" : "room-head")}>
       {dialog ? <>
         <div className="dialog-heading">
@@ -607,7 +610,7 @@ export function Conversation({ currentUserId, canUseAdminVoice, adminVoice, onAd
       </div>
       {recordingVoice && <div className="voice-meter" aria-label="Идёт запись"><b>● {Math.floor(recordingSeconds / 60)}:{String(recordingSeconds % 60).padStart(2, "0")}</b><span>{voiceLevels.map((level, index) => <i key={index} style={{ height: (6 + level * 22) + "px" }} />)}</span></div>}
       {emojiOpen && <div ref={emojiPickerRef} className="composer-emoji-picker" role="dialog" aria-label="Смайлы и GIF"><nav className="composer-picker-tabs"><button type="button" className={emojiTab === "emoji" ? "active" : ""} onClick={() => setEmojiTab("emoji")}>Смайлы</button>{gifSearchEnabled && <button type="button" className={emojiTab === "gif" ? "active" : ""} onClick={() => setEmojiTab("gif")}>GIF</button>}</nav>{emojiTab === "emoji" || !gifSearchEnabled ? <>{frequentEmojis.length > 0 && <><strong>Частые</strong><div className="emoji-grid frequent">{frequentEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></>}<strong>Все смайлы</strong><div className="emoji-grid">{composerEmojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></> : <GifPicker onSelect={(next) => { onGifSelect(next); setEmojiOpen(false); }} />}</div>}
-      {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.username ?? person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}{person.username && <small>{" @" + person.username}</small>}</span></button>)}</div>}
+      {mentionOptions.length > 0 && <div className="mention-picker" role="listbox">{mentionOptions.map((person) => <button type="button" role="option" key={person.id ?? person.name} onClick={() => { onDraftChange(draft.replace(/@[^\s@]*$/, "@" + (person.name) + ": ")); composerInputRef.current?.focus(); }}><Avatar value={person.avatar} name={person.name} className="small" /><span>{person.name}</span></button>)}</div>}
       <textarea ref={composerInputRef} value={draft} onChange={(event) => { setMentionButtonAt(null); onDraftChange(event.target.value); }} onKeyDown={(event) => { if (event.key === "ArrowUp" && !draft) { event.preventDefault(); onEditLast(); } else if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} maxLength={1000} rows={1} disabled={muted} title="Ctrl + Alt + M — перейти к полю сообщения" placeholder={muted ? "Вы временно не можете писать" : "Написать в " + (dialog ? "личку" : "#" + room.name.toLowerCase()) + "…"} />
       {draftPreviewOpen && <div ref={draftPreviewRef} className="composer-draft-preview" style={messagePreviewStyle(draft)} role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15} /></button></div><textarea autoFocus rows={8} value={draft} maxLength={1000} disabled={muted} onChange={(event) => onDraftChange(event.target.value)} placeholder="Написать сообщение…" /></div>}
       <div className="composer-send-actions">
