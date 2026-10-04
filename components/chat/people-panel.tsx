@@ -73,6 +73,7 @@ type PeoplePanelProps = {
 };
 
 export function PeoplePanel({ className = "", showMobileToggle = true, people, rooms, roomId, currentUserId, canModerate, privateMessagePreview, onOpenDialog, onMention, onOpenPrivate, onModerate, onReport, mutedPeople, onToggleMute, onChangeRoom, onOpenRooms }: PeoplePanelProps) {
+  const visiblePeople = people.filter((person) => person.status !== "offline");
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => { setMobileOpen(false); }, [roomId]);
   useEffect(() => { if (!showMobileToggle) setMobileOpen(false); }, [showMobileToggle]);
@@ -91,10 +92,10 @@ export function PeoplePanel({ className = "", showMobileToggle = true, people, r
   return <>
     {mobileOpen && <button type="button" className="mobile-people-backdrop" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)} />}
     <aside className={"people-panel " + className + (mobileOpen ? " mobile-open" : "")} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("button")) setMobileOpen(false); }}>
-    <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{people.length}</span><button type="button" className="mobile-people-close" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
+    <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{visiblePeople.length}</span><button type="button" className="mobile-people-close" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
     <div className="people-list">
       {groups.map((group) => {
-        const members = people
+        const members = visiblePeople
           .filter((person) => person.gender === group.gender)
           .sort((left, right) => Number(right.id === currentUserId) - Number(left.id === currentUserId));
         if (members.length === 0) return null;

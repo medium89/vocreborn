@@ -24,6 +24,7 @@ import type { ReactionUpdate } from "./chat.types";
 
 type AuthenticatedSocket = Socket & { data: { user?: AuthenticatedUser } };
 const OFFLINE_DELAY_MS = 20 * 60 * 1000;
+const INACTIVITY_DISCONNECT_MS = 60 * 60 * 1000;
 
 function readCookie(header: string | undefined, name: string) {
   if (!header) return undefined;
@@ -50,6 +51,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   private readonly connections = new Map<string, Set<string>>();
   private readonly offlineTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly inactivityTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  private readonly forcedOffline = new Set<string>();
 
   constructor(
     private readonly chat: ChatService,
@@ -109,6 +112,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     sockets.add(client.id);
     this.connections.set(user.id, sockets);
     await client.join("user:" + user.id);
+    this.refreshInactivityTimer(user.id);
 
     if (firstConnection && user.status !== "dnd") {
       await this.updatePresence(user, "online");
@@ -129,6 +133,8 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     sockets?.delete(client.id);
     if (sockets && sockets.size > 0) return;
     this.connections.delete(user.id);
+
+    if (this.forcedOffline.delete(user.id)) return;
 
     const previousTimer = this.offlineTimers.get(user.id);
     if (previousTimer) clearTimeout(previousTimer);
@@ -155,6 +161,17 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!this.allowAction(client, user.id, "presence", 120, 60 * 1000)) return;
     await this.updatePresence(user, input.status);
     return { userId: user.id, status: input.status };
+  }
+
+  @SubscribeMessage("presence:active")
+  markPresenceActive(@ConnectedSocket() client: AuthenticatedSocket) {
+    const user = client.data.user;
+    if (!user) {
+      client.disconnect(true);
+      return;
+    }
+    if (!this.allowAction(client, user.id, "presence-active", 120, 60 * 1000)) return;
+    this.refreshInactivityTimer(user.id);
   }
 
   @SubscribeMessage("room:join")
@@ -260,5 +277,22 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     await this.chat.setPresence(user.id, status);
     user.status = status;
     this.server.emit("presence:changed", { userId: user.id, status });
+  }
+
+  private refreshInactivityTimer(userId: string) {
+    const previousTimer = this.inactivityTimers.get(userId);
+    if (previousTimer) clearTimeout(previousTimer);
+    const timer = setTimeout(() => this.disconnectInactiveUser(userId), INACTIVITY_DISCONNECT_MS);
+    this.inactivityTimers.set(userId, timer);
+  }
+
+  private disconnectInactiveUser(userId: string) {
+    this.inactivityTimers.delete(userId);
+    if (!this.connections.has(userId)) return;
+    this.forcedOffline.add(userId);
+    void this.chat.setPresence(userId, "offline")
+      .then(() => this.server.emit("presence:changed", { userId, status: "offline" }))
+      .catch(() => undefined);
+    this.server.in("user:" + userId).disconnectSockets(true);
   }
 }

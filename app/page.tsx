@@ -654,8 +654,14 @@ export default function Home() {
     if (!user) return;
 
     let awayTimer: ReturnType<typeof setTimeout>;
+    let lastActivitySentAt = 0;
     const scheduleAway = () => {
       clearTimeout(awayTimer);
+      const now = Date.now();
+      if (now - lastActivitySentAt >= 30 * 1000) {
+        lastActivitySentAt = now;
+        socketRef.current?.emit("presence:active");
+      }
       if (presenceStatusRef.current === "away") {
         presenceStatusRef.current = "online";
         socketRef.current?.emit("presence:update", { status: "online" });
@@ -1180,7 +1186,7 @@ export default function Home() {
     window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
   }, [user]);
 
-  if (!authReady) return <div className="tusova-loading" role="status" aria-label="Загрузка TUSOVA"><img src="/brand/tusova-chat-logo.png" alt="TUSOVA" /></div>;
+  if (!authReady) return <AuthModal onAuthenticated={handleAuthenticated} />;
   if (!user) return <AuthModal onAuthenticated={handleAuthenticated} />;
   return (
     <main className="shell">

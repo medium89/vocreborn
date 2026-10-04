@@ -197,6 +197,7 @@ export type ClientToServerEvents = {
   "message:send": { roomId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string; adminVoice?: boolean };
   "direct:send": { recipientId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string };
   "presence:update": { status: UserStatus };
+  "presence:active": undefined;
 };
 
 export type ServerToClientEvents = {
