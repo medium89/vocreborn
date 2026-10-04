@@ -2594,3 +2594,6 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 .content-menu-submenu>button{display:flex!important;align-items:center;justify-content:flex-start;width:100%!important;height:31px!important;padding:0 9px!important;border-radius:7px!important;background:transparent!important;color:#64716b!important;font-size:11px!important;text-align:left}
 .content-menu-submenu>button:hover{background:var(--brand-soft)!important;color:#54701e!important}
 .content-menu-submenu-popover button{display:flex;align-items:center;width:100%;box-sizing:border-box}
+/* Give the nested grid a real track so each choice fills the menu width. */
+.content-menu-submenu-popover{width:138px;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}
+@media (max-width:700px){.content-menu-submenu-popover{width:auto}}
