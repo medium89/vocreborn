@@ -2597,3 +2597,7 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 /* Give the nested grid a real track so each choice fills the menu width. */
 .content-menu-submenu-popover{width:138px;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}
 @media (max-width:700px){.content-menu-submenu-popover{width:auto}}
+/* In the participant list, open the enlarged avatar toward the chat, not over the name. */
+.person-avatar-button .avatar-preview{left:auto;right:calc(100% + 10px);transform:translateX(4px) scale(.96)}
+.person-avatar-button .avatar-preview.has-hint::before{left:auto;right:-10px}
+.person-avatar-button .avatar:hover .avatar-preview{transform:translateX(0) scale(1)}
