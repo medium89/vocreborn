@@ -205,7 +205,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     }
     if (!this.allowAction(client, user.id, "message", 60, 10 * 1000)) return;
 
-    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice, input.gifUrl);
+    const message = await this.chat.createMessage(input.roomId, input.body ?? "", input.requestId, user.id, user.displayName, input.attachmentId, input.replyToId, input.adminVoice, input.gifUrl, input.mentionUserIds);
     const payload = { roomId: input.roomId, message, requestId: input.requestId };
     return payload;
   }

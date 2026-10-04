@@ -85,6 +85,10 @@ export class AdminService {
       await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM "users" WHERE id = ${id}::uuid FOR UPDATE`;
         const fresh = await tx.user.findUniqueOrThrow({ where: { id } });
+        if (data.displayName) {
+          const duplicate = await tx.user.findFirst({ where: { displayName: { equals: data.displayName.trim(), mode: "insensitive" }, id: { not: id }, deletedAt: null }, select: { id: true } });
+          if (duplicate) throw new BadRequestException("Отображаемое имя уже занято");
+        }
         await tx.user.update({ where: { id }, data });
         if (data.credits !== undefined && data.credits !== fresh.credits) await tx.economyEntry.create({ data: { userId: id, type: "ADMIN_ADJUSTMENT", creditsDelta: data.credits - fresh.credits, balanceAfter: data.credits, referenceKey: "admin-edit:" + randomUUID() } });
         if (data.role && data.role !== target.role) await tx.session.deleteMany({ where: { userId: id } });

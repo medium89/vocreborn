@@ -90,20 +90,22 @@ export class NotificationsService implements OnModuleDestroy {
     await this.createEvent({ userId: target.authorId, actorId, type: NotificationType.REPLY, messageId: replyMessageId });
   }
 
-  async createMentions(actorId: string, messageId: string, body: string) {
+  async createMentions(actorId: string, messageId: string, body: string, mentionUserIds?: string[]) {
+    const selectedUserIds = [...new Set(mentionUserIds ?? [])];
+    const recipients = selectedUserIds.length
+      ? await this.prisma.user.findMany({ where: { id: { in: selectedUserIds, not: actorId }, deletedAt: null }, select: { id: true } })
+      : await this.findMentionRecipientsByUsername(actorId, body);
+    if (recipients.length === 0) return;
+    await Promise.all(recipients.map(({ id: userId }) => this.createEvent({ userId, actorId, type: NotificationType.MENTION, messageId })));
+  }
+
+  private async findMentionRecipientsByUsername(actorId: string, body: string) {
     const usernames = new Set<string>();
     for (const match of body.matchAll(/(?:^|[^a-z0-9_])@([a-z0-9_]{3,32})(?![a-z0-9_])/gi)) {
       if (match[1]) usernames.add(match[1].toLowerCase());
     }
-    if (usernames.size === 0) return;
-
-    const recipients = await this.prisma.user.findMany({
-      where: { username: { in: [...usernames] }, id: { not: actorId }, deletedAt: null },
-      select: { id: true },
-    });
-    if (recipients.length === 0) return;
-
-    await Promise.all(recipients.map(({ id: userId }) => this.createEvent({ userId, actorId, type: NotificationType.MENTION, messageId })));
+    if (usernames.size === 0) return [];
+    return this.prisma.user.findMany({ where: { username: { in: [...usernames] }, id: { not: actorId }, deletedAt: null }, select: { id: true } });
   }
 
   async syncReaction(actorId: string, message: Pick<Message, "id" | "authorId">, selected: ReactionType | null) {

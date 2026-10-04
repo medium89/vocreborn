@@ -1,5 +1,5 @@
 import { Transform } from "class-transformer";
-import { IsBoolean, IsOptional, IsString, IsUUID, IsUrl, Length, Matches, MaxLength } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsString, IsUUID, IsUrl, Length, Matches, MaxLength } from "class-validator";
 
 class MessageContentDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
@@ -7,6 +7,11 @@ class MessageContentDto {
   @IsString()
   @Length(0, 1000)
   body?: string;
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20)
+  @IsUUID()
+  mentionUserIds?: string[];
 
   @IsOptional()
   @IsUUID()

@@ -37,10 +37,10 @@ export async function fetchRoomMessages(roomId: string) {
   return (await fetchRoomMessagePage(roomId)).items;
 }
 
-export function postRoomMessage(roomId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string, adminVoice?: boolean, gifUrl?: string) {
+export function postRoomMessage(roomId: string, body: string, requestId: string, attachmentId?: string, replyToId?: string, adminVoice?: boolean, gifUrl?: string, mentionUserIds?: string[]) {
   return request<{ requestId: string; message: Message }>("/api/rooms/" + encodeURIComponent(roomId) + "/messages", {
     method: "POST",
-    body: JSON.stringify({ body, requestId, attachmentId, replyToId, adminVoice, gifUrl }),
+    body: JSON.stringify({ body, requestId, attachmentId, replyToId, adminVoice, gifUrl, mentionUserIds }),
   });
 }
 

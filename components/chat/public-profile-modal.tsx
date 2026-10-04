@@ -73,7 +73,7 @@ export function PublicProfileModal({ person, currentUser, onWriteDirect, onOpenF
   const profileRole = profile?.role ?? person.role;
   const isVip = Boolean(profile?.appearance?.vip && profile.appearance.vip.enabled !== false);
   const avatarUrl = profile?.avatarUrl ?? person.avatar;
-  const friendCard = (friend: FriendSummary) => <button type="button" className="profile-friend-card" key={friend.id} onClick={() => openFriend(friend)}><Avatar value={friend.avatarUrl ?? ""} name={friend.displayName} /><span><strong>{friend.displayName}</strong><small>@{friend.username}</small></span></button>;
+  const friendCard = (friend: FriendSummary) => <button type="button" className="profile-friend-card" key={friend.id} onClick={() => openFriend(friend)}><Avatar value={friend.avatarUrl ?? ""} name={friend.displayName} /><span><strong>{friend.displayName}</strong></span></button>;
   const giftVisual = (item: PublicProfile["gifts"][number]) => <span>{item.gift.imageUrl ? <img src={item.gift.imageUrl} alt={item.gift.name} /> : item.gift.emoji}</span>;
 
   return <div className="modal-backdrop" onClick={onClose}><div className="modal public-profile-modal aura-profile-modal aura-profile-reference" onClick={(event) => event.stopPropagation()}>

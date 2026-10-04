@@ -29,6 +29,11 @@ export class AuthService {
     private readonly turnstile: TurnstileService,
   ) {}
 
+  private async assertDisplayNameAvailable(displayName: string, exceptUserId?: string) {
+    const existing = await this.prisma.user.findFirst({ where: { displayName: { equals: displayName.trim(), mode: "insensitive" }, deletedAt: null, ...(exceptUserId ? { id: { not: exceptUserId } } : {}) }, select: { id: true } });
+    if (existing) throw new ConflictException("Отображаемое имя уже занято");
+  }
+
   async register(input: RegisterDto) {
     const { settings } = await this.settings.read();
     if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
@@ -36,6 +41,7 @@ export class AuthService {
     const username = baseUsername === "tusova_quiz" || await this.prisma.user.findUnique({ where: { username: baseUsername } })
       ? baseUsername.slice(0, 23) + "_" + randomBytes(4).toString("hex")
       : baseUsername;
+    await this.assertDisplayNameAvailable(input.displayName);
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
     let user;
@@ -98,6 +104,7 @@ export class AuthService {
     if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
     const guest = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!guest?.isGuest || guest.deletedAt) throw new ForbiddenException("Регистрация доступна только гостевому профилю");
+    await this.assertDisplayNameAvailable(input.displayName, guest.id);
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
 

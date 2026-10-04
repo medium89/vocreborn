@@ -251,6 +251,7 @@ export class ChatService {
     replyToId?: string,
     adminVoice = false,
     gifUrl?: string,
+    mentionUserIds?: string[],
   ): Promise<ApiMessage> {
     await this.assertCanWrite(authorId);
     await assertNotInChaos(this.prisma, authorId);
@@ -328,7 +329,7 @@ export class ChatService {
     const completed = await this.prisma.message.findUniqueOrThrow({ where: { id: message.id }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
     await Promise.all([
       this.notifications.createReply(authorId, completed.id, replyToId),
-      this.notifications.createMentions(authorId, completed.id, completed.body),
+      this.notifications.createMentions(authorId, completed.id, completed.body, mentionUserIds),
       this.economy.awardForPublicMessage(authorId, completed.id, completed.body, completed.replyTo?.authorId ?? undefined),
     ]);
     await this.push.adminMessage(authorId, roomId, authorName, completed.body);
