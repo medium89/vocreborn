@@ -2601,3 +2601,4 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 .person-avatar-button .avatar-preview{left:auto;right:calc(100% + 10px);transform:translateX(4px) scale(.96)}
 .person-avatar-button .avatar-preview.has-hint::before{left:auto;right:-10px}
 .person-avatar-button .avatar:hover .avatar-preview{transform:translateX(0) scale(1)}
+.profile-role-visibility{display:flex!important;align-items:flex-start;gap:10px;padding:12px 14px;border:1px solid var(--line);border-radius:11px;background:var(--brand-soft);cursor:pointer}.profile-role-visibility input{width:17px;height:17px;margin:1px 0 0;accent-color:#769d27}.profile-role-visibility span{display:grid;gap:2px}.profile-role-visibility small{color:var(--muted);font-weight:500}

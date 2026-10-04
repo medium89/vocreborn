@@ -23,7 +23,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     return () => window.clearTimeout(timer);
   }, [preview]);
   const isSelf = person.id === currentUserId;
-  const role = person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
+  const role = person.hideRole ? null : person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
   const avatarRole = person.isDj ? "dj" : role ?? (isVip ? "vip" : null);
   return <div className="person">

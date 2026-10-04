@@ -59,7 +59,7 @@ export function logout() {
   return authRequest<void>("/api/auth/logout", { method: "POST" });
 }
 
-export function updateProfile(input: { bio: string; gender: "male" | "female" | "unspecified" }) {
+export function updateProfile(input: { bio: string; gender: "male" | "female" | "unspecified"; hideRole?: boolean }) {
   return authRequest<{ user: AuthUser }>("/api/me", {
     method: "PATCH",
     body: JSON.stringify(input),

@@ -1109,7 +1109,7 @@ export default function Home() {
     showNotice(coverFile ? "Комната и обложка сохранены." : roomToEdit ? "Комната обновлена." : "Комната создана.");
   }
 
-  async function saveProfile(input: { bio: string; gender: "male" | "female" | "unspecified" }, avatar: File | null) {
+  async function saveProfile(input: { bio: string; gender: "male" | "female" | "unspecified"; hideRole?: boolean }, avatar: File | null) {
     let updated = await updateProfile(input);
     if (avatar) updated = await uploadAvatar(avatar);
     setUser(updated);

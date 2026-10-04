@@ -398,6 +398,7 @@ export class ChatService {
       isGuest: user.isGuest,
       role: user.role === "USER" ? undefined : user.role.toLowerCase(),
       isDj: user.isDj,
+      hideRole: user.hideRole,
       room: user.memberships[0]?.roomId ?? "main",
       avatar: user.avatarKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarKey : user.displayName[0]?.toUpperCase() ?? "?",
       avatarThumbnail: user.avatarThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + user.avatarThumbKey : undefined,

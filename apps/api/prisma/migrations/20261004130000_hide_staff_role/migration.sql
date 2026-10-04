@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "hide_role" BOOLEAN NOT NULL DEFAULT false;

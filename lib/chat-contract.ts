@@ -53,6 +53,7 @@ export type NotificationFeed = {
   items: NotificationItem[];
 };
 export type PublicProfile = {
+  hideRole?: boolean;
   isDj?: boolean;
   id: string; username: string; displayName: string; bio: string | null; avatarUrl: string | null; avatarThumbnailUrl: string | null;
   rating: number; role: UserRole; status: UserStatus; gender: Gender; createdAt: string; appearance?: CosmeticAppearance;
@@ -109,6 +110,7 @@ export type PendingAttachment = Attachment & {
 
 
 export type AuthUser = {
+  hideRole?: boolean;
   isDj?: boolean;
   isGuest?: boolean;
   id: string;
@@ -169,6 +171,7 @@ export type Message = {
 };
 
 export type Person = {
+  hideRole?: boolean;
   isDj?: boolean;
   id?: string;
   username?: string;

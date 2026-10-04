@@ -391,6 +391,7 @@ export class AuthService {
     email?: string | null;
     emailVerifiedAt?: Date | null;
     role: string;
+    hideRole?: boolean;
     isDj?: boolean;
     isGuest?: boolean;
     status: string;
@@ -407,6 +408,7 @@ export class AuthService {
       username: user.username,
       displayName: user.displayName,
       role: user.role.toLowerCase() as AuthenticatedUser["role"],
+      hideRole: Boolean(user.hideRole),
       isDj: Boolean(user.isDj),
       isGuest: Boolean(user.isGuest),
       email: user.email ?? null,

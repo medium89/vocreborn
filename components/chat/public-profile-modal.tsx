@@ -70,7 +70,7 @@ export function PublicProfileModal({ person, currentUser, onWriteDirect, onOpenF
   const gifts = profile?.gifts ?? []; const albums = profile?.albums ?? [];
   const photoCount = albums.reduce((count, album) => count + album.photos.length, 0);
   const isFriend = friends.some((friend) => friend.id === currentUser.id);
-  const profileRole = profile?.role ?? person.role;
+  const profileRole = (profile?.hideRole ?? person.hideRole) ? "user" : (profile?.role ?? person.role);
   const isVip = Boolean(profile?.appearance?.vip && profile.appearance.vip.enabled !== false);
   const avatarUrl = profile?.avatarUrl ?? person.avatar;
   const friendCard = (friend: FriendSummary) => <button type="button" className="profile-friend-card" key={friend.id} onClick={() => openFriend(friend)}><Avatar value={friend.avatarUrl ?? ""} name={friend.displayName} /><span><strong>{friend.displayName}</strong></span></button>;
