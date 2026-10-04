@@ -2533,3 +2533,4 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
 .inline-reply>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
 
 .system-message-greet{margin-left:8px;padding:3px 7px;border-radius:999px;background:var(--brand-soft);color:#506426;font-size:10px;font-weight:700}.system-message-greet:disabled{opacity:.65;cursor:default}.system-message-greeting-for-me{background:color-mix(in srgb,var(--brand-soft) 80%,var(--surface));color:#4f6520;box-shadow:inset 3px 0 0 var(--brand-strong);font-weight:700}:root[data-theme="dark"] .system-message-greeting-for-me{background:color-mix(in srgb,var(--brand-soft) 40%,var(--surface));color:#e0efbf}
+.message-edited{margin-left:7px;color:var(--muted);font-size:10px;font-style:normal}.edit-message{background:transparent;color:#9aa69f}.edit-message:hover{color:#668a32;background:var(--brand-soft)}.composer-editing{border-left-color:#8ead3c}

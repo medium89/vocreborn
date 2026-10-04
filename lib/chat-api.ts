@@ -103,6 +103,7 @@ export function toggleMessageReaction(messageId: string, type: ReactionType) {
   });
 }
 
+export function editMessage(messageId: string, body: string) { return request<Message>("/api/messages/" + encodeURIComponent(messageId), { method: "PUT", body: JSON.stringify({ body }) }); }
 export function searchRoomMessages(roomId: string, query: string) {
   return request<Message[]>("/api/rooms/" + encodeURIComponent(roomId) + "/search?q=" + encodeURIComponent(query));
 }

@@ -159,6 +159,7 @@ export type Message = {
   adminVoice?: boolean;
   time: string;
   createdAt?: string;
+  editedAt?: string;
   mine?: boolean;
   system?: boolean;
   greetingRecipientId?: string;
@@ -202,6 +203,7 @@ export type ServerToClientEvents = {
   "room:snapshot": { room: Room; messages: Message[]; people: Person[] };
   "message:created": { roomId: string; message: Message; requestId?: string };
   "direct:created": { peerId: string; message: Message; requestId?: string };
+  "message:updated": { message: Message };
   "presence:changed": { userId: string; status: UserStatus };
   "moderation:changed": { mutedUntil: string | null; banned: boolean };
   "chaos:changed": { chaosUntil: string | null; actorName?: string };

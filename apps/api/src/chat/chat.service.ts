@@ -579,6 +579,7 @@ export class ChatService {
     return this.toApiMessage(completed, authorId);
   }
 
+  async editMessage(authorId: string, messageId: string, body: string) { await this.assertCanWrite(authorId); const message = await this.prisma.message.findFirst({ where: { id: messageId, authorId, deletedAt: null } }); if (!message) throw new NotFoundException("Сообщение не найдено"); if (message.kind === "SYSTEM" || message.quizKind || message.adminVoice) throw new ForbiddenException("Это сообщение нельзя редактировать"); if (message.createdAt.getTime() + 180000 < Date.now()) throw new ForbiddenException("Редактировать сообщение можно только в течение трёх минут"); const text = body.trim(); if (!text) throw new BadRequestException("Введите текст сообщения"); await this.settings.assertMessage(authorId, text); const updated = await this.prisma.message.update({ where: { id: messageId }, data: { body: text, editedAt: new Date() }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } }); return { roomId: updated.roomId ?? undefined, recipientId: updated.recipientId ?? undefined, message: this.toApiMessage(updated, authorId) }; }
   async toggleReaction(userId: string, messageId: string, type: ReactionType): Promise<ReactionUpdate> {
     const message = await this.prisma.message.findFirst({ where: { id: messageId, deletedAt: null } });
     if (!message) throw new NotFoundException("Сообщение не найдено");
@@ -721,6 +722,7 @@ export class ChatService {
       gifUrl: message.gifUrl ?? undefined,
       time: formatChatTime(message.createdAt),
       createdAt: message.createdAt.toISOString(),
+      editedAt: message.editedAt?.toISOString(),
       system: message.kind === "SYSTEM",
       greetingRecipientId: message.kind === "SYSTEM" ? message.requestId?.match(/^(?:presence|greeting):([a-f0-9-]{36}):/i)?.[1] : undefined,
       attachments: (message.attachments ?? []).map((attachment) => this.attachments.toApi(attachment, message.roomId)),

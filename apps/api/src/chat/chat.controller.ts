@@ -11,7 +11,7 @@ import { ToggleReactionDto } from "./dto/reaction.dto";
 import { MessagePageQueryDto } from "./dto/pagination.dto";
 import { SearchMessagesQueryDto } from "./dto/search-messages.dto";
 import { CreateRoomDto, UpdateRoomDto } from "./dto/room.dto";
-import { CreateDirectMessageDto, CreateRoomMessageDto } from "./dto/send-message.dto";
+import { CreateDirectMessageDto, CreateRoomMessageDto, EditMessageDto } from "./dto/send-message.dto";
 
 @Controller("rooms")
 export class ChatController {
@@ -210,4 +210,5 @@ export class ReactionsController {
     this.gateway.notifyReaction(update);
     return update;
   }
+  @Put(":messageId") @RateLimit({ limit: 30, windowMs: 60 * 1000, key: "session" }) async edit(@Param("messageId", new ParseUUIDPipe({ version: "4" })) messageId: string, @Body() input: EditMessageDto, @CurrentUser() user: AuthenticatedUser) { const updated = await this.chat.editMessage(user.id, messageId, input.body); this.gateway.notifyMessageUpdated(updated); return updated.message; }
 }

@@ -207,6 +207,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     return senderPayload;
   }
 
+  notifyMessageUpdated(payload: { roomId?: string; recipientId?: string; message: import("./chat.types").ApiMessage }) { if (payload.roomId) { this.server.to(payload.roomId).emit("message:updated", { message: payload.message }); return; } if (payload.recipientId && payload.message.authorId) { this.server.to("user:" + payload.message.authorId).emit("message:updated", { message: payload.message }); this.server.to("user:" + payload.recipientId).emit("message:updated", { message: payload.message }); } }
   notifyReaction(update: ReactionUpdate) {
     const payload = { messageId: update.messageId, userId: update.userId, selected: update.selected, reactions: update.reactions };
     if (update.roomId) {

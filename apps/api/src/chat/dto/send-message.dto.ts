@@ -48,3 +48,4 @@ export class SendDirectMessageDto extends MessageContentDto {
 }
 
 export class CreateDirectMessageDto extends MessageContentDto {}
+export class EditMessageDto { @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsString() @Length(1, 1000) body!: string; }
