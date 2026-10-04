@@ -2590,3 +2590,7 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 
 /* Mobile: keep text-size choices inside the room menu. */
 @media (max-width:700px){.content-menu-submenu-popover{position:static;min-width:0;margin-top:2px;padding:2px 0 0;border:0;border-top:1px solid var(--line);border-radius:0;background:transparent;box-shadow:none}.content-menu-submenu-popover button{height:32px;padding:0 8px}}
+/* The size selector uses the same full-width row treatment as the room menu. */
+.content-menu-submenu>button{display:flex!important;align-items:center;justify-content:flex-start;width:100%!important;height:31px!important;padding:0 9px!important;border-radius:7px!important;background:transparent!important;color:#64716b!important;font-size:11px!important;text-align:left}
+.content-menu-submenu>button:hover{background:var(--brand-soft)!important;color:#54701e!important}
+.content-menu-submenu-popover button{display:flex;align-items:center;width:100%;box-sizing:border-box}
