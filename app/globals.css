@@ -2740,3 +2740,42 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 /* Participant avatar preview must sit above the floating player/chat. */
 .layout:has(.conversation) .people-panel{position:relative;z-index:80;overflow-x:visible}
 .person-avatar-button .avatar-preview{z-index:90}
+
+/* Direct-message preview: size against viewport, not the narrow avatar anchor. */
+.private-message-preview{
+  left:auto;
+  right:0;
+  width:min(320px,calc(100vw - 32px));
+  min-width:min(260px,calc(100vw - 32px));
+  max-width:320px;
+}
+.private-message-preview::before{left:auto;right:16px}
+@media(max-width:850px){
+  .private-message-preview{
+    left:0;
+    right:auto;
+    width:min(300px,calc(100vw - 48px));
+    min-width:min(240px,calc(100vw - 48px));
+  }
+  .private-message-preview::before{left:16px;right:auto}
+}
+
+/* Robust outside-click target for the private-chat overflow menu. */
+.direct-tags-overflow-backdrop{
+  position:fixed;
+  z-index:1199;
+  inset:0;
+  width:100%;
+  height:100%;
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  cursor:default;
+}
+
+.direct-tag-close-icon{
+  position:relative;
+  top:1px;
+  left:5px;
+}

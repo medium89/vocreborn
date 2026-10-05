@@ -112,7 +112,7 @@ export function DirectConversationTabs({ conversations, dialogId, showReturn, on
   const pill = (conversation: DirectConversation, measuring = false) =>
     <span className={"direct-tag " + (conversation.peer.id === dialogId ? "active" : "")} key={conversation.peer.id} {...(measuring ? { "data-direct-measure-item": "" } : {})}>
       <button type="button" tabIndex={measuring ? -1 : undefined} onClick={measuring ? undefined : () => onOpen(conversation.peer)}>{conversation.peer.name}{badge(conversation)}</button>
-      <button type="button" tabIndex={measuring ? -1 : undefined} className="direct-tag-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={measuring ? undefined : () => conversation.peer.id && onDismiss(conversation.peer.id)}><X size={13} /></button>
+      <button type="button" tabIndex={measuring ? -1 : undefined} className="direct-tag-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={measuring ? undefined : () => conversation.peer.id && onDismiss(conversation.peer.id)}><X className="direct-tag-close-icon" size={13} /></button>
     </span>;
 
   return <nav ref={navRef} className="direct-tags" aria-label="Личные диалоги">
@@ -124,11 +124,14 @@ export function DirectConversationTabs({ conversations, dialogId, showReturn, on
       {sorted.map((conversation) => pill(conversation, true))}
       <span className="direct-tag direct-tag-more" data-direct-measure-more><button type="button" tabIndex={-1}><MessagesSquare size={14} />Все</button></span>
     </div>
-    {open && overflow.length > 0 && createPortal(<div ref={popupRef} id={popupId} className="direct-tags-overflow" role="menu" aria-label="Остальные личные диалоги" style={{ ...popupPosition, visibility: popupPosition ? "visible" : "hidden" }}>
-      {overflow.map((conversation) => <div className={"direct-tags-overflow-row" + (conversation.peer.id === dialogId ? " active" : "")} key={conversation.peer.id}>
-        <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpen(conversation.peer); }}><span>{conversation.peer.name}</span>{badge(conversation)}</button>
-        <button type="button" className="direct-tags-overflow-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={() => conversation.peer.id && onDismiss(conversation.peer.id)}><X size={14} /></button>
-      </div>)}
-    </div>, document.body)}
+    {open && overflow.length > 0 && createPortal(<>
+      <button type="button" className="direct-tags-overflow-backdrop" aria-label="Закрыть список личных диалогов" onClick={() => setOpen(false)} />
+      <div ref={popupRef} id={popupId} className="direct-tags-overflow" role="menu" aria-label="Остальные личные диалоги" style={{ ...popupPosition, visibility: popupPosition ? "visible" : "hidden" }}>
+        {overflow.map((conversation) => <div className={"direct-tags-overflow-row" + (conversation.peer.id === dialogId ? " active" : "")} key={conversation.peer.id}>
+          <button type="button" role="menuitem" onClick={() => { setOpen(false); onOpen(conversation.peer); }}><span>{conversation.peer.name}</span>{badge(conversation)}</button>
+          <button type="button" className="direct-tags-overflow-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={() => conversation.peer.id && onDismiss(conversation.peer.id)}><X className="direct-tag-close-icon" size={14} /></button>
+        </div>)}
+      </div>
+    </>, document.body)}
   </nav>;
 }
