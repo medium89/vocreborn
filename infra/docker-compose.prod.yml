@@ -39,6 +39,10 @@ services:
       NODE_ENV: production
       TUSOVA_BOTS_ENABLED: "false"
       TUSOVA_QUIZ_ENABLED: ${TUSOVA_QUIZ_ENABLED:-false}
+      TUSOVA_RADIO_ENABLED: ${TUSOVA_RADIO_ENABLED:-false}
+      RADIO_WORKER_URL: ${RADIO_WORKER_URL:-http://radio-worker:8090}
+      RADIO_WORKER_TOKEN: ${RADIO_WORKER_TOKEN:-}
+      RADIO_STORAGE_DIR: /app/storage/radio
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT:-587}
       SMTP_USER: ${SMTP_USER}
