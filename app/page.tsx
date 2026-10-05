@@ -225,6 +225,25 @@ function normalizeConversations(items: DirectConversation[], userId: string) {
   }));
 }
 
+function lastRoomKey(userId: string) {
+  return "tusova:last-room:" + userId;
+}
+function loadLastRoomId(userId: string) {
+  try {
+    const saved = localStorage.getItem(lastRoomKey(userId));
+    return saved?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+function saveLastRoomId(userId: string, roomId: string) {
+  try {
+    localStorage.setItem(lastRoomKey(userId), roomId);
+  } catch {
+    // localStorage can be unavailable in restricted browser modes.
+  }
+}
+
 function hiddenDirectsKey(userId: string) {
   return "tusova:hidden-directs:" + userId;
 }
@@ -747,14 +766,25 @@ export default function Home() {
 
     Promise.allSettled([getMe(), fetchRooms()])
       .then(([meResult, roomsResult]) => {
+        if (roomsResult.status === "fulfilled") setRooms(roomsResult.value);
         if (meResult.status === "fulfilled") {
+          const availableRooms =
+            roomsResult.status === "fulfilled" ? roomsResult.value : [defaultRoom];
+          const savedRoomId = loadLastRoomId(meResult.value.id);
+          const restoredRoomId =
+            savedRoomId &&
+            (savedRoomId === "main" ||
+              availableRooms.some((room) => room.id === savedRoomId))
+              ? savedRoomId
+              : "main";
+          activeRoomRef.current = restoredRoomId;
+          setRoomId(restoredRoomId);
           setUser(meResult.value);
           applyMutedUntil(meResult.value.mutedUntil);
           loadSocialData(meResult.value).catch(() =>
             showNotice("Не удалось загрузить пользователей и личные диалоги."),
           );
         }
-        if (roomsResult.status === "fulfilled") setRooms(roomsResult.value);
         showNotice(
           meResult.status === "fulfilled"
             ? ""
@@ -1437,6 +1467,8 @@ export default function Home() {
     setUnreadRoomMessages((old) =>
       old[nextRoomId] ? { ...old, [nextRoomId]: 0 } : old,
     );
+    if (user?.id) saveLastRoomId(user.id, nextRoomId);
+    activeRoomRef.current = nextRoomId;
     activeDialogRef.current = null;
     setRoomId(nextRoomId);
     setDialog(null);
