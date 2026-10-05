@@ -9,7 +9,7 @@ const options: Array<{ key: keyof TabAlertPreferences; title: string; detail: st
 
 export function TabAlertSettings({ value, onChange, notificationPreferences, onNotificationPreferencesChange, admin }: { value: TabAlertPreferences; onChange: (next: TabAlertPreferences) => void; notificationPreferences: NotificationPreferences; onNotificationPreferencesChange: (next: NotificationPreferences) => void; admin: boolean }) {
   return <section className="profile-settings-content profile-alert-settings">
-
+    <p className="profile-section-lead">Настройте оповещения в чате, заголовок вкладки браузера и события на странице «Уведомления».</p>
     <div className="profile-settings-fields"><PushAlertSettings admin={admin} /><fieldset className="profile-tab-alerts">
     <legend>Оповещения во вкладке</legend>
     <p>Настройки применяются сразу и сохраняются в этом браузере.</p>

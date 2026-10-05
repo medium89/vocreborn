@@ -35,7 +35,7 @@ type AppearanceProps = { appearance?: CosmeticAppearance; onSaved: (next: Cosmet
 export function ProfileAppearanceSettings({ appearance = {}, onSaved }: AppearanceProps) {
   const [selected, setSelected] = useState<string | null>(null);
   return <section className="profile-settings-content profile-appearance-settings">
-
+    <p className="profile-section-lead">Настройте никнейм, сообщения и профиль. Здесь собраны все доступные вам улучшения.</p>
     <AppearanceOptions appearance={appearance} onSelect={setSelected} />
     {selected && createPortal(<CosmeticSettingsDialog effectKey={selected} appearance={appearance} onSaved={onSaved} onClose={() => setSelected(null)} />, document.body)}
   </section>;

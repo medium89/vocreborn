@@ -2814,3 +2814,18 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 .private-message-preview.private-message-preview-portal::before{
   display:none;
 }
+
+/* Compact profile tab lead text with consistent top spacing. */
+.profile-settings-content>.profile-section-lead{
+  margin:0;
+  padding:28px 42px 18px;
+  color:var(--muted);
+  font-size:13px;
+  line-height:1.5;
+}
+@media(max-width:700px){
+  .profile-settings-content>.profile-section-lead{
+    padding:20px 18px 14px;
+    font-size:12px;
+  }
+}
