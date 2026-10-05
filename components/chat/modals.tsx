@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BackToChatButton } from "./back-to-chat-button";
 import { AvatarPicker } from "./avatar-picker";
 import { StyledSelect } from "./styled-select";
-import { Ban, Bell, Camera, ChevronDown, CircleDollarSign, Eye, KeyRound, LockKeyhole, Palette, Pencil, RefreshCw, Trash2, Save, ShieldOff, UserRound, Volume2, VolumeX, X } from "lucide-react";
+import { Ban, Bell, Camera, ChevronDown, ChevronRight, CircleDollarSign, Eye, KeyRound, LockKeyhole, Palette, Pencil, RefreshCw, Trash2, Save, ShieldOff, UserRound, Volume2, VolumeX, X } from "lucide-react";
 import { RecoveryCodePanel } from "./recovery-code-panel";
 import { EmailSettingsPanel } from "./email-settings-panel";
 import type { AuthUser, CosmeticAppearance, DirectConversation, Person, Room } from "@/lib/chat-contract";
@@ -94,6 +94,14 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
         <div>{!embedded && <h2>Комнаты</h2>}</div>
         {user && <button type="button" className="action-button" onClick={beginCreate}><Save size={15} /><span>Новая комната</span></button>}
       </div>
+      {!embedded && <nav className="rooms-mobile-navigation" aria-label="Переход в комнату">
+        {rooms.map((room) => <button type="button" className="rooms-mobile-room-link" key={room.id} onClick={() => openRoom(room)}>
+          <span className={"orb " + room.tone} />
+          <span>{room.name}{room.isVideoRoom ? " · видео" : ""}</span>
+          <small>{room.online}</small>
+          <ChevronRight size={17} aria-hidden="true" />
+        </button>)}
+      </nav>}
       <div className="rooms-scroll">
         {rooms.map((room) => <article className="modal-room" key={room.id}>
           <button type="button" className="room-card-summary" onClick={() => setViewing(room)} aria-label={"Открыть сведения о комнате " + room.name}>

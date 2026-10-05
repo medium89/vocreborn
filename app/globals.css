@@ -3131,3 +3131,48 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
 
 .overseer-bot-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;margin-bottom:5px;border:1px solid #d8b36a;border-radius:8px;background:#fff3d8;color:#8b5a14;font-size:11px;font-weight:700}
 :root[data-theme=dark] .overseer-bot-badge{border-color:#806234;background:#3a2f1d;color:#f2cf8f}
+
+/* Mobile rooms opened from navigation are a simple room switcher, not an editor. */
+.rooms-mobile-navigation{display:none}
+@media(max-width:700px){
+  .rooms-modal:not(.admin-rooms-content) .rooms-crud-heading{margin-bottom:10px}
+  .rooms-modal:not(.admin-rooms-content) .rooms-crud-heading .action-button{display:none}
+  .rooms-modal:not(.admin-rooms-content) .rooms-scroll{display:none}
+  .rooms-modal:not(.admin-rooms-content) .rooms-mobile-navigation{display:grid;gap:5px}
+  .rooms-mobile-room-link{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;width:100%;min-height:48px;padding:10px 9px;border:1px solid var(--line);border-radius:11px;background:var(--surface);color:var(--ink);text-align:left}
+  .rooms-mobile-room-link>span:nth-child(2){overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700}
+  .rooms-mobile-room-link>small{color:var(--muted);font-size:11px;font-variant-numeric:tabular-nums}
+  .rooms-mobile-room-link>svg{color:var(--muted)}
+  .rooms-mobile-room-link:hover,.rooms-mobile-room-link:focus-visible{border-color:#a8ca5b;background:var(--brand-soft)}
+}
+
+/* Mobile online list opens as a bottom sheet, matching the lightweight rooms navigation. */
+@keyframes mobilePeopleSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@media(max-width:700px){
+  .layout:has(.conversation)>.mobile-people-backdrop,.community-chat-page>.mobile-people-backdrop{inset:0;z-index:1202;background:#07100d73;backdrop-filter:blur(2px)}
+  .layout:has(.conversation) .people-panel.mobile-open,.community-chat-page .people-panel.mobile-open{
+    top:10dvh;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:1203;
+    width:100%;
+    max-width:none;
+    height:90dvh;
+    min-height:0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+    border:0;
+    border-top:1px solid var(--line);
+    border-radius:20px 20px 0 0;
+    background:var(--surface);
+    box-shadow:0 -18px 48px #07100d45;
+    overflow:hidden;
+    animation:mobilePeopleSheetIn .2s ease-out;
+  }
+  .people-panel.mobile-open .panel-title{flex:0 0 auto;align-items:center;margin:0 0 12px;padding:0 2px 12px;border-bottom:1px solid var(--line)}
+  .people-panel.mobile-open .panel-title h3{margin:0;font-size:18px}
+  .people-panel.mobile-open .online-count{margin-left:auto}
+  .people-panel.mobile-open .mobile-people-close{margin-left:4px}
+  .people-panel.mobile-open .people-list{flex:1;min-height:0;overflow-y:auto;padding:0 2px 10px;overscroll-behavior:contain}
+  .people-panel.mobile-open .room-switcher{display:none}
+}
