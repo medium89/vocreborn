@@ -52,6 +52,9 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-mailto:admin@tusova.su}
+      JEV_API_KEY: ${JEV_API_KEY:-}
+      JEV_MODEL: ${JEV_MODEL:-jev-latest}
+      JEV_MODERATION_THRESHOLD: ${JEV_MODERATION_THRESHOLD:-0.72}
     volumes:
       - avatar-data:/app/uploads
       - attachment-data:/app/storage

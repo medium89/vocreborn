@@ -6,6 +6,7 @@ import { ChatGateway } from "./chat.gateway";
 import { ChatService } from "./chat.service";
 import { ModerationController } from "../moderation/moderation.controller";
 import { ModerationService } from "../moderation/moderation.service";
+import { JevModerationService } from "../moderation/jev-moderation.service";
 import { GiftsModule } from "../gifts/gifts.module";
 import { NotificationsModule } from "../notifications/notifications.module";
 
@@ -13,6 +14,6 @@ import { NotificationsModule } from "../notifications/notifications.module";
   imports: [AuthModule, AttachmentsModule, NotificationsModule, GiftsModule],
   exports: [ChatGateway, ChatService, ModerationService],
   controllers: [ChatController, UsersController, DirectController, ReactionsController, ModerationController],
-  providers: [ChatService, ChatGateway, ModerationService],
+  providers: [ChatService, ChatGateway, ModerationService, JevModerationService],
 })
 export class ChatModule {}

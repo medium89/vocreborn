@@ -355,14 +355,18 @@ export class ChatService {
     return this.toApiMessage(completed, authorId);
   }
 
-  async createBotMessage(roomId: string, authorId: string, authorName: string, body: string): Promise<ApiMessage> {
+  async createBotMessage(roomId: string, authorId: string, authorName: string, body: string, notifyListeners = false): Promise<ApiMessage> {
     await this.assertRoom(roomId);
     const message = await this.prisma.message.create({
       data: { roomId, authorId, authorName, body },
       include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true },
     });
     await this.notifications.createMentions(authorId, message.id, body);
-    return this.toApiMessage(message);
+    const apiMessage = this.toApiMessage(message);
+    if (notifyListeners) {
+      for (const listener of this.messageListeners) listener({ roomId, authorId, message: apiMessage });
+    }
+    return apiMessage;
   }
 
   async createSystemMessage(body: string, greetingRecipientId?: string): Promise<ApiMessage> {
