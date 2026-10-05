@@ -30,7 +30,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     <span className={"presence person-presence " + person.status} />
     <span className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
       <button type="button" className="person-avatar-button" aria-label={"Открыть профиль " + person.name} onClick={() => onClick(person)}>
-        <Avatar value={person.avatar} previewUrl={person.avatarThumbnail} previewHint="Нажмите, чтобы открыть профиль" name={person.name} className={person.status} />
+        <Avatar value={person.avatar} previewUrl={person.avatarThumbnail} previewHint="Нажмите, чтобы открыть профиль" onPreviewClick={() => onClick(person)} name={person.name} className={person.status} />
       </button>
       {avatarRole && <span className={"person-avatar-role person-avatar-role-" + avatarRole} title={avatarRole === "admin" ? "Администратор" : avatarRole === "moderator" ? "Модератор" : avatarRole === "dj" ? "DJ" : "VIP"} aria-hidden="true">
         {avatarRole === "dj" ? <Headphones size={11} /> : avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
