@@ -3120,3 +3120,11 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   .user-editor-scroll{padding:10px 0 22px}
   .user-editor-card{padding:0}
 }
+
+/* Mobile navigation: private-dialog chips live in the dedicated tab, rooms live in the menu. */
+@media(max-width:700px){
+  .direct-tags:not(.has-return){display:none}
+  .direct-tags.has-return .direct-tag:not(.return-to-chat),.direct-tags.has-return .direct-tags-measure{display:none}
+  .direct-tags-overflow,.direct-tags-overflow-backdrop{display:none!important}
+  .people-panel.mobile-open .room-switcher{display:none}
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/chat-contract";
-import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, Coins, Ellipsis, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Settings, ShieldCheck, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
+import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, Coins, DoorOpen, Ellipsis, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Settings, ShieldCheck, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
 import { Avatar } from "./avatar";
 
 
@@ -120,6 +120,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
       <button type="button" className="rail-mobile-more-backdrop" aria-label="Закрыть дополнительное меню" onClick={() => setMobileMoreOpen(false)} />
       <section className="rail-mobile-more-menu" aria-label="Дополнительные разделы">
         {(activeSection === "chat" || activeSection === "community-chat") && <button type="button" onClick={() => runMobile(onOpenPeople)}><UserRoundSearch size={18} /><span>Кто в чате</span></button>}
+        <button type="button" onClick={() => runMobile(onOpenRooms)}><DoorOpen size={18} /><span>Комнаты</span></button>
         {user?.isGuest && <button type="button" onClick={() => runMobile(onOpenRegistration)}><UserRound size={18} /><span>Регистрация</span></button>}
         {communityChatName && <button type="button" onClick={() => runMobile(onOpenCommunityChat)}><MessagesSquare size={18} /><span>{communityChatName}</span></button>}
         <button type="button" onClick={() => runMobile(onOpenCommunities)}><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b>{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>

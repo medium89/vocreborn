@@ -115,7 +115,7 @@ export function DirectConversationTabs({ conversations, dialogId, showReturn, on
       <button type="button" tabIndex={measuring ? -1 : undefined} className="direct-tag-close" aria-label={"Скрыть диалог с " + conversation.peer.name} title="Скрыть из списка" onClick={measuring ? undefined : () => conversation.peer.id && onDismiss(conversation.peer.id)}><X className="direct-tag-close-icon" size={13} /></button>
     </span>;
 
-  return <nav ref={navRef} className="direct-tags" aria-label="Личные диалоги">
+  return <nav ref={navRef} className={"direct-tags" + (showReturn ? " has-return" : "")} aria-label="Личные диалоги">
     {showReturn && <span className="direct-tag return-to-chat"><button type="button" onClick={onReturn}>Чат</button></span>}
     {sorted.slice(0, visibleCount).map((conversation) => pill(conversation))}
     {overflow.length > 0 && <span className="direct-tag direct-tag-more"><button ref={moreRef} type="button" aria-haspopup="menu" aria-expanded={open} aria-controls={open ? popupId : undefined} onClick={() => setOpen((value) => !value)}><MessagesSquare size={14} />Все</button></span>}
