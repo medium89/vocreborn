@@ -2015,11 +2015,8 @@ export default function Home() {
     );
   }
 
-  function setVideoSource() {
-    const value = window.prompt(
-      "Вставьте ссылку на YouTube, VK Видео или Rutube",
-    );
-    if (!value?.trim()) return;
+  function setVideoSource(value: string) {
+    if (!value.trim()) return;
     socketRef.current?.emit(
       "video:set",
       { roomId, videoUrl: value.trim() },
