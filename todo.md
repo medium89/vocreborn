@@ -1776,3 +1776,6 @@
 - [x] Пройти lint/build и точечные integration-тесты.
 - [ ] Сделать production backup, применить миграцию и опубликовать API + web.
 - [ ] Проверить визуально на аккаунтах admin/moderator/DJ.
+
+- [x] Сделать production backup, применить миграцию и опубликовать API + web для bd917e3.
+- [ ] Визуально проверить отдельные галочки staff/DJ на production.
