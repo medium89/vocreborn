@@ -123,13 +123,15 @@ test("session and editable profile bio", async () => {
   assert.equal(me.status, 200);
   const updated = await request("/api/me", {
     method: "PATCH",
-    body: JSON.stringify({ bio: "Integration profile" }),
+    body: JSON.stringify({ bio: "Integration profile", hideDj: true }),
   }, user.cookie);
   assert.equal(updated.status, 200);
   assert.equal(updated.body.user.bio, "Integration profile");
+  assert.equal(updated.body.user.hideDj, true);
   const profile = await request("/api/users/" + user.user.id, {}, admin.cookie);
   assert.equal(profile.status, 200);
   assert.equal(profile.body.displayName, "Integration User");
+  assert.equal(profile.body.hideDj, true);
 });
 
 test("friends are stored, visible from both profiles and removable", async () => {

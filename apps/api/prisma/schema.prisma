@@ -151,6 +151,7 @@ model User {
   avatarThumbKey  String?           @map("avatar_thumb_key") @db.VarChar(255)
   role            UserRole          @default(USER)
   hideRole        Boolean           @default(false) @map("hide_role")
+  hideDj          Boolean           @default(false) @map("hide_dj")
   isDj            Boolean           @default(false) @map("is_dj")
   status          UserStatus        @default(OFFLINE)
   createdAt       DateTime          @default(now()) @map("created_at")

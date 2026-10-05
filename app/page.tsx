@@ -2214,6 +2214,7 @@ export default function Home() {
       bio: string;
       gender: "male" | "female" | "unspecified";
       hideRole?: boolean;
+      hideDj?: boolean;
     },
     avatar: File | null,
   ) {

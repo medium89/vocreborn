@@ -34,6 +34,9 @@ class UpdateUserDto {
   @ValidateIf((_object, value) => value !== undefined) @IsBoolean()
   hideRole?: boolean;
 
+  @ValidateIf((_object, value) => value !== undefined) @IsBoolean()
+  hideDj?: boolean;
+
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;
 

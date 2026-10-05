@@ -16,4 +16,8 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsBoolean()
   hideRole?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hideDj?: boolean;
 }

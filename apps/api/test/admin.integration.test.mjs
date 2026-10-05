@@ -108,6 +108,18 @@ test('Maintenance and registration gates apply while administrators can still se
   assert.equal((await request('/api/rooms',alice.cookie,{name:'Admin room'})).status,201);
   await settings({registrationOpen:true,allowUserRooms:true});
 });
+test('Admin can independently hide staff role and DJ status', async () => {
+  const user=await account('admin_visibility','USER');
+  await prisma.user.update({where:{id:user.id},data:{role:'MODERATOR',isDj:true}});
+  const updated=await request('/api/admin/users/'+user.id,alice.cookie,{hideRole:true,hideDj:true},'PATCH');
+  assert.equal(updated.status,200);
+  assert.equal(updated.body.hideRole,true);
+  assert.equal(updated.body.hideDj,true);
+  const stored=await prisma.user.findUniqueOrThrow({where:{id:user.id}});
+  assert.equal(stored.hideRole,true);
+  assert.equal(stored.hideDj,true);
+});
+
 test('Credit operations are atomic, audited and idempotent', async () => {
   const user=await account('admin_wallet','USER');
   const input={mode:'add',amount:10,reason:'Manual reward',requestId:randomUUID()};

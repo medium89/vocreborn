@@ -54,8 +54,9 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
   }, [visiblePreview]);
   const isSelf = person.id === currentUserId;
   const role = person.hideRole ? null : person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
+  const visibleDj = Boolean(person.isDj && !person.hideDj);
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
-  const avatarRole = person.isDj ? "dj" : role ?? (isVip ? "vip" : null);
+  const avatarRole = visibleDj ? "dj" : role ?? (isVip ? "vip" : null);
   return <div className="person">
     <span className={"presence person-presence " + person.status} />
     <span ref={avatarAnchorRef} className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
@@ -73,9 +74,9 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     </button>
     <div className="person-lower">
       <span className="person-role-badges">
-        {person.isDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
+        {visibleDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
         {person.isBot && person.username === "tusova_quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
-        {!role && !isVip && !person.isDj && !person.isBot && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
+        {!role && !isVip && !visibleDj && !person.isBot && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>

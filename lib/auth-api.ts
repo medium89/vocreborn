@@ -82,6 +82,7 @@ export function updateProfile(input: {
   bio: string;
   gender: "male" | "female" | "unspecified";
   hideRole?: boolean;
+  hideDj?: boolean;
 }) {
   return authRequest<{ user: AuthUser }>("/api/me", {
     method: "PATCH",

@@ -3083,3 +3083,40 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   background:#2c3f29;
   border-color:#789653;
 }
+
+/* User editor: flatter admin layout without stacked white surfaces and separators. */
+.user-editor-page{background:transparent}
+.user-editor-head{
+  min-height:0;
+  padding:8px 0 6px;
+  border:0;
+  background:transparent;
+}
+.user-editor-tabs{
+  min-height:0;
+  padding:6px 0 10px;
+  border:0;
+  background:transparent;
+}
+.user-editor-scroll{padding:12px 0 28px}
+.user-editor-summary{margin:0 0 14px}
+.user-editor-card{
+  padding:0;
+  border:0;
+  border-radius:0;
+  background:transparent;
+  box-shadow:none;
+}
+.user-editor-card footer{border-top:0;padding-top:8px}
+:root[data-theme="dark"] .user-editor-head,
+:root[data-theme="dark"] .user-editor-tabs,
+:root[data-theme="dark"] .user-editor-card{
+  border:0;
+  background:transparent;
+}
+@media(max-width:700px){
+  .user-editor-head{padding:8px 0 6px}
+  .user-editor-tabs{padding:6px 0 10px}
+  .user-editor-scroll{padding:10px 0 22px}
+  .user-editor-card{padding:0}
+}

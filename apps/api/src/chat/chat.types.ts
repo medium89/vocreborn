@@ -73,6 +73,7 @@ export type ApiMessage = {
 export type ApiPerson = {
   isDj?: boolean;
   hideRole?: boolean;
+  hideDj?: boolean;
   id: string;
   username: string;
   name: string;
