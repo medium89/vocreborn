@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
-import { AtSign, Ellipsis, FileAudio, FileImage, Hash, Image, Maximize2, Link2, LoaderCircle, Mic, Paperclip, Plus, Send, Smile, Square, X } from "lucide-react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { AtSign, Ellipsis, FileAudio, FileImage, Hash, Image, Maximize2, Link2, LoaderCircle, Mic, Paperclip, Plus, Send, Settings2, Smile, Square, X } from "lucide-react";
 import type { Attachment, AuthUser, CosmeticAppearance, Community, CommunityMember, CommunityMessage, CommunityTopic, Person, Room } from "@/lib/chat-contract";
 import { API_URL } from "@/lib/chat-api";
 import { createCommunityTopic, fetchCommunity, fetchCommunityChat, fetchCommunityChatPage, fetchCommunityTopics, sendCommunityChatMessage, uploadAttachment } from "@/lib/social-api";
@@ -49,11 +49,13 @@ export function CommunityChatPage({ community, user, rooms, roomId, mutedPeople,
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [draftPreviewOpen, setDraftPreviewOpen] = useState(false);
   const [mentionOpen, setMentionOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [newTopic, setNewTopic] = useState("");
   const [addingTopic, setAddingTopic] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const mobileToolsRef = useRef<HTMLDivElement | null>(null);
   const contentMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (attachment) inputRef.current?.focus({ preventScroll: true });
@@ -61,6 +63,30 @@ export function CommunityChatPage({ community, user, rooms, roomId, mutedPeople,
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canManage = user.role === "admin" || community.membership?.role === "owner" || community.membership?.role === "moderator";
+
+  useEffect(() => {
+    if (!mobileToolsOpen) return;
+    const outside = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && !mobileToolsRef.current?.contains(target)) setMobileToolsOpen(false);
+    };
+    const escape = (event: KeyboardEvent) => { if (event.key === "Escape") setMobileToolsOpen(false); };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => { document.removeEventListener("pointerdown", outside); document.removeEventListener("keydown", escape); };
+  }, [mobileToolsOpen]);
+
+  useLayoutEffect(() => {
+    const input = inputRef.current;
+    if (!input) return;
+    const style = window.getComputedStyle(input);
+    const minimum = Number.parseFloat(style.minHeight) || 38;
+    const maximum = Number.parseFloat(style.maxHeight) || 88;
+    input.style.height = "0px";
+    const contentHeight = input.value ? input.scrollHeight : minimum;
+    input.style.height = Math.min(Math.max(contentHeight, minimum), maximum) + "px";
+    input.style.overflowY = contentHeight > maximum ? "auto" : "hidden";
+  }, [body]);
 
   useEffect(() => {
     if (!contentMenuOpen) return;
@@ -198,22 +224,39 @@ export function CommunityChatPage({ community, user, rooms, roomId, mutedPeople,
         {historyMode && <button type="button" className="load-older community-history-button" onClick={() => setHistoryMode(false)}>Вернуться к новым сообщениям</button>}
         {attachment && <div className="composer-file community-composer-file"><span>{attachment.kind === "image" ? <FileImage size={15} /> : <FileAudio size={15} />}{attachment.originalName}<small>готово к отправке · хранится 24 часа</small></span><button type="button" aria-label="Убрать вложение" onClick={() => setAttachment(null)}><X size={15} /></button></div>}
         <form className="composer community-chat-page-composer" onSubmit={send}>
+          <div className="composer-mobile-tools" ref={mobileToolsRef}>
+            <button type="button" className="composer-mobile-tools-trigger" aria-label="Действия и настройки сообщения" title="Действия и настройки" aria-expanded={mobileToolsOpen} onClick={() => setMobileToolsOpen((open) => !open)}><Settings2 size={20} /></button>
+            {mobileToolsOpen && <div className="composer-mobile-tools-menu" role="group" aria-label="Действия и настройки сообщения">
+              <label className="composer-mobile-tool-file"><Paperclip size={17} />Прикрепить файл<input type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/webm" disabled={uploading} onChange={(event) => { void selectFile(event.target.files?.[0]); event.currentTarget.value = ""; setMobileToolsOpen(false); }} /></label>
+              <button type="button" disabled={uploading} onClick={() => { void toggleRecording(); setMobileToolsOpen(false); }}>{recording ? <Square size={17} /> : <Mic size={17} />}{recording ? "Остановить запись" : "Голосовое сообщение"}</button>
+              <button type="button" onClick={() => { setEmojiOpen(true); setMentionOpen(false); setMobileToolsOpen(false); }}><Smile size={17} />Смайлы</button>
+              <button type="button" onClick={() => { setMentionOpen(true); setEmojiOpen(false); setMobileToolsOpen(false); }}><AtSign size={17} />Упомянуть участника</button>
+              <button type="button" onClick={() => { setDraftPreviewOpen(true); setMobileToolsOpen(false); }}><Maximize2 size={17} />Сообщение целиком</button>
+              <button type="button" disabled={!body} onClick={() => { setBody(""); setMobileToolsOpen(false); }}><X size={17} />Очистить сообщение</button>
+              <div className="composer-mobile-appearance">
+                <div><span>Оформление</span><ComposerAppearanceMenu appearance={user.appearance} onSaved={onAppearanceChanged} /></div>
+                <div><span>Цвет ника и сообщений</span><ComposerMessageColorPicker appearance={user.appearance} onSaved={onAppearanceChanged} /></div>
+                {(user.appearance?.boldText || user.appearance?.italicText) && <div><span>Стиль текста</span><ComposerTextStyleToggles appearance={user.appearance} onSaved={onAppearanceChanged} /></div>}
+              </div>
+            </div>}
+          </div>
           <div className="composer-file-tools">
             <label className={"attach " + (uploading ? "busy" : "")} aria-label="Прикрепить изображение или аудио" title="Прикрепить изображение или аудио">{uploading ? <LoaderCircle className="spin" size={19} /> : <Paperclip size={19} />}<input type="file" accept="image/png,image/jpeg,image/webp,audio/mpeg,audio/ogg,audio/wav,audio/webm" disabled={uploading} onChange={(event) => { void selectFile(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>
+            <button className={"voice-record " + (recording ? "recording" : "")} type="button" aria-label={recording ? "Остановить запись" : "Записать голосовое"} title={recording ? "Остановить запись" : "Записать голосовое"} disabled={uploading} onClick={() => void toggleRecording()}>{recording ? <Square size={15} /> : <Mic size={18} />}</button>
+            <button className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} onClick={() => { setEmojiOpen((open) => !open); setMentionOpen(false); }}><Smile size={18} /></button>
+            <button className={"mention-toggle " + (mentionOpen ? "active" : "")} type="button" aria-label="Упомянуть участника" title="Упомянуть участника" onClick={() => { setMentionOpen((open) => !open); setEmojiOpen(false); }}><AtSign size={17} /></button>
             <ComposerAppearanceMenu appearance={user.appearance} onSaved={onAppearanceChanged} />
             <ComposerMessageColorPicker appearance={user.appearance} onSaved={onAppearanceChanged} />
-            <ComposerTextStyleToggles appearance={user.appearance} onSaved={onAppearanceChanged} />
           </div>
-          <button className={"voice-record " + (recording ? "recording" : "")} type="button" aria-label={recording ? "Остановить запись" : "Записать голосовое"} title={recording ? "Остановить запись" : "Записать голосовое"} disabled={uploading} onClick={() => void toggleRecording()}>{recording ? <Square size={15} /> : <Mic size={18} />}</button>
-          <button className={"emoji-toggle " + (emojiOpen ? "active" : "")} type="button" aria-label="Открыть смайлы" title="Смайлы" aria-expanded={emojiOpen} onClick={() => { setEmojiOpen((open) => !open); setMentionOpen(false); }}><Smile size={18} /></button>
-          <button className={"mention-toggle " + (mentionOpen ? "active" : "")} type="button" aria-label="Упомянуть участника" title="Упомянуть участника" onClick={() => { setMentionOpen((open) => !open); setEmojiOpen(false); }}><AtSign size={17} /></button>
           {emojiOpen && <div className="composer-emoji-picker community-emoji-picker" role="dialog" aria-label="Выбор смайла"><strong>Смайлы</strong><div className="emoji-grid">{emojis.map((emoji) => <button key={emoji} type="button" aria-label={"Вставить " + emoji} onClick={() => insertEmoji(emoji)}>{emoji}</button>)}</div></div>}
           {mentionOpen && <div className="mention-picker community-mention-picker" role="listbox">{members.filter((member) => member.id !== user.id).map((member) => <button type="button" role="option" key={member.id} onClick={() => mention(member)}><Avatar value={member.avatarUrl} name={member.displayName} className="small" /><span>{member.displayName}<small>{member.role === "owner" ? "владелец" : member.role === "moderator" ? "модератор" : "участник"}</small></span></button>)}</div>}
-          <textarea ref={inputRef} value={body} maxLength={2000} rows={2} onChange={(event) => setBody(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={activeTopic ? "Сообщение в выбранную тему…" : "Написать участникам…"} />
-          <button className="composer-expand" type="button" aria-label={draftPreviewOpen ? "Закрыть полный текст сообщения" : "Открыть полный текст сообщения"} title={draftPreviewOpen ? "Закрыть полный текст" : "Открыть полный текст"} aria-expanded={draftPreviewOpen} onClick={() => setDraftPreviewOpen((open) => !open)}><Maximize2 size={15}/></button>
-          <button className="composer-clear" type="button" aria-label="Очистить текст сообщения" title="Очистить текст" disabled={!body} onClick={() => setBody("")}><X size={15}/></button>
+          <textarea ref={inputRef} value={body} maxLength={2000} rows={1} onChange={(event) => setBody(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); event.currentTarget.form?.requestSubmit(); } }} placeholder={activeTopic ? "Сообщение в выбранную тему…" : "Написать участникам…"} />
           {draftPreviewOpen && <div className="composer-draft-preview" style={messagePreviewStyle(body)} role="dialog" aria-label="Полный текст сообщения"><div><strong>Сообщение целиком</strong><button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setDraftPreviewOpen(false)}><X size={15}/></button></div><textarea autoFocus rows={8} value={body} maxLength={2000} onChange={(event) => setBody(event.target.value)} placeholder="Написать сообщение…" /></div>}
-          <button className="send" type="submit" aria-label="Отправить сообщение" title="Отправить сообщение" disabled={uploading || (!body.trim() && !attachment)}><Send size={16}/></button>
+          <div className="composer-send-actions">
+            <button className="composer-expand" type="button" aria-label={draftPreviewOpen ? "Закрыть полный текст сообщения" : "Открыть полный текст сообщения"} title={draftPreviewOpen ? "Закрыть полный текст" : "Открыть полный текст"} aria-expanded={draftPreviewOpen} onClick={() => setDraftPreviewOpen((open) => !open)}><Maximize2 size={15}/></button>
+            <button className="composer-clear" type="button" aria-label="Очистить текст сообщения" title="Очистить текст" disabled={!body} onClick={() => setBody("")}><X size={15}/></button>
+            <button className="send" type="submit" aria-label="Отправить сообщение" title="Отправить сообщение" disabled={uploading || (!body.trim() && !attachment)}><Send size={16}/></button>
+          </div>
         </form>
       </>}
       {activeTab === "media" && <section className="room-resource-panel community-resources">{media.length ? media.map((message) => <article key={message.id}><CommunityAttachment attachment={message.attachment!} /><footer><small>{message.author.displayName} · {new Date(message.createdAt).toLocaleString("ru-RU")}</small></footer></article>) : <p>Медиа в этом чате пока нет.</p>}</section>}
