@@ -82,7 +82,7 @@ export function ProfileAlbums({ vip = false }: { vip?: boolean }) {
   }
   const remaining = albumLimit - albums.length;
   return <section className="profile-settings-content profile-albums-content">
-    <header><h2>Фотоальбомы</h2><p>До {albumLimit} альбомов и до {photoLimit} фотографий в каждом. {vip ? "Расширенные лимиты VIP активны." : "Больше возможностей доступно с VIP-статусом."}</p></header>
+
     <div className="profile-albums-body">
       {remaining > 0 && <form className="album-create" onSubmit={(event) => { event.preventDefault(); void create(); }}>
         <input ref={titleRef} aria-label="Название нового альбома" value={title} maxLength={80} disabled={busy || loading} onChange={(event) => setTitle(event.target.value)} placeholder="Название альбома" />

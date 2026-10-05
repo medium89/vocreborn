@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { Gender, Person, Room } from "@/lib/chat-contract";
 import { BellOff, BellRing, Headphones, Crown, Flag, MessageCircle, Shield, ShieldCheck, Star, UserRound, UsersRound, X } from "lucide-react";
@@ -15,6 +16,8 @@ const groups: Array<{ gender: Gender; title: string; description: string }> = [
 function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick, onMention, onOpenPrivate, onModerate, onReport, onToggleMute }: { person: Person; currentUserId: string | null; canModerate: boolean; preview: string | null; onClick: (person: Person) => void; onMention: (person: Person) => void; onOpenPrivate: (person: Person) => void; onModerate: (person: Person) => void; onReport: (person: Person) => void; muted: boolean; onToggleMute: (person: Person, muted: boolean) => void }) {
   const [visiblePreview, setVisiblePreview] = useState(preview);
   const [isPreviewLeaving, setIsPreviewLeaving] = useState(false);
+  const [previewPosition, setPreviewPosition] = useState<{ left: number; top: number } | null>(null);
+  const avatarAnchorRef = useRef<HTMLSpanElement | null>(null);
   useEffect(() => {
     if (preview) { setVisiblePreview(preview); setIsPreviewLeaving(false); return; }
     if (!visiblePreview) return;
@@ -22,22 +25,46 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     const timer = window.setTimeout(() => { setVisiblePreview(null); setIsPreviewLeaving(false); }, 180);
     return () => window.clearTimeout(timer);
   }, [preview]);
+  useEffect(() => {
+    if (!visiblePreview) {
+      setPreviewPosition(null);
+      return;
+    }
+    const position = () => {
+      const anchor = avatarAnchorRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const width = Math.min(320, Math.max(240, window.innerWidth - 32));
+      const gap = 12;
+      const preferredLeft = rect.left - width - gap;
+      const left =
+        preferredLeft >= 12
+          ? preferredLeft
+          : Math.min(window.innerWidth - width - 12, rect.right + gap);
+      const top = Math.max(12, Math.min(rect.top + 34, window.innerHeight - 120));
+      setPreviewPosition({ left, top });
+    };
+    position();
+    window.addEventListener("resize", position);
+    window.addEventListener("scroll", position, true);
+    return () => {
+      window.removeEventListener("resize", position);
+      window.removeEventListener("scroll", position, true);
+    };
+  }, [visiblePreview]);
   const isSelf = person.id === currentUserId;
   const role = person.hideRole ? null : person.role === "admin" ? "admin" : person.role === "moderator" ? "moderator" : null;
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
   const avatarRole = person.isDj ? "dj" : role ?? (isVip ? "vip" : null);
   return <div className="person">
     <span className={"presence person-presence " + person.status} />
-    <span className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
+    <span ref={avatarAnchorRef} className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
       <button type="button" className="person-avatar-button" aria-label={"Открыть профиль " + person.name} onClick={() => onClick(person)}>
         <Avatar value={person.avatar} previewUrl={person.avatarThumbnail} previewHint="Нажмите, чтобы открыть профиль" onPreviewClick={() => onClick(person)} name={person.name} className={person.status} />
       </button>
       {avatarRole && <span className={"person-avatar-role person-avatar-role-" + avatarRole} title={avatarRole === "admin" ? "Администратор" : avatarRole === "moderator" ? "Модератор" : avatarRole === "dj" ? "DJ" : "VIP"} aria-hidden="true">
         {avatarRole === "dj" ? <Headphones size={11} /> : avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
       </span>}
-      {visiblePreview && !isSelf && <button type="button" className={"private-message-preview " + (isPreviewLeaving ? "is-leaving" : "")} data-testid="private-message-preview" aria-label={"Открыть личное сообщение от " + person.name} onClick={(event) => { event.stopPropagation(); onOpenPrivate(person); }}>
-        <MessageCircle size={15} /><span><small>Личное сообщение</small><strong>{visiblePreview}</strong></span>
-      </button>}
     </span>
     <button type="button" className="person-main" title={person.name} onClick={() => isSelf ? onClick(person) : onMention(person)}>
       <span className="person-copy">
@@ -59,6 +86,19 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
       {!isSelf && canModerate && person.id && (person.role !== "admin" || muted) && <button type="button" className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}
       {canModerate && person.id && (!isSelf || role !== null) && <button type="button" className="moderate-person" aria-label={isSelf ? "Модерировать себя" : "Модерировать " + person.name} title={isSelf ? "Модерировать себя" : "Модерировать " + person.name} onClick={() => onModerate(person)}><Shield size={14} /></button>}
     </span>
+    {visiblePreview && !isSelf && previewPosition && typeof document !== "undefined" && createPortal(
+      <button
+        type="button"
+        className={"private-message-preview private-message-preview-portal " + (isPreviewLeaving ? "is-leaving" : "")}
+        data-testid="private-message-preview"
+        style={{ left: previewPosition.left, top: previewPosition.top }}
+        aria-label={"Открыть личное сообщение от " + person.name}
+        onClick={() => onOpenPrivate(person)}
+      >
+        <MessageCircle size={15} /><span><small>Личное сообщение</small><strong>{visiblePreview}</strong></span>
+      </button>,
+      document.body,
+    )}
   </div>;
 }
 

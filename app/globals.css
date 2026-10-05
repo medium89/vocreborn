@@ -2799,3 +2799,18 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   opacity:1!important;
   transform:none!important;
 }
+
+/* Direct-message toast is portalled to body so the people panel cannot clip it. */
+.private-message-preview.private-message-preview-portal{
+  position:fixed!important;
+  z-index:1490!important;
+  right:auto!important;
+  bottom:auto!important;
+  width:min(320px,calc(100vw - 32px))!important;
+  min-width:min(240px,calc(100vw - 32px))!important;
+  max-width:320px!important;
+  margin:0!important;
+}
+.private-message-preview.private-message-preview-portal::before{
+  display:none;
+}
