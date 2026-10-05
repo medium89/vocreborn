@@ -2868,3 +2868,37 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   .video-room-queue-head{min-height:32px;padding:6px 8px!important}
   .video-room-queue-list article{min-height:38px;padding:4px 5px}
 }
+
+/* Mobile watch-party recovery: show provider/autoplay problems instead of a silent empty player. */
+.video-room-player-warning{
+  position:absolute;
+  z-index:4;
+  left:10px;
+  right:10px;
+  bottom:10px;
+  padding:9px 11px;
+  border:1px solid #74423d;
+  border-radius:9px;
+  background:#2f1d1bcc;
+  color:#ffc4bc;
+  font-size:11px;
+  line-height:1.35;
+  text-align:center;
+  backdrop-filter:blur(4px);
+}
+.video-room-autoplay-warning{
+  display:flex!important;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  width:100%;
+  min-height:34px;
+  padding:7px 10px!important;
+  border-radius:0!important;
+  border-top:1px solid #4b5c35!important;
+  background:#24321d!important;
+  color:#dce98d!important;
+  font-size:11px!important;
+  line-height:1.3;
+}
+.video-room-autoplay-warning:hover{background:#2d4024!important}

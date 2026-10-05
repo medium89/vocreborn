@@ -1199,6 +1199,42 @@ export default function Home() {
   }, [roomId, user?.id, user?.displayName]);
 
   const room = rooms.find((item) => item.id === roomId) ?? defaultRoom;
+  useEffect(() => {
+    if (!user || !room.isVideoRoom) return;
+
+    let cancelled = false;
+    const syncVideoState = () => {
+      const socket = socketRef.current;
+      if (!socket?.connected || cancelled) return;
+      socket.emit(
+        "video:get",
+        { roomId: room.id },
+        (state: VideoRoomState | undefined) => {
+          if (!state?.roomId || cancelled) return;
+          setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
+        },
+      );
+    };
+
+    const initialTimer = window.setTimeout(syncVideoState, 700);
+    const interval = window.setInterval(syncVideoState, 5_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") syncVideoState();
+    };
+    window.addEventListener("focus", syncVideoState);
+    window.addEventListener("online", syncVideoState);
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(interval);
+      window.removeEventListener("focus", syncVideoState);
+      window.removeEventListener("online", syncVideoState);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [room.id, room.isVideoRoom, user?.id]);
+
   const currentMessages = dialog?.id
     ? (direct[dialog.id] ?? [])
     : (messages[roomId] ?? []);

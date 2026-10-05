@@ -784,6 +784,13 @@ export class ChatService {
     return this.getVideoState(roomId);
   }
 
+  async getVideoStateForMember(roomId: string, userId: string) {
+    const room = await this.assertRoom(roomId);
+    if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
+    await this.assertVideoMembership(roomId, userId);
+    return this.getVideoState(roomId);
+  }
+
   async getVideoState(roomId: string) {
     const [session, queue, settingsRecord] = await Promise.all([
       this.prisma.videoRoomSession.findUnique({ where: { roomId } }),

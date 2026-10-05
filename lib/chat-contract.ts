@@ -204,6 +204,7 @@ export type ClientToServerEvents = {
   "direct:send": { recipientId: string; body?: string; requestId: string; attachmentId?: string; replyToId?: string };
   "presence:update": { status: UserStatus };
   "presence:active": undefined;
+  "video:get": { roomId: string };
   "video:set": { roomId: string; videoUrl: string };
   "video:control": { roomId: string; action: "play" | "pause" | "seek"; position?: number };
   "video:remove": { roomId: string; itemId: string };

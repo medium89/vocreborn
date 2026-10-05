@@ -58,6 +58,8 @@ type YouTubeApi = {
       events: {
         onReady: (event: { target: YouTubePlayer }) => void;
         onStateChange: (event: { data: number }) => void;
+        onAutoplayBlocked?: (event: { target: YouTubePlayer }) => void;
+        onError?: (event: { data: number }) => void;
       };
     },
   ) => YouTubePlayer;
@@ -228,11 +230,22 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(0.8);
   const [muted, setMuted] = useState(false);
+  const [autoplayMuted, setAutoplayMuted] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const sessionRef = useRef(session);
+  const autoplayRetryRef = useRef(false);
   const id = useMemo(() => youtubeId(session.videoUrl ?? ""), [session.videoUrl]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
 
   useEffect(() => {
     if (!mountRef.current || !id) return;
     let cancelled = false;
+    autoplayRetryRef.current = false;
+    setAutoplayMuted(false);
+    setLoadError("");
     void loadYouTubeApi().then((api) => {
       if (cancelled || !mountRef.current) return;
       playerRef.current = new api.Player(mountRef.current, {
@@ -262,9 +275,31 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
             if (data === api.PlayerState.PAUSED) setPlaying(false);
             if (data === api.PlayerState.ENDED) { setPlaying(false); if (canControl) onEnded(); }
           },
+          onAutoplayBlocked: ({ target }) => {
+            if (cancelled || !sessionRef.current.playing) return;
+            if (!autoplayRetryRef.current) {
+              autoplayRetryRef.current = true;
+              target.mute();
+              setMuted(true);
+              setAutoplayMuted(true);
+              window.setTimeout(() => {
+                if (!cancelled && sessionRef.current.playing) target.playVideo();
+              }, 0);
+              return;
+            }
+            setAutoplayMuted(true);
+          },
+          onError: ({ data }) => {
+            if (cancelled) return;
+            setLoadError("YouTube не загрузил видео (код " + data + ").");
+            setReady(false);
+          },
         },
       });
-    }).catch(() => setReady(false));
+    }).catch(() => {
+      setLoadError("Не удалось загрузить YouTube-плеер.");
+      setReady(false);
+    });
     return () => {
       cancelled = true;
       playerRef.current?.destroy();
@@ -316,17 +351,40 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
     player.unMute();
     player.setVolume(Math.round(next * 100));
     setMuted(false);
+    setAutoplayMuted(false);
     setVolume(next);
   }
 
   function toggleMute() {
     const player = playerRef.current;
     if (!player) return;
-    if (muted) player.unMute(); else player.mute();
+    if (muted) {
+      player.unMute();
+      if (sessionRef.current.playing) player.playVideo();
+      setAutoplayMuted(false);
+    } else {
+      player.mute();
+    }
     setMuted(!muted);
   }
 
-  return <><div className="video-room-media youtube"><div ref={mountRef} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
+  function resumeLocally() {
+    const player = playerRef.current;
+    if (!player) return;
+    player.unMute();
+    setMuted(false);
+    setAutoplayMuted(false);
+    if (sessionRef.current.playing) player.playVideo();
+  }
+
+  return <>
+    <div className="video-room-media youtube">
+      <div ref={mountRef} />
+      {loadError && <div className="video-room-player-warning" role="status">{loadError}</div>}
+    </div>
+    {autoplayMuted && <button type="button" className="video-room-autoplay-warning" onClick={resumeLocally}><Volume2 size={14} />Видео синхронизировано без звука. Нажмите, чтобы включить звук.</button>}
+    <Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} />
+  </>;
 }
 
 function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle, onEnded }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void; onEnded: () => void }) {

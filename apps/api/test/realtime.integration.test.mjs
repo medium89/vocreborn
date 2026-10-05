@@ -51,7 +51,10 @@ async function delivered(socket, event, id) {
 before(async () => {
   await database.$executeRawUnsafe('CREATE DATABASE "' + databaseName + '"'); created = true;
   execFileSync(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], { env: { ...process.env, DATABASE_URL: isolated.toString() }, stdio: 'ignore' });
-  await prisma.room.create({ data: { id: 'main', name: 'Main', position: 0 } });
+  await prisma.room.createMany({ data: [
+    { id: 'main', name: 'Main', position: 0 },
+    { id: 'video-test', name: 'Video test', position: 1, isVideoRoom: true },
+  ] });
   api = spawn(process.execPath, ['dist/main.js'], { env: { ...process.env, DATABASE_URL: isolated.toString(), API_PORT: '3137', NODE_ENV: 'test', TUSOVA_BOTS_ENABLED: 'false', TUSOVA_QUIZ_ENABLED: 'false', TUSOVA_RADIO_ENABLED: 'false' }, stdio: ['ignore', 'ignore', 'ignore'] });
   for (let n = 0; n < 80; n++) { try { if ((await fetch(base + '/api/health')).ok) break; } catch {} await wait(100); if (n === 79) assert.fail('API did not start'); }
   alice = await account('realtime_alice'); bob = await account('realtime_bob');
@@ -105,4 +108,37 @@ test('Reconnect and rejoin restore delivery; rejected HTTP send never publishes'
   const invalid = await request('/api/rooms/main/messages', alice.cookie, { body: '', requestId });
   assert.equal(invalid.status, 400); await wait(100);
   assert.equal(received.get(recipient).filter(p => p.requestId === requestId).length, 0);
+});
+
+test('Video source reaches another room member and a late join gets the current video snapshot', async () => {
+  const sender = await connect(await account('realtime_video_sender'));
+  const recipient = await connect(await account('realtime_video_recipient'));
+  await sender.timeout(2000).emitWithAck('room:join', { roomId: 'video-test' });
+  await recipient.timeout(2000).emitWithAck('room:join', { roomId: 'video-test' });
+
+  const stateEvent = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Missing video:state on recipient')), 2000);
+    recipient.once('video:state', state => { clearTimeout(timer); resolve(state); });
+  });
+  const source = 'https://www.youtube.com/watch?v=L0VnVHPHWEs';
+  const ack = await sender.timeout(2000).emitWithAck('video:set', { roomId: 'video-test', videoUrl: source });
+  const receivedState = await stateEvent;
+  assert.equal(ack.videoUrl, source);
+  assert.equal(receivedState.videoUrl, source);
+  assert.equal(receivedState.currentItemId, ack.currentItemId);
+  assert.equal(receivedState.queue.length, 1);
+
+  const late = await connect(await account('realtime_video_late'));
+  const snapshotEvent = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Missing video room snapshot')), 2000);
+    late.once('room:snapshot', snapshot => {
+      if (snapshot.room.id !== 'video-test') return;
+      clearTimeout(timer);
+      resolve(snapshot);
+    });
+  });
+  await late.timeout(2000).emitWithAck('room:join', { roomId: 'video-test' });
+  const snapshot = await snapshotEvent;
+  assert.equal(snapshot.videoSession.videoUrl, source);
+  assert.equal(snapshot.videoSession.currentItemId, ack.currentItemId);
 });

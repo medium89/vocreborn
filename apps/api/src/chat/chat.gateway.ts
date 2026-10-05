@@ -19,7 +19,7 @@ import { SessionRevocationService } from "../security/session-revocation.service
 import { ChatService } from "./chat.service";
 import { JoinRoomDto } from "./dto/join-room.dto";
 import { UpdatePresenceDto } from "./dto/presence.dto";
-import { ControlVideoRoomDto, SetVideoRoomSourceDto, VideoQueueItemDto, VideoRoomEndedDto, VideoRoomTitleDto } from "./dto/video-room.dto";
+import { ControlVideoRoomDto, SetVideoRoomSourceDto, VideoQueueItemDto, VideoRoomEndedDto, VideoRoomStateDto, VideoRoomTitleDto } from "./dto/video-room.dto";
 import { SendDirectMessageDto, SendMessageDto } from "./dto/send-message.dto";
 import type { ReactionUpdate } from "./chat.types";
 
@@ -195,6 +195,13 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!user || !this.allowAction(client, user.id, "room", 120, 60 * 1000)) return;
     await client.leave(input.roomId);
     return { ok: true, roomId: input.roomId };
+  }
+
+  @SubscribeMessage("video:get")
+  async getVideoState(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: VideoRoomStateDto) {
+    const user = client.data.user;
+    if (!user || !this.allowAction(client, user.id, "video-state", 120, 60 * 1000)) return;
+    return this.chat.getVideoStateForMember(input.roomId, user.id);
   }
 
   @SubscribeMessage("video:set")
