@@ -17,6 +17,7 @@ import { ReportModal } from "@/components/chat/report-modal";
 import { ReportsModal } from "@/components/chat/reports-modal";
 import { NotificationsPage } from "@/components/chat/notifications-modal";
 import {
+  DirectsModal,
   ModerationModal,
   ProfilePage,
   RoomsModal,
@@ -322,6 +323,7 @@ export default function Home() {
   const [myCommunity, setMyCommunity] = useState<Community | null>(null);
   const [giftsOpen, setGiftsOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [directsOpen, setDirectsOpen] = useState(false);
   const [communityBadge, setCommunityBadge] = useState(0);
   const [shopBadge, setShopBadge] = useState(0);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -1291,6 +1293,7 @@ export default function Home() {
     if (window.location.pathname.startsWith("/radio/"))
       window.history.replaceState(window.history.state, "", "/");
     setNotificationsOpen(false);
+    setDirectsOpen(false);
     setCommunitiesOpen(false);
     setCommunityChatOpen(false);
     setGiftsOpen(false);
@@ -1313,14 +1316,7 @@ export default function Home() {
 
   function openDirects() {
     leaveFullScreenSections();
-    const latest = conversations[0];
-    if (!latest) {
-      showNotice(
-        "Личных диалогов пока нет. Откройте профиль участника, чтобы начать переписку.",
-      );
-      return;
-    }
-    void openDialog(latest.peer);
+    setDirectsOpen(true);
   }
 
   function refreshMenuBadges() {
@@ -2119,16 +2115,47 @@ export default function Home() {
     );
   }
 
-  function setVideoSource(value: string) {
-    if (!value.trim()) return;
-    socketRef.current?.emit(
-      "video:set",
-      { roomId, videoUrl: value.trim() },
-      (state: VideoRoomState | undefined) => {
-        if (state?.roomId)
+  function setVideoSource(value: string): Promise<void> {
+    const videoUrl = value.trim();
+    if (!videoUrl) return Promise.reject(new Error("Введите ссылку на видео."));
+    const socket = socketRef.current;
+    if (!socket?.connected) return Promise.reject(new Error("Нет соединения с сервером. Попробуйте ещё раз."));
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        window.clearTimeout(timer);
+        socket.off("exception", onException);
+      };
+      const fail = (message: string) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error(message));
+      };
+      const onException = (payload: { message?: string | string[] }) => {
+        const message = Array.isArray(payload.message) ? payload.message[0] : payload.message;
+        fail(message ?? "Сервер отклонил добавление видео.");
+      };
+      const timer = window.setTimeout(() => fail("Сервер не ответил. Проверьте соединение и попробуйте ещё раз."), 8000);
+
+      socket.once("exception", onException);
+      socket.emit(
+        "video:set",
+        { roomId, videoUrl },
+        (state: VideoRoomState | undefined) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          if (!state?.roomId) {
+            reject(new Error("Не удалось добавить видео в очередь."));
+            return;
+          }
           setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
-      },
-    );
+          resolve();
+        },
+      );
+    });
   }
 
   function controlVideo(action: "play" | "pause" | "seek", position?: number) {
@@ -2294,7 +2321,9 @@ export default function Home() {
         activeSection={
           profileOpen
             ? "profile"
-            : radioView
+            : directsOpen
+              ? "directs"
+              : radioView
               ? "radio"
               : adminOpen
                 ? "admin"
@@ -2342,6 +2371,16 @@ export default function Home() {
         <GuestRegistrationModal
           onAuthenticated={handleAuthenticated}
           onClose={() => setGuestRegistrationOpen(false)}
+        />
+      )}
+      {directsOpen && (
+        <DirectsModal
+          conversations={conversations}
+          onOpenDialog={(person) => {
+            setDirectsOpen(false);
+            void openDialog(person);
+          }}
+          onClose={() => setDirectsOpen(false)}
         />
       )}
       <section className="app">

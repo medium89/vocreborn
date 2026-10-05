@@ -680,6 +680,7 @@ export class ChatService {
     if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
     await this.assertVideoMembership(roomId, userId);
     const source = this.normalizeVideoUrl(videoUrl);
+    const initialTitle = this.videoQueueLabel(source);
     const { settings } = await this.settings.read();
     const price = settings.videoQueuePrice;
     const itemId = randomUUID();
@@ -706,7 +707,7 @@ export class ChatService {
       }
 
       await tx.videoRoomQueueItem.create({
-        data: { id: itemId, roomId, ownerId: userId, provider: source.provider, videoUrl: source.url },
+        data: { id: itemId, roomId, ownerId: userId, provider: source.provider, videoUrl: source.url, title: initialTitle },
       });
 
       const current = await tx.videoRoomSession.findUnique({ where: { roomId } });
@@ -866,6 +867,23 @@ export class ChatService {
   private async assertVideoMembership(roomId: string, userId: string) {
     const member = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
     if (!member) throw new ForbiddenException("Сначала войдите в комнату");
+  }
+
+  private videoQueueLabel(source: { provider: string; url: string }) {
+    const url = new URL(source.url);
+    if (source.provider === "youtube") {
+      const host = url.hostname.toLowerCase().replace(/^www\./, "");
+      const id = host === "youtu.be"
+        ? url.pathname.split("/").filter(Boolean)[0]
+        : url.searchParams.get("v") ?? url.pathname.match(/\/(?:shorts|embed)\/([^/?#]+)/)?.[1];
+      return id ? "YouTube · " + id : "YouTube";
+    }
+    if (source.provider === "rutube") {
+      const id = url.pathname.match(/\/(?:video|shorts)\/([^/?#]+)/)?.[1];
+      return id ? "Rutube · " + id.slice(0, 16) : "Rutube";
+    }
+    const id = (url.pathname + url.search).match(/video(-?\d+_\d+)/i)?.[1];
+    return id ? "VK Видео · " + id : "VK Видео";
   }
 
   private normalizeVideoUrl(value: string) {

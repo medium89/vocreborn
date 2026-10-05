@@ -131,7 +131,7 @@ export function PeoplePanel({ className = "", showMobileToggle = true, people, r
   }, [mobileOpen]);
   return <>
     {mobileOpen && <button type="button" className="mobile-people-backdrop" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)} />}
-    <aside className={"people-panel " + className + (mobileOpen ? " mobile-open" : "")} onClickCapture={(event) => { if ((event.target as HTMLElement).closest("button")) setMobileOpen(false); }}>
+    <aside className={"people-panel " + className + (mobileOpen ? " mobile-open" : "")}>
     <div className="panel-title"><div><h3>Онлайн в чате</h3></div><span className="online-count">{visiblePeople.length}</span><button type="button" className="mobile-people-close" aria-label="Закрыть список участников" onClick={() => setMobileOpen(false)}><X size={18} /></button></div>
     <div className="people-list">
       {groups.map((group) => {
@@ -141,11 +141,11 @@ export function PeoplePanel({ className = "", showMobileToggle = true, people, r
         if (members.length === 0) return null;
         return <section className="people-group" key={group.gender}>
           <div className="people-group-title"><span>{group.title}</span><small title={group.description}>{members.length}</small></div>
-          {members.map((person) => <PersonRow key={person.id ?? person.name} person={person} currentUserId={currentUserId} canModerate={canModerate} muted={Boolean(person.id && mutedPeople.has(person.id))} preview={privateMessagePreview && privateMessagePreview.peerId === person.id ? privateMessagePreview.text : null} onClick={onOpenDialog} onMention={onMention} onOpenPrivate={onOpenPrivate} onModerate={onModerate} onReport={onReport} onToggleMute={onToggleMute} />)}
+          {members.map((person) => <PersonRow key={person.id ?? person.name} person={person} currentUserId={currentUserId} canModerate={canModerate} muted={Boolean(person.id && mutedPeople.has(person.id))} preview={privateMessagePreview && privateMessagePreview.peerId === person.id ? privateMessagePreview.text : null} onClick={(target) => { setMobileOpen(false); onOpenDialog(target); }} onMention={(target) => { setMobileOpen(false); onMention(target); }} onOpenPrivate={(target) => { setMobileOpen(false); onOpenPrivate(target); }} onModerate={onModerate} onReport={onReport} onToggleMute={onToggleMute} />)}
         </section>;
       })}
     </div>
-    <div className="room-switcher"><div className="room-switcher-head"><span>Комнаты</span><button onClick={onOpenRooms}>все</button></div>
+    <div className="room-switcher"><div className="room-switcher-head"><span>Комнаты</span><button onClick={() => { setMobileOpen(false); onOpenRooms(); }}>все</button></div>
       {rooms.map((room) => <button className={"room-row " + (room.id === roomId ? "selected" : "")} key={room.id} onClick={() => onChangeRoom(room.id)}><span className={"room-dot " + room.tone} /><span>{room.name}</span><small>{room.online}</small></button>)}
     </div>
   </aside></>;

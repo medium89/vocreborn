@@ -43,7 +43,7 @@ type ConversationProps = {
   onDraftChange: (value: string) => void; onSend: FormEventHandler<HTMLFormElement>; onLoadOlder: () => void; onShowLatest: () => void;
   onFileSelect: (file: File) => void; onRemoveAttachment: () => void; onGifSelect: (gif: ChatGif) => void; onRemoveGif: () => void;
   onDelete: (messageId: string) => void; onReply: (message: Message) => void; onCancelReply: () => void; onReport: (messageId: string, label: string) => void;
-  onReact: (messageId: string, type: ReactionType) => Promise<void>; videoSession?: VideoRoomState; onSetVideoSource: (videoUrl: string) => void; onVideoControl: (action: "play" | "pause" | "seek", position?: number) => void; onVideoQueueRemove: (itemId: string) => void; onVideoEnded: (itemId: string) => void; onVideoTitle: (itemId: string, title: string) => void; onVideoChatSend: (body: string) => Promise<void>; onExitDialog: () => void; onRevealMessage: (message: Message) => void; onNotice: (message: string) => void; mentionCandidates: Person[]; mentionFocusRequest: number;
+  onReact: (messageId: string, type: ReactionType) => Promise<void>; videoSession?: VideoRoomState; onSetVideoSource: (videoUrl: string) => Promise<void>; onVideoControl: (action: "play" | "pause" | "seek", position?: number) => void; onVideoQueueRemove: (itemId: string) => void; onVideoEnded: (itemId: string) => void; onVideoTitle: (itemId: string, title: string) => void; onVideoChatSend: (body: string) => Promise<void>; onExitDialog: () => void; onRevealMessage: (message: Message) => void; onNotice: (message: string) => void; mentionCandidates: Person[]; mentionFocusRequest: number;
 };
 
 function localTime(value?: string, fallback = "") {
@@ -181,6 +181,7 @@ function RoomInfoModal({ room, onClose }: { room: Room; onClose: () => void }) {
 export function Conversation({ videoSession, onSetVideoSource, onVideoControl, onVideoQueueRemove, onVideoEnded, onVideoTitle, onVideoChatSend, currentUserId, currentUserRole, canUseAdminVoice, adminVoice, onAdminVoiceChange, appearance, onAppearanceChanged, room, dialog, dialogId, directConversations, onOpenDirect, onDismissDirect, messages, draft, muted, attachment, gif, replyingTo, uploadingAttachment, canDelete, canReport, canReact, hasOlder, hasNewer, loadingOlder, reconnecting, notice, editingMessage, onEdit, onEditLast, onCancelEdit, onDraftChange, onSend, onLoadOlder, onShowLatest, onFileSelect, onRemoveAttachment, onGifSelect, onRemoveGif, onDelete, onReply, onCancelReply, onReport, onReact, onExitDialog, onRevealMessage, onNotice, mentionCandidates, mentionFocusRequest, radioControlsRef }: ConversationProps) {
   const { theme, toggleTheme } = useSiteTheme();
   const [reactionMenu, setReactionMenu] = useState<string | null>(null);
+  const [messageActionsMenu, setMessageActionsMenu] = useState<string | number | null>(null);
   const [deleteHoldingId, setDeleteHoldingId] = useState<string | null>(null);
   const deleteHoldTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -192,6 +193,15 @@ export function Conversation({ videoSession, onSetVideoSource, onVideoControl, o
     document.addEventListener("pointerdown", closeOnOutside);
     return () => document.removeEventListener("pointerdown", closeOnOutside);
   }, [reactionMenu]);
+  useEffect(() => {
+    if (messageActionsMenu === null) return;
+    const closeOnOutside = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element) || !target.closest(".message-actions, .message-actions-mobile-toggle, .reaction-picker")) setMessageActionsMenu(null);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    return () => document.removeEventListener("pointerdown", closeOnOutside);
+  }, [messageActionsMenu]);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordingStreamRef = useRef<MediaStream | null>(null);
   const meterFrameRef = useRef<number | null>(null);
@@ -564,7 +574,8 @@ export function Conversation({ videoSession, onSetVideoSource, onVideoControl, o
               return option ? <button type="button" className={"reaction-pill " + (reaction.mine ? "mine" : "")} key={reaction.type} title={option.label} aria-label={option.label + ": " + reaction.count} onClick={() => typeof message.id === "string" && void react(message.id, reaction.type)}><span>{option.emoji}</span><b>{reaction.count}</b></button> : null;
             })}</div>}
           </div>
-          <div className="message-actions">
+          <button type="button" className="message-actions-mobile-toggle" aria-label="Действия с сообщением" title="Действия" aria-expanded={messageActionsMenu === message.id} onClick={() => setMessageActionsMenu((current) => current === message.id ? null : message.id)}><Ellipsis size={17} /></button>
+          <div className={"message-actions" + (messageActionsMenu === message.id ? " mobile-open" : "")}>
             {message.quizKind && !hideQuizMessages && <button type="button" className="reply-toggle" aria-label="Скрыть сообщения викторины" title="Скрыть сообщения викторины" onClick={toggleQuizMessages}><Megaphone size={14} /></button>}
             {typeof message.id === "string" && <button type="button" className="reply-toggle" aria-label="Ответить на сообщение" title="Ответить на сообщение" onClick={() => onReply(message)}><Reply size={14} /></button>}
             {message.mine && message.body && !message.system && !message.quizKind && !message.adminVoice && typeof message.id === "string" && new Date(message.createdAt ?? 0).getTime() + 180000 >= Date.now() && <button type="button" className="edit-message" aria-label="Редактировать сообщение" title="Редактировать сообщение" onClick={() => onEdit(message)}><Pencil size={13} /></button>}

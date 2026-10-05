@@ -127,6 +127,7 @@ test('Video source reaches another room member and a late join gets the current 
   assert.equal(receivedState.videoUrl, source);
   assert.equal(receivedState.currentItemId, ack.currentItemId);
   assert.equal(receivedState.queue.length, 1);
+  assert.equal(receivedState.queue[0].title, 'YouTube · L0VnVHPHWEs');
 
   const late = await connect(await account('realtime_video_late'));
   const snapshotEvent = new Promise((resolve, reject) => {

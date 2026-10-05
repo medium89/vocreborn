@@ -10,7 +10,7 @@ type Props = {
   currentUserRole?: UserRole;
   messages: Message[];
   openSourceRequest?: number;
-  onSetSource: (videoUrl: string) => void;
+  onSetSource: (videoUrl: string) => Promise<void>;
   onControl: (action: "play" | "pause" | "seek", position?: number) => void;
   onRemoveItem: (itemId: string) => void;
   onEnded: (itemId: string) => void;
@@ -636,8 +636,11 @@ function providerLabel(provider: VideoRoomState["provider"]) {
 }
 
 function VideoQueue({ session, currentUserId, isStaff, onRemove }: { session?: VideoRoomState; currentUserId?: string; isStaff: boolean; onRemove: Props["onRemoveItem"] }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
   const queue = session?.queue ?? [];
+  useEffect(() => {
+    setOpen(!window.matchMedia("(max-width: 700px)").matches);
+  }, []);
   return <section className={"video-room-queue" + (open ? " open" : "")}>
     <button type="button" className="video-room-queue-head" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
       <span><ListVideo size={15} /><strong>Очередь</strong><b>{queue.length}</b></span>
@@ -667,6 +670,8 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
   const [videoTitle, setVideoTitle] = useState("Видео");
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceValue, setSourceValue] = useState("");
+  const [sourceBusy, setSourceBusy] = useState(false);
+  const [sourceError, setSourceError] = useState("");
   const [customSize, setCustomSize] = useState<{ width: number; height: number } | null>(null);
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
@@ -694,7 +699,7 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
   }
 
   function startResize(event: React.PointerEvent<HTMLButtonElement>) {
-    if (fullscreen || collapsed || !rootRef.current) return;
+    if (fullscreen || collapsed || window.innerWidth <= 700 || !rootRef.current) return;
     event.preventDefault();
     const rect = rootRef.current.getBoundingClientRect();
     resizeStateRef.current = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
@@ -704,10 +709,12 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
   function resize(event: React.PointerEvent<HTMLButtonElement>) {
     const start = resizeStateRef.current;
     if (!start || fullscreen) return;
-    const maxWidth = Math.max(380, window.innerWidth - 36);
-    const maxHeight = Math.max(280, window.innerHeight - 110);
-    const width = Math.min(maxWidth, Math.max(380, start.width + (start.x - event.clientX)));
-    const height = Math.min(maxHeight, Math.max(280, start.height + (start.y - event.clientY)));
+    const minWidth = Math.min(380, Math.max(280, window.innerWidth - 24));
+    const maxWidth = Math.max(minWidth, window.innerWidth - 24);
+    const minHeight = Math.min(280, Math.max(220, window.innerHeight - 96));
+    const maxHeight = Math.max(minHeight, window.innerHeight - 96);
+    const width = Math.min(maxWidth, Math.max(minWidth, start.width + (start.x - event.clientX)));
+    const height = Math.min(maxHeight, Math.max(minHeight, start.height + (start.y - event.clientY)));
     setCustomSize({ width: Math.round(width), height: Math.round(height) });
   }
 
@@ -719,19 +726,31 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
   function openSource() {
     setCollapsed(false);
     setSourceValue("");
+    setSourceError("");
     setSourceOpen(true);
   }
 
   function closeSource() {
+    if (sourceBusy) return;
     setSourceOpen(false);
+    setSourceError("");
   }
 
-  function submitSource(event: React.FormEvent<HTMLFormElement>) {
+  async function submitSource(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const value = sourceValue.trim();
-    if (!value) return;
-    onSetSource(value);
-    setSourceOpen(false);
+    if (!value || sourceBusy) return;
+    setSourceBusy(true);
+    setSourceError("");
+    try {
+      await onSetSource(value);
+      setSourceOpen(false);
+      setSourceValue("");
+    } catch (cause) {
+      setSourceError(cause instanceof Error ? cause.message : "Не удалось добавить видео в очередь.");
+    } finally {
+      setSourceBusy(false);
+    }
   }
 
   useEffect(() => {
@@ -739,6 +758,18 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
     document.addEventListener("fullscreenchange", syncFullscreen);
     return () => document.removeEventListener("fullscreenchange", syncFullscreen);
   }, []);
+  useEffect(() => {
+    const keepInsideViewport = () => {
+      if (window.innerWidth <= 700) {
+        setCustomSize(null);
+        resizeStateRef.current = null;
+      }
+    };
+    keepInsideViewport();
+    window.addEventListener("resize", keepInsideViewport);
+    return () => window.removeEventListener("resize", keepInsideViewport);
+  }, []);
+
 
   useEffect(() => {
     if (openSourceRequest <= 0) return;
@@ -795,10 +826,11 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
     </div>
     {sourceOpen && <div className="video-source-backdrop" onMouseDown={closeSource}>
       <form className="video-source-modal" onSubmit={submitSource} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="video-source-modal-head"><div><strong>Добавить видео в очередь</strong><small>YouTube, VK Видео или Rutube</small></div><button type="button" className="video-source-close" onClick={closeSource} aria-label="Закрыть">×</button></div>
-        <input ref={sourceInputRef} type="url" inputMode="url" placeholder="https://..." value={sourceValue} onChange={(event) => setSourceValue(event.target.value)} required />
+        <div className="video-source-modal-head"><div><strong>Добавить видео в очередь</strong><small>YouTube, VK Видео или Rutube</small></div><button type="button" className="video-source-close" disabled={sourceBusy} onClick={closeSource} aria-label="Закрыть">×</button></div>
+        <input ref={sourceInputRef} type="url" inputMode="url" placeholder="https://..." value={sourceValue} disabled={sourceBusy} onChange={(event) => setSourceValue(event.target.value)} required />
+        {sourceError && <div className="video-source-error" role="alert">{sourceError}</div>}
         <div className="video-source-price">{queuePrice > 0 ? <><Coins size={14} /><span>{queuePrice} кредитов за добавление</span></> : <span>Добавление бесплатно</span>}</div>
-        <div className="video-source-actions"><button type="button" className="secondary" onClick={closeSource}>Отмена</button><button type="submit" disabled={!sourceValue.trim()}>Добавить в очередь</button></div>
+        <div className="video-source-actions"><button type="button" className="secondary" disabled={sourceBusy} onClick={closeSource}>Отмена</button><button type="submit" disabled={!sourceValue.trim() || sourceBusy}>{sourceBusy ? "Добавляем…" : "Добавить в очередь"}</button></div>
       </form>
     </div>}
   </aside>;
