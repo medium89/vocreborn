@@ -1826,6 +1826,42 @@ export default function Home() {
     }
   }
 
+  async function sendVideoRoomMessage(value: string) {
+    const body = value.trim();
+    if (!body || !user) return;
+    if (muted) throw new Error("Вы временно не можете отправлять сообщения.");
+    if (
+      user.chaosUntil &&
+      new Date(user.chaosUntil).getTime() > Date.now()
+    ) {
+      throw new Error(
+        "Хаос: общий чат недоступен до " +
+          new Date(user.chaosUntil).toLocaleString("ru-RU") +
+          ".",
+      );
+    }
+
+    const requestId = createRequestId();
+    ownRequests.current.add(requestId);
+    try {
+      const result = await postRoomMessage(roomId, body, requestId);
+      ownRequests.current.delete(requestId);
+      if (roomHasNewerRef.current[roomId]) void showLatest();
+      else
+        setMessages((old) => ({
+          ...old,
+          [roomId]: appendUnique(old[roomId] ?? [], {
+            ...result.message,
+            mine: true,
+          }),
+        }));
+      void refreshEconomy(user.id);
+    } catch (reason) {
+      ownRequests.current.delete(requestId);
+      throw reason instanceof Error ? reason : new Error("Сообщение не отправлено.");
+    }
+  }
+
   function setPresenceStatus(status: "online" | "dnd") {
     presenceStatusRef.current = status;
     socketRef.current?.emit("presence:update", { status });
@@ -2398,6 +2434,7 @@ export default function Home() {
                 videoSession={videoSessions[roomId]}
                 onSetVideoSource={setVideoSource}
                 onVideoControl={controlVideo}
+                onVideoChatSend={sendVideoRoomMessage}
                 onRevealMessage={revealMessage}
                 onReport={(messageId, label) =>
                   setReportTarget({ messageId, label })

@@ -2685,3 +2685,58 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   .video-room-player:fullscreen .video-room-body{grid-template-columns:150px minmax(0,1fr)}
   .video-room-player:fullscreen.chat-collapsed .video-room-body{grid-template-columns:36px minmax(0,1fr)}
 }
+
+/* Video room refinements: permanent night theme, fullscreen chat and window-like resize. */
+.video-room-player{
+  color-scheme:dark;
+  --ink:#f1f2e7;
+  --muted:#a8b7a5;
+  --line:#374a38;
+  --brand:#dce98d;
+  --brand-strong:#c9dc75;
+  --brand-soft:#273a25;
+  --surface:#0d1912;
+  background:#0d1912;
+  color:var(--ink);
+  border-color:#374a38;
+  box-shadow:0 18px 48px #0008;
+}
+.video-room-player header{background:linear-gradient(110deg,#101d14,#1b2d1d);border-bottom:1px solid #374a38}
+.video-room-player header>strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f1f2e7}
+.video-room-player button{background:#273a25;color:#dce98d}
+.video-room-player button:hover:not(:disabled){background:#334a2e}
+.video-room-player button:disabled{opacity:.45}
+.video-room-player .video-room-controls,.video-room-player .video-room-chat,.video-room-player .video-source-modal{background:#101e16;color:#f1f2e7;border-color:#374a38}
+.video-room-player .video-room-body{grid-template-columns:minmax(0,1fr);background:#050705}
+.video-room-player .video-room-video-pane{background:#050705}
+.video-room-player .video-room-empty{background:#090d0a;color:#a8b7a5}
+.video-room-player .video-source-modal input,.video-room-player .video-room-chat-composer input{background:#17251c;color:#f1f2e7;border-color:#374a38}
+.video-room-player .video-source-modal input::placeholder,.video-room-player .video-room-chat-composer input::placeholder{color:#87988b}
+.video-room-player .video-source-actions button.secondary{background:#17251c;color:#d5dfd8;border-color:#374a38}
+.video-room-player .video-room-chat-message:hover{background:#273a25}
+.video-room-player .video-room-chat-message.mine{background:#263a25}
+.video-room-player .video-room-chat-message strong{color:#edf3e8}
+.video-room-player .video-room-chat-message span,.video-room-player .video-room-chat-empty{color:#a8b7a5}
+.video-room-player:not(:fullscreen) .video-room-chat{display:none}
+.video-room-player:fullscreen .video-room-body{grid-template-columns:240px minmax(0,1fr)}
+.video-room-player:fullscreen.chat-collapsed .video-room-body{grid-template-columns:42px minmax(0,1fr)}
+.video-room-player.resized{display:flex;flex-direction:column;max-width:none}
+.video-room-player.resized .video-room-body{flex:1;min-height:0;max-height:none}
+.video-room-player.resized .video-room-video-pane{min-height:0}
+.video-room-player.resized .video-room-media{flex:1;min-height:0;height:auto;aspect-ratio:auto}
+.video-room-player.resized .video-room-media>div,.video-room-player.resized .video-room-media iframe,.video-room-player.resized .video-room-media>div>iframe{height:100%!important;aspect-ratio:auto}
+.video-room-player.resized .video-room-controls{flex:0 0 auto}
+.video-room-resize-handle{position:absolute;z-index:10;top:0;left:0;width:18px!important;min-width:18px!important;height:18px!important;padding:0!important;border-radius:14px 0 8px 0!important;background:linear-gradient(135deg,#dce98d 0 2px,transparent 2px 5px,#8fa35c 5px 7px,transparent 7px)!important;cursor:nwse-resize!important;touch-action:none}
+.video-room-chat-composer{display:flex;gap:6px;padding:8px;border-top:1px solid #374a38;background:#0d1912}
+.video-room-chat-composer input{min-width:0;flex:1;border:1px solid #374a38;border-radius:8px;padding:8px 9px;outline:none;font:inherit;font-size:11px}
+.video-room-chat-composer input:focus{border-color:#9dbd4d;box-shadow:0 0 0 2px #9dbd4d22}
+.video-room-chat-composer button{flex:0 0 30px;width:30px;height:30px;padding:0;font-size:17px}
+.video-room-chat-error{display:block;padding:0 8px 7px;color:#f0aaa4;font-size:10px}
+@media(max-width:700px){
+  .video-room-player:fullscreen .video-room-body{grid-template-columns:150px minmax(0,1fr)}
+  .video-room-player:fullscreen.chat-collapsed .video-room-body{grid-template-columns:36px minmax(0,1fr)}
+}
+
+/* Participant avatar preview must sit above the floating player/chat. */
+.layout:has(.conversation) .people-panel{position:relative;z-index:80;overflow-x:visible}
+.person-avatar-button .avatar-preview{z-index:90}

@@ -11,6 +11,7 @@ type Props = {
   openSourceRequest?: number;
   onSetSource: (videoUrl: string) => void;
   onControl: (action: "play" | "pause" | "seek", position?: number) => void;
+  onSendMessage: (body: string) => Promise<void>;
 };
 
 type ControlProps = {
@@ -39,6 +40,8 @@ type YouTubePlayer = {
   getCurrentTime(): number;
   getDuration(): number;
   getPlayerState(): number;
+  getVideoData?(): { title?: string };
+  unloadModule?(module: string): void;
   destroy(): void;
 };
 
@@ -58,6 +61,7 @@ type YouTubeApi = {
 };
 
 type VkState = {
+  title?: string;
   state?: string;
   volume?: number;
   muted?: boolean;
@@ -125,7 +129,7 @@ function rutubeEmbed(value: string) {
     const target = new URL("https://rutube.ru/play/embed/" + id);
     const accessKey = url.searchParams.get("p");
     if (accessKey) target.searchParams.set("p", accessKey);
-    target.searchParams.set("getPlayOptions", "duration");
+    target.searchParams.set("getPlayOptions", "duration,title");
     return target.toString();
   } catch {
     return value;
@@ -211,7 +215,7 @@ function Controls({ playing, position, duration, volume, muted, canControl, read
   </div>;
 }
 
-function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean }) {
+function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -229,13 +233,21 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
       if (cancelled || !mountRef.current) return;
       playerRef.current = new api.Player(mountRef.current, {
         videoId: id,
-        playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, fs: 0, origin: window.location.origin },
+        playerVars: { controls: 0, disablekb: 1, playsinline: 1, rel: 0, fs: 0, cc_load_policy: 0, origin: window.location.origin },
         events: {
           onReady: ({ target }) => {
             if (cancelled) return;
             const targetPosition = projectedPosition(session);
             target.seekTo(targetPosition, true);
             target.setVolume(80);
+            target.unloadModule?.("captions");
+            const title = target.getVideoData?.().title?.trim();
+            if (title) onTitle(title);
+            window.setTimeout(() => {
+              const delayedTitle = target.getVideoData?.().title?.trim();
+              if (delayedTitle) onTitle(delayedTitle);
+              target.unloadModule?.("captions");
+            }, 500);
             if (session.playing) target.playVideo(); else target.pauseVideo();
             setReady(true);
             setPosition(targetPosition);
@@ -312,7 +324,7 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
   return <><div className="video-room-media youtube"><div ref={mountRef} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
 }
 
-function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean }) {
+function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(session.playing);
@@ -340,8 +352,11 @@ function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen 
         command(session.playing ? "player:play" : "player:pause");
       } else if (message.type === "player:currentTime" && typeof data.time === "number") {
         setPosition(data.time);
-      } else if ((message.type === "player:durationChange" || message.type === "player:playOptionsLoaded") && typeof data.duration === "number") {
+      } else if ((message.type === "player:durationChange" || message.type === "player:playOptionsLoaded" || message.type === "player:playOptionLoaded") && typeof data.duration === "number") {
         setDuration(data.duration);
+        if (typeof data.title === "string" && data.title.trim()) onTitle(data.title.trim());
+      } else if ((message.type === "player:playOptionsLoaded" || message.type === "player:playOptionLoaded") && typeof data.title === "string" && data.title.trim()) {
+        onTitle(data.title.trim());
       } else if (message.type === "player:changeState" && typeof data.state === "string") {
         setPlaying(data.state === "playing");
       } else if (message.type === "player:volumeChange") {
@@ -390,7 +405,7 @@ function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen 
   return <><div className="video-room-media rutube"><iframe ref={iframeRef} src={src} title="Видео Rutube" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen onLoad={() => command("player:hideControls")} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
 }
 
-function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean }) {
+function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const playerRef = useRef<VkPlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -412,6 +427,7 @@ function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen }: {
         player = api.VideoPlayer(iframeRef.current);
         playerRef.current = player;
         const sync = (state: VkState) => {
+          if (typeof state.title === "string" && state.title.trim()) onTitle(state.title.trim());
           if (typeof state.time === "number") setPosition(state.time);
           if (typeof state.duration === "number") setDuration(state.duration);
           if (typeof state.volume === "number") setVolume(state.volume);
@@ -498,8 +514,11 @@ function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen }: {
   return <><div className="video-room-media vk"><iframe ref={iframeRef} src={src} title="Видео VK" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowFullScreen onLoad={(event) => { event.currentTarget.dataset.loaded = "1"; }} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
 }
 
-function CompactVideoChat({ messages, collapsed, onToggle }: { messages: Message[]; collapsed: boolean; onToggle: () => void }) {
+function CompactVideoChat({ messages, collapsed, onToggle, onSendMessage }: { messages: Message[]; collapsed: boolean; onToggle: () => void; onSendMessage: Props["onSendMessage"] }) {
   const listRef = useRef<HTMLDivElement | null>(null);
+  const [draft, setDraft] = useState("");
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
   const visible = messages.filter((message) => !message.system && !message.quizKind).slice(-40);
 
   useEffect(() => {
@@ -510,29 +529,63 @@ function CompactVideoChat({ messages, collapsed, onToggle }: { messages: Message
     });
   }, [collapsed, visible.length, visible.at(-1)?.id]);
 
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = draft.trim();
+    if (!body || sending) return;
+    setSending(true);
+    setError("");
+    try {
+      await onSendMessage(body);
+      setDraft("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Сообщение не отправлено.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   return <aside className={"video-room-chat" + (collapsed ? " collapsed" : "")}>
     <div className="video-room-chat-head">
       {!collapsed && <strong>Чат</strong>}
       <button type="button" onClick={onToggle} aria-label={collapsed ? "Развернуть чат" : "Свернуть чат"} title={collapsed ? "Развернуть чат" : "Свернуть чат"}>{collapsed ? "›" : "‹"}</button>
     </div>
-    {!collapsed && <div className="video-room-chat-list" ref={listRef}>
-      {visible.length === 0 ? <span className="video-room-chat-empty">Сообщений пока нет</span> : visible.map((message) => <div className={"video-room-chat-message" + (message.mine ? " mine" : "")} key={message.id}>
-        <strong>{message.author}</strong>
-        <span>{message.body || (message.gifUrl ? "GIF" : message.attachments?.length ? "Вложение" : "")}</span>
-      </div>)}
-    </div>}
+    {!collapsed && <>
+      <div className="video-room-chat-list" ref={listRef}>
+        {visible.length === 0 ? <span className="video-room-chat-empty">Сообщений пока нет</span> : visible.map((message) => <div className={"video-room-chat-message" + (message.mine ? " mine" : "")} key={message.id}>
+          <strong>{message.author}</strong>
+          <span>{message.body || (message.gifUrl ? "GIF" : message.attachments?.length ? "Вложение" : "")}</span>
+        </div>)}
+      </div>
+      <form className="video-room-chat-composer" onSubmit={submit}>
+        <input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength={2000} placeholder="Сообщение..." aria-label="Сообщение в чат" />
+        <button type="submit" disabled={!draft.trim() || sending} aria-label="Отправить сообщение" title="Отправить">{sending ? "…" : "↑"}</button>
+      </form>
+      {error && <small className="video-room-chat-error">{error}</small>}
+    </>}
   </aside>;
 }
 
-export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRequest = 0, onSetSource, onControl }: Props) {
+function providerLabel(provider: VideoRoomState["provider"]) {
+  return provider === "youtube" ? "YouTube" : provider === "rutube" ? "Rutube" : provider === "vk" ? "VK Видео" : "Видео";
+}
+
+export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRequest = 0, onSetSource, onControl, onSendMessage }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [videoTitle, setVideoTitle] = useState("Видео");
   const [sourceOpen, setSourceOpen] = useState(false);
   const [sourceValue, setSourceValue] = useState("");
+  const [customSize, setCustomSize] = useState<{ width: number; height: number } | null>(null);
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
+  const resizeStateRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   const canControl = Boolean(session?.videoUrl && session.controllerId === currentUserId);
+
+  useEffect(() => {
+    setVideoTitle(providerLabel(session?.provider ?? null));
+  }, [session?.videoUrl, session?.provider]);
 
   async function toggleFullscreen() {
     const root = rootRef.current;
@@ -542,6 +595,29 @@ export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRe
       return;
     }
     await root.requestFullscreen?.();
+  }
+
+  function startResize(event: React.PointerEvent<HTMLButtonElement>) {
+    if (fullscreen || collapsed || !rootRef.current) return;
+    event.preventDefault();
+    const rect = rootRef.current.getBoundingClientRect();
+    resizeStateRef.current = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function resize(event: React.PointerEvent<HTMLButtonElement>) {
+    const start = resizeStateRef.current;
+    if (!start || fullscreen) return;
+    const maxWidth = Math.max(380, window.innerWidth - 36);
+    const maxHeight = Math.max(280, window.innerHeight - 110);
+    const width = Math.min(maxWidth, Math.max(380, start.width + (start.x - event.clientX)));
+    const height = Math.min(maxHeight, Math.max(280, start.height + (start.y - event.clientY)));
+    setCustomSize({ width: Math.round(width), height: Math.round(height) });
+  }
+
+  function stopResize(event: React.PointerEvent<HTMLButtonElement>) {
+    resizeStateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
   function openSource() {
@@ -583,16 +659,24 @@ export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRe
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [sourceOpen]);
 
+  const titleChanged = (title: string) => {
+    const clean = title.trim();
+    if (clean) setVideoTitle(clean);
+  };
+
   const provider = !session?.videoUrl ? <p className="video-room-empty">Видео ещё не выбрано. Вставьте ссылку на YouTube, VK Видео или Rutube.</p>
-    : session.provider === "youtube" ? <YouTubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} />
-    : session.provider === "rutube" ? <RutubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} />
-    : session.provider === "vk" ? <VkVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} />
+    : session.provider === "youtube" ? <YouTubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
+    : session.provider === "rutube" ? <RutubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
+    : session.provider === "vk" ? <VkVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
     : <p className="video-room-empty">Этот источник пока не поддерживается плеером.</p>;
 
-  return <aside className={"video-room-player" + (collapsed ? " collapsed" : "") + (chatCollapsed ? " chat-collapsed" : "")} ref={rootRef}>
-    <header><strong>Совместный просмотр</strong><span><button type="button" onClick={() => setCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>Ссылка</button></span></header>
+  const style = customSize && !fullscreen && !collapsed ? { width: customSize.width, height: customSize.height } : undefined;
+
+  return <aside className={"video-room-player" + (collapsed ? " collapsed" : "") + (fullscreen && chatCollapsed ? " chat-collapsed" : "") + (customSize && !fullscreen && !collapsed ? " resized" : "")} ref={rootRef} style={style}>
+    {!fullscreen && !collapsed && <button className="video-room-resize-handle" type="button" aria-label="Изменить размер плеера" title="Потяните, чтобы изменить размер" onPointerDown={startResize} onPointerMove={resize} onPointerUp={stopResize} onPointerCancel={stopResize} />}
+    <header><strong title={videoTitle}>{videoTitle}</strong><span><button type="button" onClick={() => setCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>Ссылка</button></span></header>
     <div className="video-room-body" aria-hidden={collapsed}>
-      <CompactVideoChat messages={messages} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((value) => !value)} />
+      {fullscreen && <CompactVideoChat messages={messages} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((value) => !value)} onSendMessage={onSendMessage} />}
       <div className="video-room-video-pane">{provider}</div>
     </div>
     {sourceOpen && <div className="video-source-backdrop" onMouseDown={closeSource}>
