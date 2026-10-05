@@ -2829,3 +2829,15 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
     font-size:12px;
   }
 }
+
+/* Keep collapsed video title inside the mobile viewport and ellipsize it. */
+.video-room-player header{min-width:0}
+.video-room-player header>strong{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.video-room-player header>span{flex:0 0 auto}
+@media(max-width:700px){
+  .video-room-player.collapsed{
+    width:min(420px,calc(100vw - 20px));
+    min-width:0;
+    max-width:calc(100vw - 20px);
+  }
+}
