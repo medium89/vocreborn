@@ -666,6 +666,10 @@ function VideoQueue({ session, currentUserId, isStaff, onRemove }: { session?: V
 export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messages, openSourceRequest = 0, onSetSource, onControl, onRemoveItem, onEnded, onTitle, onSendMessage }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
+  const collapsedStorageKey = useMemo(
+    () => "tusova:video-player-collapsed:" + (currentUserId ?? "guest"),
+    [currentUserId],
+  );
   const [fullscreen, setFullscreen] = useState(false);
   const [videoTitle, setVideoTitle] = useState("Видео");
   const [sourceOpen, setSourceOpen] = useState(false);
@@ -687,6 +691,24 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
     lastReportedTitleRef.current = "";
     endedItemRef.current = null;
   }, [session?.currentItemId, session?.provider, currentQueueItem?.title]);
+  useEffect(() => {
+    try {
+      setCollapsed(window.localStorage.getItem(collapsedStorageKey) === "true");
+    } catch {
+      setCollapsed(false);
+    }
+  }, [collapsedStorageKey]);
+
+  function setPlayerCollapsed(next: boolean | ((current: boolean) => boolean)) {
+    setCollapsed((current) => {
+      const value = typeof next === "function" ? next(current) : next;
+      try {
+        window.localStorage.setItem(collapsedStorageKey, String(value));
+      } catch {}
+      return value;
+    });
+  }
+
 
   async function toggleFullscreen() {
     const root = rootRef.current;
@@ -724,7 +746,7 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
   }
 
   function openSource() {
-    setCollapsed(false);
+    setPlayerCollapsed(false);
     setSourceValue("");
     setSourceError("");
     setSourceOpen(true);
@@ -816,7 +838,7 @@ export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messa
 
   return <aside className={"video-room-player" + (collapsed ? " collapsed" : "") + (fullscreen && chatCollapsed ? " chat-collapsed" : "") + (customSize && !fullscreen && !collapsed ? " resized" : "")} ref={rootRef} style={style}>
     {!fullscreen && !collapsed && <button className="video-room-resize-handle" type="button" aria-label="Изменить размер плеера" title="Потяните, чтобы изменить размер" onPointerDown={startResize} onPointerMove={resize} onPointerUp={stopResize} onPointerCancel={stopResize} />}
-    <header><strong title={videoTitle}>{videoTitle}</strong><span><button type="button" onClick={() => setCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>В очередь</button></span></header>
+    <header><strong title={videoTitle}>{videoTitle}</strong><span><button type="button" onClick={() => setPlayerCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>В очередь</button></span></header>
     <div className="video-room-body" aria-hidden={collapsed}>
       {fullscreen && <CompactVideoChat messages={messages} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((value) => !value)} onSendMessage={onSendMessage} />}
       <div className="video-room-video-pane">
