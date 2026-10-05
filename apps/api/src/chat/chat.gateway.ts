@@ -19,7 +19,7 @@ import { SessionRevocationService } from "../security/session-revocation.service
 import { ChatService } from "./chat.service";
 import { JoinRoomDto } from "./dto/join-room.dto";
 import { UpdatePresenceDto } from "./dto/presence.dto";
-import { ControlVideoRoomDto, SetVideoRoomSourceDto } from "./dto/video-room.dto";
+import { ControlVideoRoomDto, SetVideoRoomSourceDto, VideoQueueItemDto, VideoRoomEndedDto, VideoRoomTitleDto } from "./dto/video-room.dto";
 import { SendDirectMessageDto, SendMessageDto } from "./dto/send-message.dto";
 import type { ReactionUpdate } from "./chat.types";
 
@@ -203,6 +203,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!user || !this.allowAction(client, user.id, "video", 40, 60 * 1000)) return;
     const state = await this.chat.setVideoSource(input.roomId, user.id, input.videoUrl);
     this.server.to(input.roomId).emit("video:state", state);
+    this.emitEconomyChanged(user.id);
     return state;
   }
 
@@ -210,7 +211,34 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   async controlVideo(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: ControlVideoRoomDto & { roomId: string }) {
     const user = client.data.user;
     if (!user || !this.allowAction(client, user.id, "video", 120, 60 * 1000)) return;
-    const state = await this.chat.controlVideo(input.roomId, user.id, input.action, input.position);
+    const state = await this.chat.controlVideo(input.roomId, user.id, user.role, input.action, input.position);
+    this.server.to(input.roomId).emit("video:state", state);
+    return state;
+  }
+
+  @SubscribeMessage("video:remove")
+  async removeVideo(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: VideoQueueItemDto) {
+    const user = client.data.user;
+    if (!user || !this.allowAction(client, user.id, "video", 120, 60 * 1000)) return;
+    const state = await this.chat.removeVideoQueueItem(input.roomId, user.id, user.role, input.itemId);
+    this.server.to(input.roomId).emit("video:state", state);
+    return state;
+  }
+
+  @SubscribeMessage("video:ended")
+  async videoEnded(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: VideoRoomEndedDto) {
+    const user = client.data.user;
+    if (!user || !this.allowAction(client, user.id, "video", 120, 60 * 1000)) return;
+    const state = await this.chat.finishVideo(input.roomId, user.id, user.role, input.itemId);
+    this.server.to(input.roomId).emit("video:state", state);
+    return state;
+  }
+
+  @SubscribeMessage("video:title")
+  async videoTitle(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: VideoRoomTitleDto) {
+    const user = client.data.user;
+    if (!user || !this.allowAction(client, user.id, "video", 120, 60 * 1000)) return;
+    const state = await this.chat.updateVideoTitle(input.roomId, user.id, user.role, input.itemId, input.title);
     this.server.to(input.roomId).emit("video:state", state);
     return state;
   }

@@ -125,6 +125,7 @@ enum EconomyEntryType {
   COMMUNITY_CREATION
   GIFT_PURCHASE
   COSMETIC_PURCHASE
+  VIDEO_QUEUE
 }
 
 enum DailyActivityAction {
@@ -165,6 +166,7 @@ model User {
   emailTokens     EmailToken[]
   memberships     RoomMembership[]
   createdRooms    Room[]            @relation("RoomCreator")
+  videoQueueItems VideoRoomQueueItem[] @relation("VideoQueueOwner")
   messages        Message[]         @relation("MessageAuthor")
   received        Message[]         @relation("DirectRecipient")
   mutesGiven      Mute[]            @relation("MuteModerator")
@@ -285,6 +287,7 @@ model Room {
   memberships RoomMembership[]
   messages    Message[]
   videoSession VideoRoomSession?
+  videoQueueItems VideoRoomQueueItem[]
 
   @@map("rooms")
 }
@@ -294,12 +297,29 @@ model VideoRoomSession {
   provider     String?   @db.VarChar(16)
   videoUrl     String?   @map("video_url") @db.Text
   controllerId String?   @map("controller_id") @db.Uuid
+  currentItemId String?  @map("current_item_id") @db.Uuid
   position     Float     @default(0)
   playing      Boolean   @default(false)
   updatedAt    DateTime  @updatedAt @map("updated_at")
   room         Room      @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@map("video_room_sessions")
+}
+
+model VideoRoomQueueItem {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomId    String   @map("room_id") @db.VarChar(64)
+  ownerId   String   @map("owner_id") @db.Uuid
+  provider  String   @db.VarChar(16)
+  videoUrl  String   @map("video_url") @db.Text
+  title     String   @default("") @db.VarChar(300)
+  createdAt DateTime @default(now()) @map("created_at")
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  owner     User     @relation("VideoQueueOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([roomId, createdAt, id])
+  @@index([ownerId, createdAt(sort: Desc)])
+  @@map("video_room_queue_items")
 }
 
 model RoomMembership {

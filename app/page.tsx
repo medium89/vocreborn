@@ -2105,6 +2105,41 @@ export default function Home() {
       },
     );
   }
+
+
+  function removeVideoQueueItem(itemId: string) {
+    socketRef.current?.emit(
+      "video:remove",
+      { roomId, itemId },
+      (state: VideoRoomState | undefined) => {
+        if (state?.roomId)
+          setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
+      },
+    );
+  }
+
+  function finishVideo(itemId: string) {
+    socketRef.current?.emit(
+      "video:ended",
+      { roomId, itemId },
+      (state: VideoRoomState | undefined) => {
+        if (state?.roomId)
+          setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
+      },
+    );
+  }
+
+  function updateVideoTitle(itemId: string, title: string) {
+    if (!title.trim()) return;
+    socketRef.current?.emit(
+      "video:title",
+      { roomId, itemId, title: title.trim() },
+      (state: VideoRoomState | undefined) => {
+        if (state?.roomId)
+          setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
+      },
+    );
+  }
   async function removeRoom(roomToDelete: Room) {
     await deleteRoom(roomToDelete.id);
     setRooms((old) => old.filter((item) => item.id !== roomToDelete.id));
@@ -2407,6 +2442,7 @@ export default function Home() {
               <Conversation
                 radioControlsRef={setRadioControlsTarget}
                 currentUserId={user?.id}
+                currentUserRole={user?.role}
                 canUseAdminVoice={
                   user?.role === "admin" || user?.role === "moderator"
                 }
@@ -2466,6 +2502,9 @@ export default function Home() {
                 videoSession={videoSessions[roomId]}
                 onSetVideoSource={setVideoSource}
                 onVideoControl={controlVideo}
+                onVideoQueueRemove={removeVideoQueueItem}
+                onVideoEnded={finishVideo}
+                onVideoTitle={updateVideoTitle}
                 onVideoChatSend={sendVideoRoomMessage}
                 onRevealMessage={revealMessage}
                 onReport={(messageId, label) =>

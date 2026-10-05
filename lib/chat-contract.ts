@@ -149,7 +149,8 @@ export type Room = {
   createdById?: string;
 };
 
-export type VideoRoomState = { roomId: string; provider: "youtube" | "vk" | "rutube" | null; videoUrl: string | null; controllerId: string | null; position: number; playing: boolean; updatedAt: string };
+export type VideoQueueItem = { id: string; ownerId: string; ownerName: string; provider: "youtube" | "vk" | "rutube"; videoUrl: string; title: string; createdAt: string };
+export type VideoRoomState = { roomId: string; provider: "youtube" | "vk" | "rutube" | null; videoUrl: string | null; controllerId: string | null; currentItemId: string | null; position: number; playing: boolean; updatedAt: string; queuePrice: number; queue: VideoQueueItem[] };
 export type Message = {
   quizKind?: string;
   quizRoundId?: string;
@@ -205,6 +206,9 @@ export type ClientToServerEvents = {
   "presence:active": undefined;
   "video:set": { roomId: string; videoUrl: string };
   "video:control": { roomId: string; action: "play" | "pause" | "seek"; position?: number };
+  "video:remove": { roomId: string; itemId: string };
+  "video:ended": { roomId: string; itemId: string };
+  "video:title": { roomId: string; itemId: string; title: string };
 };
 
 export type ServerToClientEvents = {

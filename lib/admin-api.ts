@@ -2,7 +2,7 @@ import { API_URL } from "./chat-api";
 export type ChatSettings = {
   registrationOpen: boolean; allowUserRooms: boolean; maintenance: boolean; allowLinks: boolean;
   maxMessageLength: number; slowModeSeconds: number; imageMaxMb: number; audioMaxMb: number;
-  initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number;
+  initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number; videoQueuePrice: number;
 };
 export type SettingsRecord = { settings: ChatSettings; version: number };
 export type SystemState = { uptimeSeconds: number; databaseMs: number; memoryMb: number; diskFreeMb: number | null; environment: string; modules: { radio: boolean; quiz: boolean; testBots: boolean } };

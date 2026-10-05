@@ -8,12 +8,14 @@ export const DEFAULT_SETTINGS = {
   imageMaxMb: 20, audioMaxMb: 8,
   initialCredits: 20, firstMessageReward: 5, firstReplyReward: 3,
   profileCommentReward: 4, photoLikeReward: 2, profilePostLikeReward: 2,
+  videoQueuePrice: 0,
 };
 export type ChatSettings = typeof DEFAULT_SETTINGS;
 const ranges: Partial<Record<keyof ChatSettings, [number, number]>> = {
   maxMessageLength: [10, 1000], slowModeSeconds: [0, 3600], imageMaxMb: [1, 20], audioMaxMb: [1, 8],
   initialCredits: [0, 100000], firstMessageReward: [0, 1000], firstReplyReward: [0, 1000],
   profileCommentReward: [0, 1000], photoLikeReward: [0, 1000], profilePostLikeReward: [0, 1000],
+  videoQueuePrice: [0, 100000],
 };
 
 @Injectable()

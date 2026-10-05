@@ -109,7 +109,7 @@ export function AdminModal({
     [usersRefresh, setUsersRefresh] = useState(0),
     [usersLoading, setUsersLoading] = useState(false),
     [error, setError] = useState("");
-  const [economyTab, setEconomyTab] = useState<"rewards" | "ledger">("rewards");
+  const [economyTab, setEconomyTab] = useState<"rewards" | "video" | "ledger">("rewards");
   async function load() {
     setError("");
     try {
@@ -451,6 +451,7 @@ export function AdminModal({
               {(
                 [
                   ["rewards", "Награды"],
+                  ["video", "Видео"],
                   ["ledger", "Операции"],
                 ] as const
               ).map(([id, label]) => (
@@ -474,6 +475,11 @@ export function AdminModal({
                   "photoLikeReward",
                   "profilePostLikeReward",
                 ]}
+              />
+            ) : economyTab === "video" ? (
+              <AdminSettingsPanel
+                title="Платные видео"
+                keys={["videoQueuePrice"]}
               />
             ) : (
               <AdminEconomyLedger />

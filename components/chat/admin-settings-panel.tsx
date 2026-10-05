@@ -18,6 +18,7 @@ const fields: Record<keyof ChatSettings, { label: string; hint: string; min?: nu
   profileCommentReward: { label: "Комментарий в профиле", hint: "Ежедневная награда за участие.", min: 0, max: 1000 },
   photoLikeReward: { label: "Лайк фотографии", hint: "Ежедневная награда, не за каждый лайк.", min: 0, max: 1000 },
   profilePostLikeReward: { label: "Лайк записи профиля", hint: "Ежедневная награда. День считается по UTC; 0 отключает награду.", min: 0, max: 1000 },
+  videoQueuePrice: { label: "Добавление видео в очередь", hint: "Цена одного добавления в видеокомнате. 0 - бесплатно. Списывается при постановке ролика в очередь.", min: 0, max: 100000 },
 };
 export function AdminSettingsPanel({ title, keys }: { title: string; keys: Array<keyof ChatSettings> }) {
   const [record, setRecord] = useState<SettingsRecord | null>(null);

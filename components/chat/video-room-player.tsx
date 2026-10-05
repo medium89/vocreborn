@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Maximize2, Minimize2, Pause, Play, Volume2, VolumeX } from "lucide-react";
-import type { Message, VideoRoomState } from "@/lib/chat-contract";
+import { Coins, ListVideo, Maximize2, Minimize2, Pause, Play, Trash2, Volume2, VolumeX } from "lucide-react";
+import type { Message, UserRole, VideoRoomState } from "@/lib/chat-contract";
 
 type Props = {
   session?: VideoRoomState;
   currentUserId?: string;
+  currentUserRole?: UserRole;
   messages: Message[];
   openSourceRequest?: number;
   onSetSource: (videoUrl: string) => void;
   onControl: (action: "play" | "pause" | "seek", position?: number) => void;
+  onRemoveItem: (itemId: string) => void;
+  onEnded: (itemId: string) => void;
+  onTitle: (itemId: string, title: string) => void;
   onSendMessage: (body: string) => Promise<void>;
 };
 
@@ -57,7 +61,7 @@ type YouTubeApi = {
       };
     },
   ) => YouTubePlayer;
-  PlayerState: { PLAYING: number; PAUSED: number };
+  PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
 };
 
 type VkState = {
@@ -215,7 +219,7 @@ function Controls({ playing, position, duration, volume, muted, canControl, read
   </div>;
 }
 
-function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
+function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle, onEnded }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void; onEnded: () => void }) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const playerRef = useRef<YouTubePlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -256,6 +260,7 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
           onStateChange: ({ data }) => {
             if (data === api.PlayerState.PLAYING) setPlaying(true);
             if (data === api.PlayerState.PAUSED) setPlaying(false);
+            if (data === api.PlayerState.ENDED) { setPlaying(false); if (canControl) onEnded(); }
           },
         },
       });
@@ -324,7 +329,7 @@ function YouTubeVideo({ session, canControl, onControl, onFullscreen, fullscreen
   return <><div className="video-room-media youtube"><div ref={mountRef} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
 }
 
-function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
+function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle, onEnded }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void; onEnded: () => void }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [ready, setReady] = useState(false);
   const [playing, setPlaying] = useState(session.playing);
@@ -359,6 +364,7 @@ function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen,
         onTitle(data.title.trim());
       } else if (message.type === "player:changeState" && typeof data.state === "string") {
         setPlaying(data.state === "playing");
+        if (data.state === "ended" && canControl) onEnded();
       } else if (message.type === "player:volumeChange") {
         if (typeof data.volume === "number") setVolume(data.volume);
         if (typeof data.muted === "boolean") setMuted(data.muted);
@@ -405,7 +411,7 @@ function RutubeVideo({ session, canControl, onControl, onFullscreen, fullscreen,
   return <><div className="video-room-media rutube"><iframe ref={iframeRef} src={src} title="Видео Rutube" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen onLoad={() => command("player:hideControls")} /></div><Controls playing={playing} position={position} duration={duration} volume={volume} muted={muted} canControl={canControl} ready={ready} onToggle={toggle} onSeek={seek} onVolume={changeVolume} onMute={toggleMute} onFullscreen={onFullscreen} fullscreen={fullscreen} /></>;
 }
 
-function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void }) {
+function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen, onTitle, onEnded }: { session: VideoRoomState; canControl: boolean; onControl: Props["onControl"]; onFullscreen: () => void; fullscreen: boolean; onTitle: (title: string) => void; onEnded: () => void }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const playerRef = useRef<VkPlayer | null>(null);
   const [ready, setReady] = useState(false);
@@ -434,7 +440,8 @@ function VkVideo({ session, canControl, onControl, onFullscreen, fullscreen, onT
           if (typeof state.muted === "boolean") setMuted(state.muted);
           if (state.state) setPlaying(state.state === "playing");
         };
-        ["inited", "timeupdate", "volumechange", "started", "resumed", "paused", "ended"].forEach((event) => player?.on(event, sync));
+        ["inited", "timeupdate", "volumechange", "started", "resumed", "paused"].forEach((event) => player?.on(event, sync));
+        player?.on("ended", (state) => { sync(state); setPlaying(false); if (canControl) onEnded(); });
         window.setTimeout(() => {
           if (!player || cancelled) return;
           const target = projectedPosition(session);
@@ -570,7 +577,32 @@ function providerLabel(provider: VideoRoomState["provider"]) {
   return provider === "youtube" ? "YouTube" : provider === "rutube" ? "Rutube" : provider === "vk" ? "VK Видео" : "Видео";
 }
 
-export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRequest = 0, onSetSource, onControl, onSendMessage }: Props) {
+function VideoQueue({ session, currentUserId, isStaff, onRemove }: { session?: VideoRoomState; currentUserId?: string; isStaff: boolean; onRemove: Props["onRemoveItem"] }) {
+  const [open, setOpen] = useState(true);
+  const queue = session?.queue ?? [];
+  return <section className={"video-room-queue" + (open ? " open" : "")}>
+    <button type="button" className="video-room-queue-head" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+      <span><ListVideo size={15} /><strong>Очередь</strong><b>{queue.length}</b></span>
+      <small>{open ? "Скрыть" : "Показать"}</small>
+    </button>
+    {open && <div className="video-room-queue-list">
+      {queue.length === 0 ? <p>Очередь пока пуста.</p> : queue.map((item, index) => {
+        const current = item.id === session?.currentItemId;
+        const canRemove = item.ownerId === currentUserId || isStaff;
+        return <article className={current ? "current" : ""} key={item.id}>
+          <span className="video-room-queue-index">{index + 1}</span>
+          <span className="video-room-queue-copy">
+            <strong title={item.title || providerLabel(item.provider)}>{item.title || providerLabel(item.provider)}</strong>
+            <small>{item.ownerName}{current ? " · Сейчас" : ""}</small>
+          </span>
+          {canRemove && <button type="button" className="video-room-queue-remove" aria-label={"Удалить из очереди: " + (item.title || providerLabel(item.provider))} title={current ? "Удалить текущее видео" : "Удалить из очереди"} onClick={() => onRemove(item.id)}><Trash2 size={14} /></button>}
+        </article>;
+      })}
+    </div>}
+  </section>;
+}
+
+export function VideoRoomPlayer({ session, currentUserId, currentUserRole, messages, openSourceRequest = 0, onSetSource, onControl, onRemoveItem, onEnded, onTitle, onSendMessage }: Props) {
   const [collapsed, setCollapsed] = useState(false);
   const [chatCollapsed, setChatCollapsed] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
@@ -581,11 +613,17 @@ export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRe
   const sourceInputRef = useRef<HTMLInputElement | null>(null);
   const rootRef = useRef<HTMLElement | null>(null);
   const resizeStateRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
-  const canControl = Boolean(session?.videoUrl && session.controllerId === currentUserId);
+  const lastReportedTitleRef = useRef("");
+  const endedItemRef = useRef<string | null>(null);
+  const isStaff = currentUserRole === "admin" || currentUserRole === "moderator";
+  const canControl = Boolean(session?.videoUrl && (session.controllerId === currentUserId || isStaff));
+  const currentQueueItem = session?.queue.find((item) => item.id === session.currentItemId);
 
   useEffect(() => {
-    setVideoTitle(providerLabel(session?.provider ?? null));
-  }, [session?.videoUrl, session?.provider]);
+    setVideoTitle(currentQueueItem?.title || providerLabel(session?.provider ?? null));
+    lastReportedTitleRef.current = "";
+    endedItemRef.current = null;
+  }, [session?.currentItemId, session?.provider, currentQueueItem?.title]);
 
   async function toggleFullscreen() {
     const root = rootRef.current;
@@ -622,7 +660,7 @@ export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRe
 
   function openSource() {
     setCollapsed(false);
-    setSourceValue(session?.videoUrl ?? "");
+    setSourceValue("");
     setSourceOpen(true);
   }
 
@@ -661,29 +699,48 @@ export function VideoRoomPlayer({ session, currentUserId, messages, openSourceRe
 
   const titleChanged = (title: string) => {
     const clean = title.trim();
-    if (clean) setVideoTitle(clean);
+    if (!clean) return;
+    setVideoTitle(clean);
+    const itemId = session?.currentItemId;
+    if (!itemId || !canControl) return;
+    const fingerprint = itemId + ":" + clean;
+    if (lastReportedTitleRef.current === fingerprint || currentQueueItem?.title === clean) return;
+    lastReportedTitleRef.current = fingerprint;
+    onTitle(itemId, clean);
   };
 
-  const provider = !session?.videoUrl ? <p className="video-room-empty">Видео ещё не выбрано. Вставьте ссылку на YouTube, VK Видео или Rutube.</p>
-    : session.provider === "youtube" ? <YouTubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
-    : session.provider === "rutube" ? <RutubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
-    : session.provider === "vk" ? <VkVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} />
+  const finishCurrent = () => {
+    const itemId = session?.currentItemId;
+    if (!itemId || !canControl || endedItemRef.current === itemId) return;
+    endedItemRef.current = itemId;
+    onEnded(itemId);
+  };
+
+  const provider = !session?.videoUrl ? <p className="video-room-empty">Очередь видео пуста. Добавьте ссылку на YouTube, VK Видео или Rutube.</p>
+    : session.provider === "youtube" ? <YouTubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} onEnded={finishCurrent} />
+    : session.provider === "rutube" ? <RutubeVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} onEnded={finishCurrent} />
+    : session.provider === "vk" ? <VkVideo session={session} canControl={canControl} onControl={onControl} onFullscreen={() => void toggleFullscreen()} fullscreen={fullscreen} onTitle={titleChanged} onEnded={finishCurrent} />
     : <p className="video-room-empty">Этот источник пока не поддерживается плеером.</p>;
 
   const style = customSize && !fullscreen && !collapsed ? { width: customSize.width, height: customSize.height } : undefined;
+  const queuePrice = session?.queuePrice ?? 0;
 
   return <aside className={"video-room-player" + (collapsed ? " collapsed" : "") + (fullscreen && chatCollapsed ? " chat-collapsed" : "") + (customSize && !fullscreen && !collapsed ? " resized" : "")} ref={rootRef} style={style}>
     {!fullscreen && !collapsed && <button className="video-room-resize-handle" type="button" aria-label="Изменить размер плеера" title="Потяните, чтобы изменить размер" onPointerDown={startResize} onPointerMove={resize} onPointerUp={stopResize} onPointerCancel={stopResize} />}
-    <header><strong title={videoTitle}>{videoTitle}</strong><span><button type="button" onClick={() => setCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>Ссылка</button></span></header>
+    <header><strong title={videoTitle}>{videoTitle}</strong><span><button type="button" onClick={() => setCollapsed((value) => !value)}>{collapsed ? "Развернуть" : "Свернуть"}</button><button type="button" onClick={openSource}>В очередь</button></span></header>
     <div className="video-room-body" aria-hidden={collapsed}>
       {fullscreen && <CompactVideoChat messages={messages} collapsed={chatCollapsed} onToggle={() => setChatCollapsed((value) => !value)} onSendMessage={onSendMessage} />}
-      <div className="video-room-video-pane">{provider}</div>
+      <div className="video-room-video-pane">
+        {provider}
+        <VideoQueue session={session} currentUserId={currentUserId} isStaff={isStaff} onRemove={onRemoveItem} />
+      </div>
     </div>
     {sourceOpen && <div className="video-source-backdrop" onMouseDown={closeSource}>
       <form className="video-source-modal" onSubmit={submitSource} onMouseDown={(event) => event.stopPropagation()}>
-        <div className="video-source-modal-head"><div><strong>Ссылка на видео</strong><small>YouTube, VK Видео или Rutube</small></div><button type="button" className="video-source-close" onClick={closeSource} aria-label="Закрыть">×</button></div>
+        <div className="video-source-modal-head"><div><strong>Добавить видео в очередь</strong><small>YouTube, VK Видео или Rutube</small></div><button type="button" className="video-source-close" onClick={closeSource} aria-label="Закрыть">×</button></div>
         <input ref={sourceInputRef} type="url" inputMode="url" placeholder="https://..." value={sourceValue} onChange={(event) => setSourceValue(event.target.value)} required />
-        <div className="video-source-actions"><button type="button" className="secondary" onClick={closeSource}>Отмена</button><button type="submit" disabled={!sourceValue.trim()}>Открыть видео</button></div>
+        <div className="video-source-price">{queuePrice > 0 ? <><Coins size={14} /><span>{queuePrice} кредитов за добавление</span></> : <span>Добавление бесплатно</span>}</div>
+        <div className="video-source-actions"><button type="button" className="secondary" onClick={closeSource}>Отмена</button><button type="submit" disabled={!sourceValue.trim()}>Добавить в очередь</button></div>
       </form>
     </div>}
   </aside>;

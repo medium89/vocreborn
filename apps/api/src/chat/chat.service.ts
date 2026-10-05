@@ -1,7 +1,7 @@
 import { ChatSettingsService } from "../settings/chat-settings.service";
 import { assertNotInChaos } from "../moderation/chaos.guard";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, ReactionType, type Attachment, type Message, type MessageReaction, type Room } from "@prisma/client";
+import { EconomyEntryType, Prisma, ReactionType, type Attachment, type Message, type MessageReaction, type Room } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -680,29 +680,180 @@ export class ChatService {
     if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
     await this.assertVideoMembership(roomId, userId);
     const source = this.normalizeVideoUrl(videoUrl);
-    const session = await this.prisma.videoRoomSession.upsert({
-      where: { roomId },
-      create: { roomId, provider: source.provider, videoUrl: source.url, controllerId: userId, position: 0, playing: false },
-      update: { provider: source.provider, videoUrl: source.url, controllerId: userId, position: 0, playing: false },
+    const { settings } = await this.settings.read();
+    const price = settings.videoQueuePrice;
+    const itemId = randomUUID();
+
+    await this.prisma.$transaction(async tx => {
+      await tx.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", "video-room:" + roomId);
+
+      if (price > 0) {
+        const debited = await tx.user.updateMany({
+          where: { id: userId, deletedAt: null, credits: { gte: price } },
+          data: { credits: { decrement: price } },
+        });
+        if (debited.count !== 1) throw new BadRequestException("Недостаточно кредитов для добавления видео в очередь");
+        const balance = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { credits: true } });
+        await tx.economyEntry.create({
+          data: {
+            userId,
+            type: EconomyEntryType.VIDEO_QUEUE,
+            creditsDelta: -price,
+            balanceAfter: balance.credits,
+            referenceKey: "video-queue:" + itemId,
+          },
+        });
+      }
+
+      await tx.videoRoomQueueItem.create({
+        data: { id: itemId, roomId, ownerId: userId, provider: source.provider, videoUrl: source.url },
+      });
+
+      const current = await tx.videoRoomSession.findUnique({ where: { roomId } });
+      if (!current?.currentItemId) await this.activateNextVideo(tx, roomId, false);
     });
-    return this.toVideoState(session);
+
+    return this.getVideoState(roomId);
   }
 
-  async controlVideo(roomId: string, userId: string, action: "play" | "pause" | "seek", position?: number) {
+  async controlVideo(roomId: string, userId: string, role: "user" | "moderator" | "admin", action: "play" | "pause" | "seek", position?: number) {
     const room = await this.assertRoom(roomId);
     if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
     await this.assertVideoMembership(roomId, userId);
     const current = await this.prisma.videoRoomSession.findUnique({ where: { roomId } });
-    if (!current?.videoUrl) throw new BadRequestException("Сначала укажите ссылку на видео");
-    if (current.controllerId !== userId) throw new ForbiddenException("Управлять просмотром может пользователь, который указал ссылку");
+    if (!current?.videoUrl || !current.currentItemId) throw new BadRequestException("Очередь видео пуста");
+    if (!this.canManageVideo(userId, role, current.controllerId)) throw new ForbiddenException("Управлять этим видео может его автор или модератор");
     const nextPosition = Math.max(0, position ?? this.actualVideoPosition(current));
-    const session = await this.prisma.videoRoomSession.update({ where: { roomId }, data: { position: nextPosition, playing: action === "play" ? true : action === "pause" ? false : current.playing } });
-    return this.toVideoState(session);
+    await this.prisma.videoRoomSession.update({
+      where: { roomId },
+      data: {
+        position: nextPosition,
+        playing: action === "play" ? true : action === "pause" ? false : current.playing,
+      },
+    });
+    return this.getVideoState(roomId);
+  }
+
+  async removeVideoQueueItem(roomId: string, userId: string, role: "user" | "moderator" | "admin", itemId: string) {
+    const room = await this.assertRoom(roomId);
+    if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
+    await this.assertVideoMembership(roomId, userId);
+
+    await this.prisma.$transaction(async tx => {
+      await tx.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", "video-room:" + roomId);
+      const item = await tx.videoRoomQueueItem.findFirst({ where: { id: itemId, roomId } });
+      if (!item) throw new NotFoundException("Видео в очереди не найдено");
+      if (!this.canManageVideo(userId, role, item.ownerId)) throw new ForbiddenException("Удалять можно только своё видео");
+      const session = await tx.videoRoomSession.findUnique({ where: { roomId } });
+      await tx.videoRoomQueueItem.delete({ where: { id: item.id } });
+      if (session?.currentItemId === item.id) await this.activateNextVideo(tx, roomId, false);
+    });
+
+    return this.getVideoState(roomId);
+  }
+
+  async finishVideo(roomId: string, userId: string, role: "user" | "moderator" | "admin", itemId: string) {
+    const room = await this.assertRoom(roomId);
+    if (!room.isVideoRoom) throw new BadRequestException("Это не видеокомната");
+    await this.assertVideoMembership(roomId, userId);
+
+    await this.prisma.$transaction(async tx => {
+      await tx.$executeRawUnsafe("SELECT pg_advisory_xact_lock(hashtext($1))", "video-room:" + roomId);
+      const session = await tx.videoRoomSession.findUnique({ where: { roomId } });
+      if (!session?.currentItemId || session.currentItemId !== itemId) return;
+      const item = await tx.videoRoomQueueItem.findUnique({ where: { id: session.currentItemId } });
+      if (!item) {
+        await this.activateNextVideo(tx, roomId, true);
+        return;
+      }
+      if (!this.canManageVideo(userId, role, item.ownerId)) throw new ForbiddenException("Завершить это видео может его автор или модератор");
+      await tx.videoRoomQueueItem.delete({ where: { id: item.id } });
+      await this.activateNextVideo(tx, roomId, true);
+    });
+
+    return this.getVideoState(roomId);
+  }
+
+  async updateVideoTitle(roomId: string, userId: string, role: "user" | "moderator" | "admin", itemId: string, title: string) {
+    await this.assertVideoMembership(roomId, userId);
+    const item = await this.prisma.videoRoomQueueItem.findFirst({ where: { id: itemId, roomId } });
+    if (!item) return this.getVideoState(roomId);
+    if (!this.canManageVideo(userId, role, item.ownerId)) throw new ForbiddenException("Изменять данные чужого видео нельзя");
+    const clean = title.trim().slice(0, 300);
+    if (clean && clean !== item.title) await this.prisma.videoRoomQueueItem.update({ where: { id: item.id }, data: { title: clean } });
+    return this.getVideoState(roomId);
   }
 
   async getVideoState(roomId: string) {
-    const session = await this.prisma.videoRoomSession.findUnique({ where: { roomId } });
-    return session ? this.toVideoState(session) : undefined;
+    const [session, queue, settingsRecord] = await Promise.all([
+      this.prisma.videoRoomSession.findUnique({ where: { roomId } }),
+      this.prisma.videoRoomQueueItem.findMany({
+        where: { roomId },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        include: { owner: { select: { id: true, displayName: true } } },
+      }),
+      this.settings.read(),
+    ]);
+    const serializedAt = new Date();
+    return {
+      roomId,
+      provider: (session?.provider ?? null) as "youtube" | "vk" | "rutube" | null,
+      videoUrl: session?.videoUrl ?? null,
+      controllerId: session?.controllerId ?? null,
+      currentItemId: session?.currentItemId ?? null,
+      position: session ? this.actualVideoPosition(session) : 0,
+      playing: session?.playing ?? false,
+      updatedAt: serializedAt.toISOString(),
+      queuePrice: settingsRecord.settings.videoQueuePrice,
+      queue: queue.map(item => ({
+        id: item.id,
+        ownerId: item.ownerId,
+        ownerName: item.owner.displayName,
+        provider: item.provider as "youtube" | "vk" | "rutube",
+        videoUrl: item.videoUrl,
+        title: item.title,
+        createdAt: item.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  private canManageVideo(userId: string, role: "user" | "moderator" | "admin", ownerId: string | null) {
+    return ownerId === userId || role === "moderator" || role === "admin";
+  }
+
+  private async activateNextVideo(tx: Prisma.TransactionClient, roomId: string, playing: boolean) {
+    const next = await tx.videoRoomQueueItem.findFirst({
+      where: { roomId },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    if (next) {
+      await tx.videoRoomSession.upsert({
+        where: { roomId },
+        create: {
+          roomId,
+          provider: next.provider,
+          videoUrl: next.videoUrl,
+          controllerId: next.ownerId,
+          currentItemId: next.id,
+          position: 0,
+          playing,
+        },
+        update: {
+          provider: next.provider,
+          videoUrl: next.videoUrl,
+          controllerId: next.ownerId,
+          currentItemId: next.id,
+          position: 0,
+          playing,
+        },
+      });
+      return;
+    }
+    await tx.videoRoomSession.upsert({
+      where: { roomId },
+      create: { roomId, provider: null, videoUrl: null, controllerId: null, currentItemId: null, position: 0, playing: false },
+      update: { provider: null, videoUrl: null, controllerId: null, currentItemId: null, position: 0, playing: false },
+    });
   }
 
   private async assertVideoMembership(roomId: string, userId: string) {
@@ -724,9 +875,6 @@ export class ChatService {
     return Math.max(0, session.position + (session.playing ? (Date.now() - session.updatedAt.getTime()) / 1000 : 0));
   }
 
-  private toVideoState(session: { roomId: string; provider: string | null; videoUrl: string | null; controllerId: string | null; position: number; playing: boolean; updatedAt: Date }) {
-    return { roomId: session.roomId, provider: session.provider as "youtube" | "vk" | "rutube" | null, videoUrl: session.videoUrl, controllerId: session.controllerId, position: this.actualVideoPosition(session), playing: session.playing, updatedAt: session.updatedAt.toISOString() };
-  }
   private async assertPeer(userId: string, peerId: string) {
     if (userId === peerId) throw new BadRequestException("Нельзя написать самому себе");
     const peer = await this.prisma.user.findFirst({ where: { id: peerId, deletedAt: null } });

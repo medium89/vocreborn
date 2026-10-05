@@ -2841,3 +2841,30 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
     max-width:calc(100vw - 20px);
   }
 }
+
+/* Video room queue */
+.video-room-queue{flex:0 0 auto;border-top:1px solid #374a38;background:#0d1912}
+.video-room-queue-head{display:flex!important;align-items:center;justify-content:space-between;width:100%;min-height:34px;padding:7px 10px!important;border-radius:0!important;background:#122019!important;color:#dce98d!important;text-align:left}
+.video-room-queue-head>span{display:flex;align-items:center;gap:6px;min-width:0}
+.video-room-queue-head strong{font-size:11px}
+.video-room-queue-head b{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:#31462c;color:#dce98d;font-size:10px}
+.video-room-queue-head small{color:#9faf9d;font-size:10px;font-weight:500}
+.video-room-queue-list{max-height:138px;overflow:auto;padding:5px 6px 7px;scrollbar-width:thin}
+.video-room-queue-list>p{padding:8px!important;color:#8f9f90!important;font-size:11px!important;text-align:center}
+.video-room-queue-list article{display:grid;grid-template-columns:24px minmax(0,1fr) 28px;align-items:center;gap:7px;min-height:42px;padding:5px 6px;border-radius:8px}
+.video-room-queue-list article+article{margin-top:2px}
+.video-room-queue-list article.current{background:#243824}
+.video-room-queue-index{display:grid;place-items:center;width:22px;height:22px;border-radius:7px;background:#1d2d20;color:#9fb36f;font-size:10px;font-weight:800}
+.video-room-queue-copy{display:grid;min-width:0;gap:2px}
+.video-room-queue-copy strong{overflow:hidden;color:#edf3e8;font-size:11px;text-overflow:ellipsis;white-space:nowrap}
+.video-room-queue-copy small{overflow:hidden;color:#95a397;font-size:10px;text-overflow:ellipsis;white-space:nowrap}
+.video-room-queue-remove{display:grid!important;place-items:center;width:27px!important;min-width:27px!important;height:27px!important;padding:0!important;background:#2b201f!important;color:#e7a5a0!important}
+.video-room-queue-remove:hover{background:#3a2523!important;color:#ffc0bb!important}
+.video-source-price{display:flex;align-items:center;gap:6px;min-height:24px;color:#a8b7a5;font-size:11px}
+.video-source-price svg{color:#dce98d}
+.video-room-player:fullscreen .video-room-queue-list{max-height:170px}
+@media(max-width:700px){
+  .video-room-queue-list{max-height:112px}
+  .video-room-queue-head{min-height:32px;padding:6px 8px!important}
+  .video-room-queue-list article{min-height:38px;padding:4px 5px}
+}
