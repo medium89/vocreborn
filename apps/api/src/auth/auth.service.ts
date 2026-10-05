@@ -142,7 +142,7 @@ export class AuthService {
       include: { cosmetics: true },
     });
     const passwordMatches = user?.passwordHash ? await verify(user.passwordHash, input.password) : false;
-    if (!user || !passwordMatches || user.deletedAt) throw new UnauthorizedException("Неверный email или пароль");
+    if (!user || !passwordMatches || user.deletedAt) throw new UnauthorizedException("Неправильный логин/e-mail или пароль");
     if (await this.findActiveBan(user.id)) throw new ForbiddenException("Аккаунт заблокирован");
 
     const authenticated = this.toAuthenticatedUser(user);

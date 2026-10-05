@@ -5,11 +5,11 @@ export type EditableUser = {
   id: string; username: string; displayName: string; bio: string | null; gender: Gender;
   isDj: boolean;
   cosmetics: Array<{ effectKey: string; settings: Record<string, unknown> }>;
-  role: UserRole; status: UserStatus; rating: number; credits: number;
+  role: UserRole; hideRole: boolean; status: UserStatus; rating: number; credits: number;
   avatarUrl: string | null; isGuest: boolean; isBot: boolean; createdAt: string; updatedAt: string;
   _count: { messages: number; profilePosts: number; reportsReceived: number };
 };
-export type EditableUserChanges = Partial<Pick<EditableUser, "username" | "displayName" | "bio" | "gender" | "role" | "rating" | "credits">>;
+export type EditableUserChanges = Partial<Pick<EditableUser, "username" | "displayName" | "bio" | "gender" | "role" | "hideRole" | "rating" | "credits">>;
 
 async function request<T>(id: string, suffix = "", init?: RequestInit): Promise<T> {
   const response = await fetch(API_URL + "/api/admin/users/" + encodeURIComponent(id) + suffix, {

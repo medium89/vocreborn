@@ -55,7 +55,7 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: {
-        id: true, username: true, displayName: true, bio: true, gender: true, role: true, isDj: true, status: true,
+        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, isDj: true, status: true,
         cosmetics: { select: { effectKey: true, settings: true } },
         rating: true, credits: true, avatarKey: true, isGuest: true, isBot: true, createdAt: true, updatedAt: true,
         _count: { select: { messages: true, profilePosts: true, reportsReceived: true } },
@@ -72,7 +72,7 @@ export class AdminService {
   }
 
   async updateUser(actor: AuthenticatedUser, id: string, input: {
-    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; rating?: number; credits?: number;
+    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; rating?: number; credits?: number;
   }) {
     this.requireAdmin(actor);
     if (id === actor.id && input.role && input.role !== "ADMIN")
@@ -245,7 +245,7 @@ export class AdminService {
   async announce(actor: AuthenticatedUser, input: { body: string; requestId: string }) {
     this.requireAdmin(actor);
     if (!input.body.trim()) throw new BadRequestException("Введите текст объявления");
-    return this.chat.createMessage("main", input.body, "announcement:" + input.requestId, actor.id, actor.displayName, undefined, undefined, true);
+    return this.chat.createMessage("main", input.body, "announcement:" + input.requestId, actor.id, "Администрация", undefined, undefined, true, undefined, undefined, true);
   }
 
   private requireStaff(actor: AuthenticatedUser) {

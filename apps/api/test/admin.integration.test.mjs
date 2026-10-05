@@ -150,7 +150,9 @@ test('Public content search excludes direct messages and private rooms; announce
   const first=await request('/api/admin/announcements',alice.cookie,input);
   const retry=await request('/api/admin/announcements',alice.cookie,input);
   assert.equal(first.status,201);assert.equal(retry.body.id,first.body.id);
-  assert.equal(await prisma.message.count({where:{body:input.body}}),1);
+  assert.equal(first.body.author,'Администрация');assert.equal(first.body.authorId,undefined);
+  const announcement=await prisma.message.findFirstOrThrow({where:{body:input.body},select:{authorId:true,authorName:true}});
+  assert.equal(announcement.authorId,null);assert.equal(announcement.authorName,'Администрация');
 });
 test('Changed daily reward is granted once and recorded in the ledger', async () => {
   await settings({firstMessageReward:7});

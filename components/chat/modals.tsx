@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { BackToChatButton } from "./back-to-chat-button";
 import { AvatarPicker } from "./avatar-picker";
 import { StyledSelect } from "./styled-select";
-import { Ban, Bell, Camera, ChevronDown, CircleDollarSign, KeyRound, LockKeyhole, Palette, Pencil, RefreshCw, Trash2, Save, ShieldOff, UserRound, Volume2, VolumeX, X } from "lucide-react";
+import { Ban, Bell, Camera, ChevronDown, CircleDollarSign, Eye, KeyRound, LockKeyhole, Palette, Pencil, RefreshCw, Trash2, Save, ShieldOff, UserRound, Volume2, VolumeX, X } from "lucide-react";
 import { RecoveryCodePanel } from "./recovery-code-panel";
 import { EmailSettingsPanel } from "./email-settings-panel";
 import type { AuthUser, CosmeticAppearance, DirectConversation, Person, Room } from "@/lib/chat-contract";
@@ -24,23 +24,143 @@ type RoomsModalProps = {
   onClose: () => void;
 };
 
+type RoomEditor = { mode: "create" } | { mode: "edit"; room: Room };
+
 export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSaveRoom, onDeleteRoom, onClose }: RoomsModalProps & { onDeleteRoom: (room: Room) => Promise<void> }) {
   const empty: RoomInput = { name: "", description: "", tone: "lime", coverEmoji: "✦", rules: "", visibility: "public", isVideoRoom: false, coverFile: null };
-  const [editing, setEditing] = useState<Room | null>(null);
-  const [input, setInput] = useState(empty);
+  const [editor, setEditor] = useState<RoomEditor | null>(null);
+  const [viewing, setViewing] = useState<Room | null>(null);
+  const [deleting, setDeleting] = useState<Room | null>(null);
+  const [input, setInput] = useState<RoomInput>(empty);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const manageable = rooms.filter((room) => user?.role === "admin" || room.createdById === user?.id);
-  const beginCreate = () => { setEditing(null); setInput(empty); setError(""); };
-  const beginEdit = (room: Room) => { setEditing(room); setInput({ name: room.name, description: room.description, tone: room.tone, coverEmoji: room.coverEmoji, rules: room.rules, visibility: room.visibility, isVideoRoom: room.isVideoRoom, coverFile: null }); setError(""); };
-  async function save(event: React.FormEvent<HTMLFormElement>) { event.preventDefault(); setBusy(true); setError(""); try { await onSaveRoom(editing?.id ?? null, input); beginCreate(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось сохранить комнату"); } finally { setBusy(false); } }
-  async function remove(room: Room) { if (!window.confirm(`Удалить комнату «${room.name}» вместе с её историей?`)) return; setBusy(true); setError(""); try { await onDeleteRoom(room); if (editing?.id === room.id) beginCreate(); } catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось удалить комнату"); } finally { setBusy(false); } }
-  return <div className={embedded ? "admin-rooms-panel" : "modal-backdrop"} onClick={embedded ? undefined : onClose}><div className={embedded ? "rooms-modal admin-rooms-content" : "modal rooms-modal"} onClick={(event) => event.stopPropagation()}>
-    {!embedded && <button className="modal-close" aria-label="Закрыть" title="Закрыть" onClick={onClose}><X size={19} /></button>}
-    <div className="rooms-crud-heading"><div><h2>Комнаты</h2><p>Создавайте, редактируйте и удаляйте комнаты.</p></div><button type="button" className="action-button" onClick={beginCreate}><Save size={15} /><span>Новая комната</span></button></div>
-    <div className="rooms-scroll">{rooms.map((room) => { const canManage = manageable.some((item) => item.id === room.id); return <article className="modal-room" key={room.id}><button type="button" onClick={() => onChangeRoom(room.id)}><span className={"orb " + room.tone} /><span><strong>{room.name}{room.isVideoRoom ? " · видео" : ""}</strong><small>{room.description || "Без описания"} · {room.memberCount} участников</small></span><b>{room.online} в сети</b></button>{canManage && <span className="room-crud-actions"><button type="button" onClick={() => beginEdit(room)}><Pencil size={14} />Редактировать</button>{room.id !== "main" && <button type="button" className="danger" disabled={busy} onClick={() => void remove(room)}><Trash2 size={14} />Удалить</button>}</span>}</article>; })}</div>
-    {user && <form className="room-form" onSubmit={save}><div className="room-form-heading"><h3>{editing ? "Редактирование комнаты" : "Новая комната"}</h3>{editing && <button type="button" onClick={beginCreate}>Отменить редактирование</button>}</div><label>Название<input value={input.name} minLength={2} maxLength={80} onChange={(event) => setInput((old) => ({ ...old, name: event.target.value }))} /></label><label>Описание<input value={input.description} maxLength={300} onChange={(event) => setInput((old) => ({ ...old, description: event.target.value }))} /></label><label>Символ обложки<input value={input.coverEmoji} maxLength={12} onChange={(event) => setInput((old) => ({ ...old, coverEmoji: event.target.value }))} placeholder="✦" /></label><label>Фото обложки<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setInput((old) => ({ ...old, coverFile: event.target.files?.[0] ?? null }))} /><small>{input.coverFile ? input.coverFile.name : "PNG, JPEG или WebP, до 10 МБ"}</small></label><label>Видимость<StyledSelect value={input.visibility} onChange={(event) => setInput((old) => ({ ...old, visibility: event.target.value as "public" | "private" }))}><option value="public">Публичная</option><option value="private">Приватная</option></StyledSelect></label>{user.role === "admin" && <label className="room-video-kind"><input type="checkbox" checked={input.isVideoRoom} onChange={(event) => setInput((old) => ({ ...old, isVideoRoom: event.target.checked }))} /><span><strong>Комната совместного просмотра</strong><small>В ней доступна ссылка на YouTube, VK Видео или Rutube.</small></span></label>}<label>Правила комнаты<textarea value={input.rules} maxLength={1000} rows={3} onChange={(event) => setInput((old) => ({ ...old, rules: event.target.value }))} placeholder="Краткие правила для участников" /></label><label>Цвет<StyledSelect value={input.tone} onChange={(event) => setInput((old) => ({ ...old, tone: event.target.value }))}><option value="lime">Салатовый</option><option value="gray">Серый</option></StyledSelect></label>{error && <div className="auth-error">{error}</div>}<button className="action-button" disabled={busy || input.name.trim().length < 2}><Save size={15} /><span>{busy ? "Сохранение…" : editing ? "Сохранить изменения" : "Создать комнату"}</span></button></form>}
-  </div></div>;
+  const canManage = (room: Room) => user?.role === "admin" || room.createdById === user?.id;
+  const editingRoom = editor?.mode === "edit" ? editor.room : null;
+  const closeEditor = () => {
+    if (busy) return;
+    setEditor(null);
+    setError("");
+  };
+  const beginCreate = () => {
+    setInput(empty);
+    setError("");
+    setEditor({ mode: "create" });
+  };
+  const beginEdit = (room: Room) => {
+    setInput({ name: room.name, description: room.description, tone: room.tone, coverEmoji: room.coverEmoji, rules: room.rules, visibility: room.visibility, isVideoRoom: room.isVideoRoom, coverFile: null });
+    setError("");
+    setEditor({ mode: "edit", room });
+  };
+  const beginDelete = (room: Room) => {
+    setError("");
+    setDeleting(room);
+  };
+  async function save(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      await onSaveRoom(editingRoom?.id ?? null, input);
+      setEditor(null);
+      setInput(empty);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось сохранить комнату");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function remove(room: Room) {
+    setBusy(true);
+    setError("");
+    try {
+      await onDeleteRoom(room);
+      setDeleting(null);
+      if (viewing?.id === room.id) setViewing(null);
+      if (editingRoom?.id === room.id) setEditor(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Не удалось удалить комнату");
+    } finally {
+      setBusy(false);
+    }
+  }
+  function openRoom(room: Room) {
+    setViewing(null);
+    onChangeRoom(room.id);
+  }
+  return <div className={embedded ? "admin-rooms-panel" : "modal-backdrop"} onMouseDown={embedded ? undefined : onClose}>
+    <div className={embedded ? "rooms-modal admin-rooms-content" : "modal rooms-modal"} onMouseDown={(event) => event.stopPropagation()}>
+      {!embedded && <button type="button" className="modal-close" aria-label="Закрыть" title="Закрыть" onClick={onClose}><X size={19} /></button>}
+      <div className="rooms-crud-heading">
+        <div>{!embedded && <h2>Комнаты</h2>}</div>
+        {user && <button type="button" className="action-button" onClick={beginCreate}><Save size={15} /><span>Новая комната</span></button>}
+      </div>
+      <div className="rooms-scroll">
+        {rooms.map((room) => <article className="modal-room" key={room.id}>
+          <button type="button" className="room-card-summary" onClick={() => setViewing(room)} aria-label={"Открыть сведения о комнате " + room.name}>
+            <span className={"orb " + room.tone} />
+            <span className="room-card-copy"><strong>{room.name}{room.isVideoRoom ? " · видео" : ""}</strong><small>{room.description || "Без описания"} · {room.memberCount} участников</small></span>
+            <b className="room-card-presence">{room.online} в сети</b>
+          </button>
+          <div className="admin-record-actions room-record-actions">
+            <button type="button" title="Просмотреть" aria-label={"Просмотреть комнату " + room.name} onClick={() => setViewing(room)}><Eye size={16} /></button>
+            {canManage(room) && <button type="button" title="Редактировать" aria-label={"Редактировать комнату " + room.name} onClick={() => beginEdit(room)}><Pencil size={16} /></button>}
+            {canManage(room) && room.id !== "main" && <button type="button" className="danger" title="Удалить" aria-label={"Удалить комнату " + room.name} disabled={busy} onClick={() => beginDelete(room)}><Trash2 size={16} /></button>}
+          </div>
+        </article>)}
+      </div>
+    </div>
+    {viewing && <div className="modal-backdrop rooms-record-backdrop" onMouseDown={(event) => { event.stopPropagation(); if (!busy) setViewing(null); }}>
+      <section className="modal admin-record-dialog room-record-dialog" role="dialog" aria-modal="true" aria-label={"Сведения о комнате " + viewing.name} onMouseDown={(event) => event.stopPropagation()}>
+        <button type="button" className="modal-close" aria-label="Закрыть" title="Закрыть" disabled={busy} onClick={() => setViewing(null)}><X size={18} /></button>
+        <h3>{viewing.name}</h3>
+        <p className="admin-record-meta">{viewing.visibility === "public" ? "Публичная комната" : "Приватная комната"} · {viewing.memberCount} участников · {viewing.online} в сети</p>
+        <dl className="room-record-details">
+          <div><dt>Описание</dt><dd>{viewing.description || "Не указано"}</dd></div>
+          <div><dt>Тип</dt><dd>{viewing.isVideoRoom ? "Совместный просмотр" : "Обычная комната"}</dd></div>
+          {viewing.rules && <div><dt>Правила</dt><dd>{viewing.rules}</dd></div>}
+        </dl>
+        <footer>
+          <button type="button" className="action-button secondary" disabled={busy} onClick={() => setViewing(null)}>Закрыть</button>
+          {canManage(viewing) && <button type="button" className="action-button secondary" disabled={busy} onClick={() => { const room = viewing; setViewing(null); beginEdit(room); }}><Pencil size={15} />Редактировать</button>}
+          {canManage(viewing) && viewing.id !== "main" && <button type="button" className="action-button danger" disabled={busy} onClick={() => { setViewing(null); beginDelete(viewing); }}><Trash2 size={15} />Удалить</button>}
+          <button type="button" className="action-button" disabled={busy} onClick={() => openRoom(viewing)}>Открыть комнату</button>
+        </footer>
+      </section>
+    </div>}
+    {editor && user && <div className="modal-backdrop rooms-record-backdrop" onMouseDown={(event) => { event.stopPropagation(); closeEditor(); }}>
+      <form className="modal admin-record-dialog room-editor-dialog" role="dialog" aria-modal="true" aria-label={editor.mode === "edit" ? "Редактирование комнаты" : "Новая комната"} onMouseDown={(event) => event.stopPropagation()} onSubmit={save}>
+        <button type="button" className="modal-close" aria-label="Закрыть" title="Закрыть" disabled={busy} onClick={closeEditor}><X size={18} /></button>
+        <h3>{editor.mode === "edit" ? "Редактирование комнаты" : "Новая комната"}</h3>
+        <p className="admin-record-meta">{editor.mode === "edit" ? "Измените параметры комнаты и сохраните их." : "Заполните параметры новой комнаты."}</p>
+        <div className="room-form">
+          <label>Название<input value={input.name} minLength={2} maxLength={80} required onChange={(event) => setInput((old) => ({ ...old, name: event.target.value }))} /></label>
+          <label>Описание<input value={input.description} maxLength={300} onChange={(event) => setInput((old) => ({ ...old, description: event.target.value }))} /></label>
+          <label>Символ обложки<input value={input.coverEmoji} maxLength={12} onChange={(event) => setInput((old) => ({ ...old, coverEmoji: event.target.value }))} placeholder="✦" /></label>
+          <label>Фото обложки<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setInput((old) => ({ ...old, coverFile: event.target.files?.[0] ?? null }))} /><small>{input.coverFile ? input.coverFile.name : "PNG, JPEG или WebP, до 10 МБ"}</small></label>
+          <label>Видимость<StyledSelect value={input.visibility} onChange={(event) => setInput((old) => ({ ...old, visibility: event.target.value as "public" | "private" }))}><option value="public">Публичная</option><option value="private">Приватная</option></StyledSelect></label>
+          {user.role === "admin" && <label className="room-video-kind"><input type="checkbox" checked={input.isVideoRoom} onChange={(event) => setInput((old) => ({ ...old, isVideoRoom: event.target.checked }))} /><span><strong>Комната совместного просмотра</strong><small>В ней доступна ссылка на YouTube, VK Видео или Rutube.</small></span></label>}
+          <label>Правила комнаты<textarea value={input.rules} maxLength={1000} rows={3} onChange={(event) => setInput((old) => ({ ...old, rules: event.target.value }))} placeholder="Краткие правила для участников" /></label>
+          <label>Цвет<StyledSelect value={input.tone} onChange={(event) => setInput((old) => ({ ...old, tone: event.target.value }))}><option value="lime">Салатовый</option><option value="gray">Серый</option></StyledSelect></label>
+        </div>
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        <footer>
+          <button type="button" className="action-button secondary" disabled={busy} onClick={closeEditor}>Отмена</button>
+          <button className="action-button" disabled={busy || input.name.trim().length < 2}><Save size={15} />{busy ? "Сохранение…" : editor.mode === "edit" ? "Сохранить изменения" : "Создать комнату"}</button>
+        </footer>
+      </form>
+    </div>}
+    {deleting && <div className="modal-backdrop rooms-record-backdrop" onMouseDown={(event) => { event.stopPropagation(); if (!busy) setDeleting(null); }}>
+      <section className="modal admin-record-dialog admin-confirm-dialog" role="alertdialog" aria-modal="true" aria-label="Подтверждение удаления комнаты" onMouseDown={(event) => event.stopPropagation()}>
+        <h3>Удалить комнату?</h3>
+        <p>Комната «{deleting.name}» и её история будут удалены без возможности восстановления.</p>
+        {error && <div className="auth-error" role="alert">{error}</div>}
+        <footer>
+          <button type="button" className="action-button secondary" disabled={busy} onClick={() => setDeleting(null)}>Отмена</button>
+          <button type="button" className="action-button danger" disabled={busy} onClick={() => void remove(deleting)}><Trash2 size={15} />{busy ? "Удаление…" : "Удалить"}</button>
+        </footer>
+      </section>
+    </div>}
+  </div>;
 }
 type ProfilePageProps = { user: AuthUser; muted: boolean; onAppearanceChanged: (next: CosmeticAppearance) => void; tabAlertPreferences: TabAlertPreferences; onTabAlertPreferencesChange: (next: TabAlertPreferences) => void; notificationPreferences: NotificationPreferences; onNotificationPreferencesChange: (next: NotificationPreferences) => void; onSave: (input: { bio: string; gender: "male" | "female" | "unspecified"; hideRole?: boolean }, avatar: File | null) => Promise<void>; onRefresh: () => void; onChangePassword: (currentPassword: string, newPassword: string) => Promise<void>; onClose: () => void };
 

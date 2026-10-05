@@ -264,6 +264,7 @@ export class ChatService {
     adminVoice = false,
     gifUrl?: string,
     mentionUserIds?: string[],
+    anonymousAuthor = false,
   ): Promise<ApiMessage> {
     await this.assertCanWrite(authorId);
     await assertNotInChaos(this.prisma, authorId);
@@ -280,7 +281,7 @@ export class ChatService {
     if (requestId) {
       const existing = await this.prisma.message.findUnique({ where: { requestId }, include: { author: { select: { avatarKey: true, cosmetics: { select: { effectKey: true, settings: true } } } }, attachments: true, reactions: true, replyTo: { select: { id: true, authorId: true, authorName: true, body: true, createdAt: true } } } });
       if (existing) {
-        if (existing.authorId !== authorId || existing.roomId !== roomId) {
+        if (existing.authorId !== (anonymousAuthor ? null : authorId) || existing.roomId !== roomId) {
           throw new ConflictException("requestId уже использован");
         }
         if (attachmentId && existing.attachments.length === 0) await this.attachments.attachToMessage(authorId, attachmentId, existing.id);
@@ -304,7 +305,7 @@ export class ChatService {
       if (requestId) {
         const retry = await tx.message.findUnique({ where: { requestId } });
         if (retry) {
-          if (retry.authorId !== authorId || retry.roomId !== roomId) throw new ConflictException("requestId уже использован");
+          if (retry.authorId !== (anonymousAuthor ? null : authorId) || retry.roomId !== roomId) throw new ConflictException("requestId уже использован");
           created = false; return retry;
         }
       }
@@ -315,7 +316,7 @@ export class ChatService {
       return tx.message.create({
       data: {
         roomId,
-        authorId,
+        authorId: anonymousAuthor ? null : authorId,
         authorName,
         body: body.trim(),
         adminVoice,
@@ -327,7 +328,7 @@ export class ChatService {
     }).catch(async (error: unknown) => {
       if (!requestId || !(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
       const existing = await this.prisma.message.findUnique({ where: { requestId } });
-      if (!existing || existing.authorId !== authorId || existing.roomId !== roomId) throw new ConflictException("requestId уже использован");
+      if (!existing || existing.authorId !== (anonymousAuthor ? null : authorId) || existing.roomId !== roomId) throw new ConflictException("requestId уже использован");
       created = false;
       return existing;
     });

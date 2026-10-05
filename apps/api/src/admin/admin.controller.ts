@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Gender, UserRole } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
+import { IsBoolean, IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SessionGuard } from "../auth/session.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -30,6 +30,9 @@ class UpdateUserDto {
 
   @ValidateIf((_object, value) => value !== undefined) @IsIn(["USER", "MODERATOR", "ADMIN"])
   role?: UserRole;
+
+  @ValidateIf((_object, value) => value !== undefined) @IsBoolean()
+  hideRole?: boolean;
 
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;

@@ -39,10 +39,12 @@ export function AdminSettingsPanel({ title, keys }: { title: string; keys: Array
     catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось сохранить настройки"); }
     finally { setBusy(false); }
   }
-  return <section className="admin-panel"><header><h3>{title}</h3><button type="button" disabled={busy} onClick={() => { if (!Object.keys(changed).length || window.confirm("Обновить настройки и отменить несохранённые изменения?")) void load(); }}><RefreshCw size={15} />Обновить</button></header>
+  return <section className="admin-panel"><header><h3>{title}</h3><button type="button" disabled={busy} onClick={() => { if (!Object.keys(changed).length || window.confirm("Обновить настройки и отменить несохранённые изменения?")) void load(); }}><RefreshCw className="admin-refresh-icon" size={15} />Обновить</button></header>
     {error && <p className="auth-error" role="alert">{error}</p>}{notice && <p role="status" className="user-editor-notice">{notice}</p>}
     {!draft ? <p>Загрузка настроек…</p> : <form onSubmit={save}><div className="admin-settings-grid">{keys.map(key => {
-      const field = fields[key]; return <label key={key} className={typeof draft[key] === "boolean" ? "admin-setting-toggle" : ""}><span>{field.label}</span>{typeof draft[key] === "boolean" ? <input type="checkbox" checked={draft[key] as boolean} disabled={busy} onChange={event => setDraft({ ...draft, [key]: event.target.checked })} /> : <input type="number" required min={field.min} max={field.max} step={1} disabled={busy} value={draft[key] as number} onChange={event => setDraft({ ...draft, [key]: event.target.valueAsNumber })} />}<small>{field.hint}</small></label>;
+      const field = fields[key];
+      const isToggle = typeof draft[key] === "boolean";
+      return <label key={key} className={isToggle ? `admin-setting-toggle${draft[key] ? " is-enabled" : ""}` : ""}>{isToggle ? <><span className="admin-setting-toggle-head"><span>{field.label}</span><span className="admin-setting-toggle-control"><input type="checkbox" checked={draft[key] as boolean} disabled={busy} onChange={event => setDraft({ ...draft, [key]: event.target.checked })} /><span>{draft[key] ? "Включено" : "Выключено"}</span></span></span><small>{field.hint}</small></> : <><span>{field.label}</span><input type="number" required min={field.min} max={field.max} step={1} disabled={busy} value={draft[key] as number} onChange={event => setDraft({ ...draft, [key]: event.target.valueAsNumber })} /><small>{field.hint}</small></>}</label>;
     })}</div><label className="admin-operation-reason">Причина изменения<input required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Например: уменьшили паузу после тестирования" /></label><button className="action-button" disabled={busy || !reason.trim() || !Object.keys(changed).length}><Save size={15} />Сохранить настройки</button></form>}
   </section>;
 }
