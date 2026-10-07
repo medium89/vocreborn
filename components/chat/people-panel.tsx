@@ -57,6 +57,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
   const visibleDj = Boolean(person.isDj && !person.hideDj);
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
   const avatarRole = visibleDj ? "dj" : role ?? (isVip ? "vip" : null);
+  const participantBadge = person.participantBadge ?? (person.isBot && person.username === "tusova_quiz" ? "quiz" : person.isBot && person.username === "tusova_overseer" ? "sheriff" : "member");
   return <div className="person">
     <span className={"presence person-presence " + person.status} />
     <span ref={avatarAnchorRef} className={"person-avatar-anchor" + (avatarRole ? " person-avatar-" + avatarRole : "")}>
@@ -75,9 +76,9 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     <div className="person-lower">
       <span className="person-role-badges">
         {visibleDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
-        {person.isBot && person.username === "tusova_quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
-        {person.isBot && person.username === "tusova_overseer" && <span className="person-role-badge overseer-bot-badge"><Shield size={10} />Шериф</span>}
-        {!role && !isVip && !visibleDj && !person.isBot && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
+        {participantBadge === "quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
+        {participantBadge === "sheriff" && <span className="person-role-badge overseer-bot-badge"><Shield size={10} />Шериф</span>}
+        {participantBadge === "member" && !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>

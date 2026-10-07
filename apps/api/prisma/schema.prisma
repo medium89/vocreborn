@@ -20,6 +20,12 @@ enum UserStatus {
   OFFLINE
 }
 
+enum ParticipantBadge {
+  MEMBER
+  QUIZ
+  SHERIFF
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -154,6 +160,7 @@ model User {
   hideDj          Boolean           @default(false) @map("hide_dj")
   isDj            Boolean           @default(false) @map("is_dj")
   status          UserStatus        @default(OFFLINE)
+  participantBadge ParticipantBadge   @default(MEMBER) @map("participant_badge")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
   deletedAt       DateTime?         @map("deleted_at")

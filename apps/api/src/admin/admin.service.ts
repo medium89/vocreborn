@@ -4,7 +4,7 @@ import { ChatService } from "../chat/chat.service";
 import { randomUUID } from "node:crypto";
 import { statfs } from "node:fs/promises";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
-import { Prisma, type Gender, type UserRole } from "@prisma/client";
+import { Prisma, type Gender, type ParticipantBadge, type UserRole } from "@prisma/client";
 import type { AuthenticatedUser } from "../auth/auth.types";
 import { ProfileService } from "../auth/profile.service";
 import { PrismaService } from "../database/prisma.service";
@@ -55,7 +55,7 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: {
-        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true,
+        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true, participantBadge: true,
         cosmetics: { select: { effectKey: true, settings: true } },
         rating: true, credits: true, avatarKey: true, isGuest: true, isBot: true, createdAt: true, updatedAt: true,
         _count: { select: { messages: true, profilePosts: true, reportsReceived: true } },
@@ -64,7 +64,7 @@ export class AdminService {
     if (!user) throw new NotFoundException("Пользователь не найден");
     const baseUrl = process.env.PUBLIC_API_URL ?? "http://localhost:3001";
     return {
-      ...user, gender: user.gender.toLowerCase(), role: user.role.toLowerCase(), status: user.status.toLowerCase(),
+      ...user, gender: user.gender.toLowerCase(), role: user.role.toLowerCase(), status: user.status.toLowerCase(), participantBadge: user.participantBadge.toLowerCase(),
       avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null,
       avatarKey: undefined,
       createdAt: user.createdAt.toISOString(), updatedAt: user.updatedAt.toISOString(),
@@ -72,7 +72,7 @@ export class AdminService {
   }
 
   async updateUser(actor: AuthenticatedUser, id: string, input: {
-    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; rating?: number; credits?: number;
+    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; participantBadge?: ParticipantBadge; rating?: number; credits?: number;
   }) {
     this.requireAdmin(actor);
     if (id === actor.id && input.role && input.role !== "ADMIN")

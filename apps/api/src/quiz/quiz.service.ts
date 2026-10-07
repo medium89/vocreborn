@@ -32,7 +32,7 @@ export class QuizService implements OnModuleInit, OnModuleDestroy {
       if(existing&&!existing.isBot)throw new ConflictException("Служебное имя викторины занято несервисным аккаунтом");
       if(existing)this.bot=existing;
       if(!this.runtimeEnabled)return;
-      const user=await this.prisma.user.upsert({where:{username:QUIZ_USERNAME},create:{username:QUIZ_USERNAME,displayName:"Сова Викторина",isBot:true,role:"USER",avatarKey:"/bot-avatars/quiz.svg",avatarThumbKey:"/bot-avatars/quiz.svg",status:"OFFLINE"},update:{isBot:true,role:"USER",isDj:false,passwordHash:null,isGuest:false,deletedAt:null,avatarKey:"/bot-avatars/quiz.svg",avatarThumbKey:"/bot-avatars/quiz.svg"}});
+      const user=await this.prisma.user.upsert({where:{username:QUIZ_USERNAME},create:{username:QUIZ_USERNAME,displayName:"Сова Викторина",isBot:true,role:"USER",participantBadge:"QUIZ",avatarKey:"/bot-avatars/quiz.svg",avatarThumbKey:"/bot-avatars/quiz.svg",status:"OFFLINE"},update:{isBot:true,role:"USER",isDj:false,passwordHash:null,isGuest:false,deletedAt:null,avatarKey:"/bot-avatars/quiz.svg",avatarThumbKey:"/bot-avatars/quiz.svg"}});
       this.bot=user;
       if(await this.prisma.room.findUnique({where:{id:"main"}}))await this.prisma.roomMembership.upsert({where:{userId_roomId:{userId:user.id,roomId:"main"}},create:{userId:user.id,roomId:"main"},update:{}});
     })().catch(error=>{this.initialization=undefined;throw error;});

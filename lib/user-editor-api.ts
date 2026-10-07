@@ -5,11 +5,11 @@ export type EditableUser = {
   id: string; username: string; displayName: string; bio: string | null; gender: Gender;
   isDj: boolean;
   cosmetics: Array<{ effectKey: string; settings: Record<string, unknown> }>;
-  role: UserRole; hideRole: boolean; hideDj: boolean; status: UserStatus; rating: number; credits: number;
+  role: UserRole; hideRole: boolean; hideDj: boolean; participantBadge: "member" | "quiz" | "sheriff"; status: UserStatus; rating: number; credits: number;
   avatarUrl: string | null; isGuest: boolean; isBot: boolean; createdAt: string; updatedAt: string;
   _count: { messages: number; profilePosts: number; reportsReceived: number };
 };
-export type EditableUserChanges = Partial<Pick<EditableUser, "username" | "displayName" | "bio" | "gender" | "role" | "hideRole" | "hideDj" | "rating" | "credits">>;
+export type EditableUserChanges = Partial<Pick<EditableUser, "username" | "displayName" | "bio" | "gender" | "role" | "hideRole" | "hideDj" | "participantBadge" | "rating" | "credits">>;
 
 async function request<T>(id: string, suffix = "", init?: RequestInit): Promise<T> {
   const response = await fetch(API_URL + "/api/admin/users/" + encodeURIComponent(id) + suffix, {
@@ -26,7 +26,7 @@ async function request<T>(id: string, suffix = "", init?: RequestInit): Promise<
 export const fetchEditableUser = (id: string) => request<EditableUser>(id);
 export const updateEditableUser = (id: string, changes: EditableUserChanges) => request<EditableUser>(id, "", {
   method: "PATCH", body: JSON.stringify({
-    ...changes, gender: changes.gender?.toUpperCase(), role: changes.role?.toUpperCase(),
+    ...changes, gender: changes.gender?.toUpperCase(), role: changes.role?.toUpperCase(), participantBadge: changes.participantBadge?.toUpperCase(),
   }),
 });
 export const deactivateEditableUser = (id: string) => request<{ id: string; deactivated: true }>(id, "", { method: "DELETE" });

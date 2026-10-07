@@ -1,6 +1,7 @@
 export type UserStatus = "online" | "away" | "dnd" | "offline";
 export type UserRole = "user" | "moderator" | "admin";
 export type Gender = "male" | "female" | "unspecified";
+export type ParticipantBadge = "member" | "quiz" | "sheriff";
 export type CosmeticAppearance = Record<string, Record<string, string | boolean>>;
 
 export type Attachment = {
@@ -187,6 +188,7 @@ export type Person = {
   role?: string;
   isBot?: boolean;
   isGuest?: boolean;
+  participantBadge?: ParticipantBadge;
   room: string;
   avatar: string;
   avatarThumbnail?: string;
