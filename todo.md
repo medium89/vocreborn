@@ -1791,3 +1791,14 @@
 - [x] Проверить npm run lint и npm run build:web.
 - [ ] Опубликовать web в production.
 - [ ] Визуально проверить production на desktop/mobile.
+
+
+## Production редактора пользователя 9885a0e
+
+- [x] Запушить commit 9885a0e.
+- [x] Собрать и проверить локальный production web-образ.
+- [x] Создать release-worktree и rollback-tag на VPS.
+- [x] Доставить готовый образ без server-side Next.js build.
+- [x] Переключить только tusova-web.
+- [x] Проверить /api/health/live, /api/health/ready и доступность production.
+- [ ] Визуально проверить редактор пользователя на desktop и mobile.
