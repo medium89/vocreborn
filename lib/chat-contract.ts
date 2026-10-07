@@ -1,7 +1,7 @@
 export type UserStatus = "online" | "away" | "dnd" | "offline";
 export type UserRole = "user" | "moderator" | "admin";
 export type Gender = "male" | "female" | "unspecified";
-export type ParticipantBadge = "member" | "quiz" | "sheriff";
+export type ParticipantBadge = string;
 export type CosmeticAppearance = Record<string, Record<string, string | boolean>>;
 
 export type Attachment = {

@@ -79,6 +79,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
         {participantBadge === "quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
         {participantBadge === "sheriff" && <span className="person-role-badge overseer-bot-badge"><Shield size={10} />Шериф</span>}
         {participantBadge === "member" && !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
+        {participantBadge !== "member" && participantBadge !== "quiz" && participantBadge !== "sheriff" && <span className="person-role-badge person-role-badge-custom">{participantBadge}</span>}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>

@@ -169,9 +169,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
             </StyledSelect>
           </label>
           <label>Статус-плашка
-            <StyledSelect disabled={!isAdmin || busy} value={draft.participantBadge ?? "member"} onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value as EditableUser["participantBadge"] })}>
-              <option value="member">Участник</option><option value="quiz">Викторина</option><option value="sheriff">Шериф</option>
-            </StyledSelect>
+            <input disabled={!isAdmin || busy} value={draft.participantBadge === "member" ? "" : draft.participantBadge ?? ""} maxLength={48} placeholder="Например, Организатор" onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value })} />
           </label>
           {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
             <input type="checkbox" checked={Boolean(draft.hideRole)} disabled={busy} onChange={(event) => setDraft({ ...draft, hideRole: event.target.checked })} />

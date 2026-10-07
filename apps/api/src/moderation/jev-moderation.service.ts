@@ -86,7 +86,7 @@ export class JevModerationService implements OnModuleInit {
         gender: "FEMALE",
         isBot: true,
         role: "USER",
-        participantBadge: "SHERIFF",
+        participantBadge: "sheriff",
         status: UserStatus.ONLINE,
         avatarKey: "/bot-avatars/quiz.svg",
         avatarThumbKey: "/bot-avatars/quiz.svg",

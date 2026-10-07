@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from "@nestjs/common";
 import { FileInterceptor } from "@nestjs/platform-express";
-import { Gender, ParticipantBadge, UserRole } from "@prisma/client";
+import { Gender, UserRole } from "@prisma/client";
 import { Transform } from "class-transformer";
 import { IsBoolean, IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser } from "../auth/current-user.decorator";
@@ -37,8 +37,9 @@ class UpdateUserDto {
   @ValidateIf((_object, value) => value !== undefined) @IsBoolean()
   hideDj?: boolean;
 
-  @ValidateIf((_object, value) => value !== undefined) @IsIn(["MEMBER", "QUIZ", "SHERIFF"])
-  participantBadge?: ParticipantBadge;
+  @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() || "member" : value)
+  @IsString() @MaxLength(48)
+  participantBadge?: string;
 
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;
