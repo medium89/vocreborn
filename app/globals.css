@@ -3084,41 +3084,236 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   border-color:#789653;
 }
 
-/* User editor: flatter admin layout without stacked white surfaces and separators. */
+/* User editor: one layout system for every user-management tab. */
 .user-editor-page{background:transparent}
 .user-editor-head{
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
   min-height:0;
-  padding:8px 0 6px;
+  padding:0 0 10px;
   border:0;
   background:transparent;
 }
+.user-editor-back{min-height:36px}
 .user-editor-tabs{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  width:max-content;
+  max-width:100%;
   min-height:0;
-  padding:6px 0 10px;
-  border:0;
-  background:transparent;
+  margin:0 0 12px;
+  padding:4px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--surface);
+  overflow-x:auto;
+  scrollbar-width:none;
 }
-.user-editor-scroll{padding:12px 0 28px}
-.user-editor-summary{margin:0 0 14px}
-.user-editor-card{
-  padding:0;
+.user-editor-tabs::-webkit-scrollbar{display:none}
+.user-editor-pill{
+  min-height:34px;
+  padding:7px 11px;
   border:0;
-  border-radius:0;
+  border-radius:9px;
   background:transparent;
+  color:#66736c;
+  font-size:12px;
+  font-weight:700;
+}
+.user-editor-pill:hover{background:var(--brand-soft)}
+.user-editor-pill.active{
+  border:0;
+  background:var(--brand-soft);
+  color:#466321;
   box-shadow:none;
 }
-.user-editor-card footer{border-top:0;padding-top:8px}
-:root[data-theme="dark"] .user-editor-head,
+.user-editor-scroll{padding:0 0 28px}
+.user-editor-summary{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  max-width:980px;
+  margin:0 0 12px;
+  padding:14px 16px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  background:var(--surface);
+}
+.user-editor-summary>div{display:grid;gap:3px}
+.user-editor-summary strong{font-size:18px}
+.user-editor-summary span{color:#65746d;font-size:12px}
+.user-editor-summary small{color:#929f96;font-size:11px}
+.user-editor-card{
+  display:grid;
+  max-width:980px;
+  padding:22px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--surface);
+  box-shadow:none;
+}
+.user-editor-card-head{display:grid;gap:6px;margin:0 0 20px}
+.user-editor-card-head h3{margin:0;color:var(--ink);font-size:18px;line-height:1.25}
+.user-editor-card-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}
+.user-editor-fields{gap:16px 18px}
+.user-editor-fields label{gap:7px;font-size:12px}
+.user-editor-fields input,.user-editor-fields select,.user-editor-fields textarea{min-height:42px;border-radius:10px}
+.user-editor-fields-compact{grid-template-columns:minmax(220px,360px)}
+.user-editor-photo{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:center;
+  gap:12px;
+  margin-top:20px;
+  padding:14px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--brand-soft);
+}
+.user-editor-photo>div{margin-right:0}
+.user-editor-photo-actions{display:flex!important;align-items:center;justify-content:flex-end;gap:8px;min-width:0}
+.user-editor-photo-actions .action-button,.user-editor-upload{min-height:40px}
+.user-editor-subsection{
+  display:grid;
+  gap:14px;
+  margin-top:22px;
+  padding-top:22px;
+  border-top:1px solid var(--line);
+}
+.user-editor-card-head + .user-editor-subsection{
+  margin-top:0;
+  padding-top:0;
+  border-top:0;
+}
+.user-editor-subsection-head{display:grid;gap:4px}
+.user-editor-subsection-head h4{margin:0;color:var(--ink);font-size:14px}
+.user-editor-subsection-head p{margin:0;color:var(--muted);font-size:12px;line-height:1.45}
+.user-editor-meta-line{
+  display:grid;
+  gap:3px;
+  margin:0 0 18px;
+  padding:12px 14px;
+  border:1px solid var(--line);
+  border-radius:11px;
+  background:var(--brand-soft);
+}
+.user-editor-meta-line span{color:var(--muted);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.user-editor-meta-line strong{font-size:12px;line-height:1.45;word-break:break-word}
+.user-editor-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:18px;
+  padding-top:16px;
+  border-top:1px solid var(--line);
+}
+.user-editor-actions .action-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:40px;
+  min-width:132px;
+  margin:0;
+}
+.user-editor-stats{margin-top:18px}
+.radio-dj-toggle{margin:0!important}
+.radio-dj-toggle span{font-weight:700}
+.user-editor-danger{
+  margin-top:22px;
+  padding:16px;
+  border-radius:12px;
+}
+.user-editor-danger button{min-height:40px;justify-content:center}
+.user-editor-moderation-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+.user-editor-moderation-group{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:var(--brand-soft);
+}
+.user-editor-moderation-group>div:first-child{display:grid;gap:5px}
+.user-editor-moderation-group strong{color:var(--ink);font-size:13px}
+.user-editor-moderation-group p{margin:0;color:var(--muted);font-size:11px;line-height:1.45}
+.user-editor-moderation-group .user-editor-actions{
+  align-items:stretch;
+  justify-content:stretch;
+  margin-top:auto;
+  padding-top:14px;
+  border-top:0;
+}
+.user-editor-moderation-group .user-editor-actions .action-button{
+  flex:1 1 120px;
+  min-width:0;
+}
+.user-editor-moderation-group.is-danger{
+  border-color:#efd1cd;
+  background:#fff8f7;
+}
+.user-editor-danger-button{
+  border-color:#b95751!important;
+  background:#b95751!important;
+  color:#fff!important;
+}
+.user-editor-notice{max-width:980px;margin:0 0 12px}
+.user-editor-hint{margin:0}
+
+:root[data-theme="dark"] .user-editor-head{border:0;background:transparent}
 :root[data-theme="dark"] .user-editor-tabs,
+:root[data-theme="dark"] .user-editor-summary,
 :root[data-theme="dark"] .user-editor-card{
-  border:0;
-  background:transparent;
+  background:var(--dialog-raised);
+  border-color:var(--dialog-border);
+  color:var(--dialog-text);
+}
+:root[data-theme="dark"] .user-editor-pill{border:0;background:transparent;color:var(--dialog-muted)}
+:root[data-theme="dark"] .user-editor-pill:hover{background:var(--dialog-hover)}
+:root[data-theme="dark"] .user-editor-pill.active{border:0;background:#334426;color:#d8efa9}
+:root[data-theme="dark"] .user-editor-card-head h3,
+:root[data-theme="dark"] .user-editor-subsection-head h4,
+:root[data-theme="dark"] .user-editor-moderation-group strong{color:var(--dialog-text)}
+:root[data-theme="dark"] .user-editor-card-head p,
+:root[data-theme="dark"] .user-editor-subsection-head p,
+:root[data-theme="dark"] .user-editor-moderation-group p,
+:root[data-theme="dark"] .user-editor-meta-line span{color:var(--dialog-muted)}
+:root[data-theme="dark"] .user-editor-photo,
+:root[data-theme="dark"] .user-editor-meta-line,
+:root[data-theme="dark"] .user-editor-moderation-group{
+  background:#25372a;
+  border-color:var(--dialog-border);
+}
+:root[data-theme="dark"] .user-editor-subsection,
+:root[data-theme="dark"] .user-editor-actions{border-color:var(--dialog-border)}
+:root[data-theme="dark"] .user-editor-moderation-group.is-danger{background:#382c2d;border-color:#75433f}
+
+@media(max-width:820px){
+  .user-editor-moderation-grid{grid-template-columns:1fr}
 }
 @media(max-width:700px){
-  .user-editor-head{padding:8px 0 6px}
-  .user-editor-tabs{padding:6px 0 10px}
-  .user-editor-scroll{padding:10px 0 22px}
-  .user-editor-card{padding:0}
+  .user-editor-head{padding:0 0 8px}
+  .user-editor-tabs{width:100%;margin-bottom:10px}
+  .user-editor-scroll{padding:0 0 22px}
+  .user-editor-summary{padding:12px}
+  .user-editor-card{padding:16px}
+  .user-editor-fields,.user-editor-fields-compact{grid-template-columns:1fr}
+  .user-editor-photo{grid-template-columns:auto minmax(0,1fr)}
+  .user-editor-photo-actions{grid-column:1/-1;justify-content:flex-start;flex-wrap:wrap}
+  .user-editor-actions{justify-content:stretch}
+  .user-editor-actions .action-button{flex:1 1 150px}
+  .user-editor-danger{align-items:flex-start;flex-wrap:wrap}
+  .user-editor-danger button{width:100%}
 }
 
 /* Mobile navigation: private-dialog chips live in the dedicated tab, rooms live in the menu. */
