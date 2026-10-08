@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query
 import { FileInterceptor } from "@nestjs/platform-express";
 import { Gender, UserRole } from "@prisma/client";
 import { Transform } from "class-transformer";
-import { IsBoolean, IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
+import { ArrayMaxSize, IsArray, IsBoolean, IsIn, IsInt, IsString, IsObject, IsUUID, ValidateIf, Length, Matches, Max, MaxLength, Min } from "class-validator";
 import { CurrentUser } from "../auth/current-user.decorator";
 import { SessionGuard } from "../auth/session.guard";
 import type { AuthenticatedUser } from "../auth/auth.types";
@@ -55,6 +55,9 @@ class UpdateUserDto {
   @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
   @IsString() @Matches(/^$|^#[0-9a-fA-F]{6}$/)
   participantBadgeBorderColor?: string;
+
+  @ValidateIf((_object, value) => value !== undefined) @IsArray() @ArrayMaxSize(12)
+  participantBadges?: unknown[];
 
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;
@@ -132,7 +135,7 @@ export class AdminController {
     @Param("id", new ParseUUIDPipe({ version: "4" })) id: string,
     @Body() input: UpdateUserDto,
     @CurrentUser() actor: AuthenticatedUser,
-  ) { return this.admin.updateUser(actor, id, input); }
+  ) { return this.admin.updateUser(actor, id, input as never); }
 
   @Post("users/:id/avatar")
   @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "session" })

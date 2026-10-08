@@ -91,6 +91,7 @@ export type ApiPerson = {
   participantBadgeOutlined?: boolean;
   participantBadgeBackgroundColor?: string;
   participantBadgeBorderColor?: string;
+  participantBadges?: Array<{ id: string; label: string; icon: string; outlined: boolean; backgroundColor: string; borderColor: string }>;
 };
 
 export type DirectConversation = {

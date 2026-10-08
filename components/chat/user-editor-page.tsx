@@ -45,7 +45,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
 
   function load(next: EditableUser) {
     setRecord(next);
-    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadge: next.participantBadge, participantBadgeIcon: next.participantBadgeIcon, participantBadgeOutlined: next.participantBadgeOutlined, participantBadgeBackgroundColor: next.participantBadgeBackgroundColor, participantBadgeBorderColor: next.participantBadgeBorderColor, rating: next.rating, credits: next.credits });
+    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadges: next.participantBadges, rating: next.rating, credits: next.credits });
   }
   useEffect(() => {
     let active = true;
@@ -168,22 +168,14 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
               <option value="unspecified">Не указан</option><option value="male">Парень</option><option value="female">Девушка</option>
             </StyledSelect>
           </label>
-          <label className="wide">Статус-плашки
-            <textarea disabled={!isAdmin || busy} value={draft.participantBadge === "member" ? "" : draft.participantBadge ?? ""} rows={4} maxLength={500} placeholder={"По одной плашке на строку, например:\nОрганизатор\nВетеран"} onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value })} />
-          </label>
-          <label>Значок плашки
-            <input disabled={!isAdmin || busy} value={draft.participantBadgeIcon ?? ""} maxLength={16} placeholder="Например, ⭐" onChange={(event) => setDraft({ ...draft, participantBadgeIcon: event.target.value })} />
-          </label>
-          <label className="profile-role-visibility wide">
-            <input type="checkbox" checked={draft.participantBadgeOutlined ?? true} disabled={!isAdmin || busy} onChange={(event) => setDraft({ ...draft, participantBadgeOutlined: event.target.checked })} />
-            <span><strong>Обводка плашки</strong><small>Показывать рамку вокруг статуса.</small></span>
-          </label>
-          <label>Цвет фона
-            <input type="color" disabled={!isAdmin || busy} value={draft.participantBadgeBackgroundColor || "#f1f8e9"} onChange={(event) => setDraft({ ...draft, participantBadgeBackgroundColor: event.target.value })} />
-          </label>
-          <label>Цвет рамки
-            <input type="color" disabled={!isAdmin || busy} value={draft.participantBadgeBorderColor || "#648239"} onChange={(event) => setDraft({ ...draft, participantBadgeBorderColor: event.target.value })} />
-          </label>
+          <div className="wide badge-tiles"><div className="badge-tiles-head"><strong>Статус-плашки</strong><button type="button" className="action-button secondary" disabled={!isAdmin || busy || (draft.participantBadges?.length ?? 0) >= 12} onClick={() => setDraft({ ...draft, participantBadges: [...(draft.participantBadges ?? []), { id: crypto.randomUUID(), label: "", icon: "", outlined: true, backgroundColor: "", borderColor: "" }] })}>Добавить плашку</button></div>
+            {(draft.participantBadges ?? []).map((badge, index) => <article className="badge-tile" key={badge.id}>
+              <div className="badge-tile-head"><strong>Плашка {index + 1}</strong><button type="button" className="action-button secondary" disabled={!isAdmin || busy} onClick={() => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).filter((item) => item.id !== badge.id) })}><Trash2 size={14} />Удалить</button></div>
+              <label>Текст<input disabled={!isAdmin || busy} value={badge.label} maxLength={48} placeholder="Например, Организатор" onChange={(event) => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).map((item) => item.id === badge.id ? { ...item, label: event.target.value } : item) })} /></label><label>Значок<input disabled={!isAdmin || busy} value={badge.icon} maxLength={16} placeholder="⭐" onChange={(event) => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).map((item) => item.id === badge.id ? { ...item, icon: event.target.value } : item) })} /></label>
+              <label>Фон<input type="color" disabled={!isAdmin || busy} value={badge.backgroundColor || "#f1f8e9"} onChange={(event) => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).map((item) => item.id === badge.id ? { ...item, backgroundColor: event.target.value } : item) })} /></label><label>Рамка<input type="color" disabled={!isAdmin || busy} value={badge.borderColor || "#648239"} onChange={(event) => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).map((item) => item.id === badge.id ? { ...item, borderColor: event.target.value } : item) })} /></label>
+              <label className="profile-role-visibility"><input type="checkbox" checked={badge.outlined} disabled={!isAdmin || busy} onChange={(event) => setDraft({ ...draft, participantBadges: (draft.participantBadges ?? []).map((item) => item.id === badge.id ? { ...item, outlined: event.target.checked } : item) })} /><span><strong>Обводка</strong><small>Показывать рамку.</small></span></label>
+            </article>)}
+          </div>
           {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
             <input type="checkbox" checked={Boolean(draft.hideRole)} disabled={busy} onChange={(event) => setDraft({ ...draft, hideRole: event.target.checked })} />
             <span><strong>Скрывать статус администратора / модератора</strong><small>Не показывать другим участникам административную или модераторскую роль.</small></span>
@@ -204,7 +196,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
         </div>
 
         {isAdmin && <div className="user-editor-actions">
-          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadge","participantBadgeIcon","participantBadgeOutlined","participantBadgeBackgroundColor","participantBadgeBorderColor"])}><Save size={15} />Сохранить профиль</button>
+          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadges"])}><Save size={15} />Сохранить профиль</button>
         </div>}
       </section>}
 

@@ -163,6 +163,7 @@ model User {
   participantBadgeOutlined Boolean       @default(true) @map("participant_badge_outlined")
   participantBadgeBackgroundColor String @default("") @map("participant_badge_background_color") @db.VarChar(7)
   participantBadgeBorderColor String     @default("") @map("participant_badge_border_color") @db.VarChar(7)
+  participantBadges Json                 @default("[]") @map("participant_badges")
   deletedAt       DateTime?         @map("deleted_at")
   rating          Int               @default(0)
   credits         Int               @default(20)

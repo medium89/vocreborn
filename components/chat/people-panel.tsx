@@ -58,11 +58,12 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
   const avatarRole = visibleDj ? "dj" : role ?? (isVip ? "vip" : null);
   const participantBadge = person.participantBadge ?? (person.isBot && person.username === "tusova_quiz" ? "quiz" : person.isBot && person.username === "tusova_overseer" ? "sheriff" : "member");
-  const participantBadges = participantBadge.split(/\r?\n/).map((badge) => badge.trim()).filter(Boolean);
-  const participantBadgeStyle = {
-    ...(person.participantBadgeBackgroundColor ? { backgroundColor: person.participantBadgeBackgroundColor } : {}),
-    ...(person.participantBadgeOutlined === false ? { borderColor: "transparent" } : person.participantBadgeBorderColor ? { borderColor: person.participantBadgeBorderColor } : {}),
-  };
+  const legacyBadges = participantBadge.split(/\r?\n/).map((label, index) => ({ id: "legacy-" + index, label: label.trim(), icon: person.participantBadgeIcon ?? "", outlined: person.participantBadgeOutlined !== false, backgroundColor: person.participantBadgeBackgroundColor ?? "", borderColor: person.participantBadgeBorderColor ?? "" })).filter((badge) => badge.label);
+  const participantBadges = person.participantBadges?.length ? person.participantBadges : legacyBadges;
+  const participantBadgeStyle = (badge: typeof participantBadges[number]) => ({
+    ...(badge.backgroundColor ? { backgroundColor: badge.backgroundColor } : {}),
+    ...(badge.outlined === false ? { borderColor: "transparent" } : badge.borderColor ? { borderColor: badge.borderColor } : {}),
+  });
 
   return <div className="person">
     <span className={"presence person-presence " + person.status} />
@@ -83,11 +84,11 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
       <span className="person-role-badges">
         {visibleDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
         {participantBadges.map((badge, index) => {
-          const key = badge + "-" + index;
-          if (badge === "quiz") return <span key={key} className="person-role-badge quiz-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}Викторина</span>;
-          if (badge === "sheriff") return <span key={key} className="person-role-badge overseer-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon ? <span aria-hidden="true">{person.participantBadgeIcon}</span> : <Shield size={10} />}Шериф</span>;
-          if (badge === "member") return !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" ? <span key={key} className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")} style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{person.isGuest ? "Гость" : "Участник"}</span> : null;
-          return <span key={key} className="person-role-badge person-role-badge-custom" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{badge}</span>;
+          const key = badge.id || badge.label + "-" + index;
+          if (badge.label === "quiz") return <span key={key} className="person-role-badge quiz-bot-badge" style={participantBadgeStyle(badge)}>{badge.icon && <span aria-hidden="true">{badge.icon}</span>}Викторина</span>;
+          if (badge.label === "sheriff") return <span key={key} className="person-role-badge overseer-bot-badge" style={participantBadgeStyle(badge)}>{badge.icon ? <span aria-hidden="true">{badge.icon}</span> : <Shield size={10} />}Шериф</span>;
+          if (badge.label === "member") return !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" ? <span key={key} className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")} style={participantBadgeStyle(badge)}>{badge.icon && <span aria-hidden="true">{badge.icon}</span>}{person.isGuest ? "Гость" : "Участник"}</span> : null;
+          return <span key={key} className="person-role-badge person-role-badge-custom" style={participantBadgeStyle(badge)}>{badge.icon && <span aria-hidden="true">{badge.icon}</span>}{badge.label}</span>;
         })}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}

@@ -55,7 +55,7 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: {
-        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true, participantBadge: true, participantBadgeIcon: true, participantBadgeOutlined: true, participantBadgeBackgroundColor: true, participantBadgeBorderColor: true,
+        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true, participantBadge: true, participantBadgeIcon: true, participantBadgeOutlined: true, participantBadgeBackgroundColor: true, participantBadgeBorderColor: true, participantBadges: true,
         cosmetics: { select: { effectKey: true, settings: true } },
         rating: true, credits: true, avatarKey: true, isGuest: true, isBot: true, createdAt: true, updatedAt: true,
         _count: { select: { messages: true, profilePosts: true, reportsReceived: true } },
@@ -64,7 +64,7 @@ export class AdminService {
     if (!user) throw new NotFoundException("Пользователь не найден");
     const baseUrl = process.env.PUBLIC_API_URL ?? "http://localhost:3001";
     return {
-      ...user, gender: user.gender.toLowerCase(), role: user.role.toLowerCase(), status: user.status.toLowerCase(),
+      ...user, participantBadges: Array.isArray(user.participantBadges) ? user.participantBadges : [], gender: user.gender.toLowerCase(), role: user.role.toLowerCase(), status: user.status.toLowerCase(),
       avatarUrl: user.avatarKey ? baseUrl + user.avatarKey : null,
       avatarKey: undefined,
       createdAt: user.createdAt.toISOString(), updatedAt: user.updatedAt.toISOString(),
@@ -72,7 +72,7 @@ export class AdminService {
   }
 
   async updateUser(actor: AuthenticatedUser, id: string, input: {
-    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; participantBadge?: string; participantBadgeIcon?: string; participantBadgeOutlined?: boolean; participantBadgeBackgroundColor?: string; participantBadgeBorderColor?: string; rating?: number; credits?: number;
+    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; participantBadge?: string; participantBadgeIcon?: string; participantBadgeOutlined?: boolean; participantBadgeBackgroundColor?: string; participantBadgeBorderColor?: string; participantBadges?: Prisma.InputJsonValue; rating?: number; credits?: number;
   }) {
     this.requireAdmin(actor);
     if (id === actor.id && input.role && input.role !== "ADMIN")
@@ -80,6 +80,7 @@ export class AdminService {
     const target = await this.prisma.user.findFirst({ where: { id, deletedAt: null } });
     if (!target) throw new NotFoundException("Пользователь не найден");
     const data = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== undefined)) as typeof input;
+    if (data.participantBadges !== undefined) data.participantBadges = (data.participantBadges as Array<Record<string, unknown>>).map((badge) => ({ id: typeof badge.id === "string" && /^[a-zA-Z0-9_-]{1,48}$/.test(badge.id) ? badge.id : randomUUID(), label: typeof badge.label === "string" ? badge.label.trim().slice(0, 48) : "", icon: typeof badge.icon === "string" ? badge.icon.trim().slice(0, 16) : "", outlined: badge.outlined !== false, backgroundColor: typeof badge.backgroundColor === "string" && /^#[0-9a-fA-F]{6}$/.test(badge.backgroundColor) ? badge.backgroundColor : "", borderColor: typeof badge.borderColor === "string" && /^#[0-9a-fA-F]{6}$/.test(badge.borderColor) ? badge.borderColor : "" })).filter((badge) => badge.label) as Prisma.InputJsonValue;
     if (Object.keys(data).length === 0) throw new BadRequestException("Нет изменений");
     try {
       await this.prisma.$transaction(async (tx) => {

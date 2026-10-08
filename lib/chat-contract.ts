@@ -196,6 +196,7 @@ export type Person = {
   participantBadgeOutlined?: boolean;
   participantBadgeBackgroundColor?: string;
   participantBadgeBorderColor?: string;
+  participantBadges?: Array<{ id: string; label: string; icon: string; outlined: boolean; backgroundColor: string; borderColor: string }>;
   avatarThumbnail?: string;
   appearance?: CosmeticAppearance;
 };

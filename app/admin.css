@@ -1,3 +1,6 @@
+.badge-tiles{display:grid;gap:10px}.badge-tiles-head,.badge-tile-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.badge-tile{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-soft)}.badge-tile-head{grid-column:1/-1}.badge-tile .profile-role-visibility{grid-column:1/-1;margin:0}.badge-tile label{min-width:0}
+@media(max-width:700px){.badge-tile{grid-template-columns:minmax(0,1fr)}}
+
 .early-user-reward-modal{max-width:420px;text-align:center}.early-user-reward-modal strong{display:block;margin:4px 26px 12px;font-size:20px}.early-user-reward-modal p{margin:0 0 20px;line-height:1.55}.early-user-reward-modal .action-button{margin:auto}
 
 .admin-section-tabs{display:flex;flex:0 0 auto;gap:6px;overflow-x:auto;padding:12px 20px;border-bottom:1px solid var(--line);scrollbar-width:thin}

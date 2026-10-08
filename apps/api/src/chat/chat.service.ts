@@ -420,6 +420,7 @@ export class ChatService {
       participantBadgeOutlined: user.participantBadgeOutlined,
       participantBadgeBackgroundColor: user.participantBadgeBackgroundColor,
       participantBadgeBorderColor: user.participantBadgeBorderColor,
+      participantBadges: Array.isArray(user.participantBadges) ? user.participantBadges as ApiPerson["participantBadges"] : [],
       hideRole: user.hideRole,
       hideDj: user.hideDj,
       room: user.memberships[0]?.roomId ?? "main",
@@ -492,6 +493,7 @@ export class ChatService {
           participantBadgeOutlined: peer.participantBadgeOutlined,
           participantBadgeBackgroundColor: peer.participantBadgeBackgroundColor,
           participantBadgeBorderColor: peer.participantBadgeBorderColor,
+          participantBadges: Array.isArray(peer.participantBadges) ? peer.participantBadges as ApiPerson["participantBadges"] : [],
         unread: unreadByPeer.get(peer.id) ?? 0,
         updatedAt: message.createdAt.toISOString(),
       }];
