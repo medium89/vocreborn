@@ -4,7 +4,7 @@ import { ChatService } from "../chat/chat.service";
 import { PrismaService } from "../database/prisma.service";
 
 const BOT_USERNAME = "tusova_overseer";
-const BOT_DISPLAY_NAME = "Сова надзиратель";
+const BOT_DISPLAY_NAME = "Сова Надзиратель";
 const DEFAULT_THRESHOLD = 0.72;
 
 const CHECKS = [
@@ -83,7 +83,7 @@ export class JevModerationService implements OnModuleInit {
       create: {
         username: BOT_USERNAME,
         displayName: BOT_DISPLAY_NAME,
-        gender: "FEMALE",
+        gender: "UNSPECIFIED",
         isBot: true,
         role: "USER",
         participantBadge: "sheriff",
@@ -92,17 +92,12 @@ export class JevModerationService implements OnModuleInit {
         avatarThumbKey: "/bot-avatars/quiz.svg",
       },
       update: {
-        displayName: BOT_DISPLAY_NAME,
-        gender: "FEMALE",
         isBot: true,
         role: "USER",
         isDj: false,
         passwordHash: null,
         isGuest: false,
         deletedAt: null,
-        status: UserStatus.ONLINE,
-        avatarKey: "/bot-avatars/quiz.svg",
-        avatarThumbKey: "/bot-avatars/quiz.svg",
       },
       select: { id: true, displayName: true },
     });
