@@ -2309,7 +2309,7 @@ export default function Home() {
     );
   }, [user]);
 
-  if (!authReady) return <AuthModal onAuthenticated={handleAuthenticated} />;
+  if (!authReady) return <main className="tusova-loading" aria-busy="true" aria-label="Подключаемся к чату"><img src="/brand/tusova-chat-logo.png" alt="TUSOVA" width={280} height={116} /><span>Подключаемся к чату…</span></main>;
   if (!user) return <AuthModal onAuthenticated={handleAuthenticated} />;
   return (
     <main className="shell">

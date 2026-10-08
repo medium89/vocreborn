@@ -1445,6 +1445,7 @@ input:not([type=checkbox]):focus,select:focus,textarea:focus{border-color:var(--
 /* TUSOVA guest landing. Scoped so authenticated chat styles stay unchanged. */
 .tusova-loading{display:grid;place-items:center;height:100dvh;background:#09110d}
 .tusova-loading img{display:block;width:min(280px,72vw);height:auto;filter:drop-shadow(0 5px 16px #d9eb8240)}
+.tusova-loading span{margin-top:18px;color:#d8e5d1;font-size:12px;letter-spacing:.08em;animation:tusova-loading-pulse 1.2s ease-in-out infinite}@keyframes tusova-loading-pulse{50%{opacity:.45}}
 .tusova-landing{position:relative;isolation:isolate;height:100dvh;min-height:540px;overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;background:#09110d;color:#f4f2e6}
 .tusova-landing::before{content:"";position:fixed;inset:0;z-index:0;background-image:linear-gradient(90deg,#03100aa9 0%,#06140e75 34%,#06130e34 62%,#07110d26 100%),linear-gradient(0deg,#02090547,transparent 32%),url("/brand/tusova-night-room.webp");background-position:center;background-size:cover}
 .tusova-landing.is-day::before{background-image:linear-gradient(90deg,#13241591 0%,#22341a55 48%,#21351a12 100%),url("/brand/tusova-day-room.png");filter:brightness(1.18)}
