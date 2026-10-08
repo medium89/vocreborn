@@ -88,6 +88,9 @@ export type ApiPerson = {
   avatarThumbnail?: string;
   participantBadgeIcon?: string;
   appearance?: Record<string, Record<string, string | boolean>>;
+  participantBadgeOutlined?: boolean;
+  participantBadgeBackgroundColor?: string;
+  participantBadgeBorderColor?: string;
 };
 
 export type DirectConversation = {

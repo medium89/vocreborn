@@ -45,6 +45,17 @@ class UpdateUserDto {
   @IsString() @MaxLength(16)
   participantBadgeIcon?: string;
 
+  @ValidateIf((_object, value) => value !== undefined) @IsBoolean()
+  participantBadgeOutlined?: boolean;
+
+  @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @IsString() @Matches(/^$|^#[0-9a-fA-F]{6}$/)
+  participantBadgeBackgroundColor?: string;
+
+  @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @IsString() @Matches(/^$|^#[0-9a-fA-F]{6}$/)
+  participantBadgeBorderColor?: string;
+
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;
 

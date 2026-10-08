@@ -192,6 +192,9 @@ export type Person = {
   room: string;
   participantBadgeIcon?: string;
   avatar: string;
+  participantBadgeOutlined?: boolean;
+  participantBadgeBackgroundColor?: string;
+  participantBadgeBorderColor?: string;
   avatarThumbnail?: string;
   appearance?: CosmeticAppearance;
 };

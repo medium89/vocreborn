@@ -45,7 +45,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
 
   function load(next: EditableUser) {
     setRecord(next);
-    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadge: next.participantBadge, participantBadgeIcon: next.participantBadgeIcon, rating: next.rating, credits: next.credits });
+    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadge: next.participantBadge, participantBadgeIcon: next.participantBadgeIcon, participantBadgeOutlined: next.participantBadgeOutlined, participantBadgeBackgroundColor: next.participantBadgeBackgroundColor, participantBadgeBorderColor: next.participantBadgeBorderColor, rating: next.rating, credits: next.credits });
   }
   useEffect(() => {
     let active = true;
@@ -175,6 +175,16 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
             <input disabled={!isAdmin || busy} value={draft.participantBadgeIcon ?? ""} maxLength={16} placeholder="Например, ⭐" onChange={(event) => setDraft({ ...draft, participantBadgeIcon: event.target.value })} />
           </label>
           {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
+          <label className="profile-role-visibility wide">
+            <input type="checkbox" checked={draft.participantBadgeOutlined ?? true} disabled={!isAdmin || busy} onChange={(event) => setDraft({ ...draft, participantBadgeOutlined: event.target.checked })} />
+            <span><strong>Обводка плашки</strong><small>Показывать рамку вокруг статуса.</small></span>
+          </label>
+          <label>Цвет фона
+            <input type="color" disabled={!isAdmin || busy} value={draft.participantBadgeBackgroundColor || "#f1f8e9"} onChange={(event) => setDraft({ ...draft, participantBadgeBackgroundColor: event.target.value })} />
+          </label>
+          <label>Цвет рамки
+            <input type="color" disabled={!isAdmin || busy} value={draft.participantBadgeBorderColor || "#648239"} onChange={(event) => setDraft({ ...draft, participantBadgeBorderColor: event.target.value })} />
+          </label>
             <input type="checkbox" checked={Boolean(draft.hideRole)} disabled={busy} onChange={(event) => setDraft({ ...draft, hideRole: event.target.checked })} />
             <span><strong>Скрывать статус администратора / модератора</strong><small>Не показывать другим участникам административную или модераторскую роль.</small></span>
           </label>}
@@ -194,7 +204,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
         </div>
 
         {isAdmin && <div className="user-editor-actions">
-          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadge","participantBadgeIcon"])}><Save size={15} />Сохранить профиль</button>
+          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadge","participantBadgeIcon","participantBadgeOutlined","participantBadgeBackgroundColor","participantBadgeBorderColor"])}><Save size={15} />Сохранить профиль</button>
         </div>}
       </section>}
 
