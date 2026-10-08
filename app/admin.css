@@ -1,3 +1,16 @@
+.user-editor-fields>.badge-tiles.wide{grid-column:1/-1}
+.badge-tiles{gap:8px}
+.badge-tiles-head{min-height:34px}
+.badge-tiles-head .action-button{min-height:34px;padding:7px 11px;font-size:12px}
+.badge-tile{grid-template-columns:minmax(210px,1.8fr) minmax(120px,.85fr) 62px 62px auto;align-items:end;gap:8px;padding:10px 12px;border-radius:12px;background:#f4f8ef}
+.badge-tile-head{align-items:center;margin-bottom:-2px}
+.badge-tile-head strong{font-size:13px}
+.badge-tile-head .action-button{min-height:32px;margin:0;padding:6px 9px;font-size:11px}
+.badge-tile>label{gap:4px;font-size:11px}
+.badge-tile>label:nth-of-type(3),.badge-tile>label:nth-of-type(4){width:62px}
+.badge-tile>label:nth-of-type(3) input,.badge-tile>label:nth-of-type(4) input{height:34px;min-height:34px;padding:4px;border-radius:8px}
+.badge-tile .profile-role-visibility{grid-column:auto;align-self:end;height:34px;padding:0;border:0;background:transparent}
+@media(max-width:850px){.badge-tile{grid-template-columns:minmax(0,1fr) minmax(110px,.7fr) 58px 58px}.badge-tile .profile-role-visibility{grid-column:1/-1;height:auto}}@media(max-width:560px){.badge-tile{grid-template-columns:repeat(2,minmax(0,1fr))}.badge-tile>label:nth-of-type(3),.badge-tile>label:nth-of-type(4){width:auto}.badge-tile .profile-role-visibility{grid-column:1/-1}}
 .badge-tiles{display:grid;gap:10px}.badge-tiles-head,.badge-tile-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.badge-tile{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--brand-soft)}.badge-tile-head{grid-column:1/-1}.badge-tile .profile-role-visibility{grid-column:1/-1;margin:0}.badge-tile label{min-width:0}
 @media(max-width:700px){.badge-tile{grid-template-columns:minmax(0,1fr)}}
 
