@@ -22,6 +22,7 @@ export type AuthenticatedUser = {
   avatarUrl: string | null;
   avatarThumbnailUrl: string | null;
   appearance?: Record<string, Record<string, string | boolean>>;
+  earlyUserRewardJustGranted?: boolean;
 };
 
 export type AuthenticatedRequest = Request & {

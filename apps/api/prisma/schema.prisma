@@ -127,6 +127,7 @@ enum EconomyEntryType {
   GIFT_PURCHASE
   COSMETIC_PURCHASE
   VIDEO_QUEUE
+  EARLY_USER_REWARD
 }
 
 enum DailyActivityAction {
@@ -165,6 +166,7 @@ model User {
   deletedAt       DateTime?         @map("deleted_at")
   rating          Int               @default(0)
   credits         Int               @default(20)
+  earlyUserRewardGranted Boolean    @default(false) @map("early_user_reward_granted")
   lastRatingAt    DateTime?         @map("last_rating_at")
   ratingAwardDay  DateTime?         @map("rating_award_day")
   ratingAwardsToday Int              @default(0) @map("rating_awards_today")

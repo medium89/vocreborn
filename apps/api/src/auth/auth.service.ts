@@ -18,6 +18,8 @@ const RECOVERY_CODE_DAYS = 365;
 const SESSION_DAYS = 30;
 const VERIFY_EMAIL_HOURS = 24;
 const RESET_EMAIL_MINUTES = 30;
+const EARLY_USER_REWARD_CREDITS = 5000;
+const EARLY_USER_REWARD_LIMIT = 100;
 
 @Injectable()
 export class AuthService {
@@ -45,18 +47,32 @@ export class AuthService {
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
     let user;
+    let earlyUserRewardGranted = false;
     try {
-      user = await this.prisma.user.create({
-        data: {
-          username,
-          email: input.email,
-          displayName: input.displayName,
-          passwordHash,
-          status: "OFFLINE",
-          role: "USER",
-          credits: settings.initialCredits,
-        },
+      const created = await this.prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(164824916)`;
+        const eligible = (await transaction.user.count({ where: { earlyUserRewardGranted: true } })) < EARLY_USER_REWARD_LIMIT;
+        const next = await transaction.user.create({
+          data: {
+            username,
+            email: input.email,
+            displayName: input.displayName,
+            passwordHash,
+            status: "OFFLINE",
+            role: "USER",
+            credits: settings.initialCredits + (eligible ? EARLY_USER_REWARD_CREDITS : 0),
+            earlyUserRewardGranted: eligible,
+          },
+        });
+        if (eligible) {
+          await transaction.economyEntry.create({
+            data: { userId: next.id, type: "EARLY_USER_REWARD", creditsDelta: EARLY_USER_REWARD_CREDITS, balanceAfter: next.credits, referenceKey: "early-user-reward:" + next.id },
+          });
+        }
+        return { user: next, earlyUserRewardGranted: eligible };
       });
+      user = created.user;
+      earlyUserRewardGranted = created.earlyUserRewardGranted;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw new ConflictException("Этот адрес почты уже занят");
@@ -66,10 +82,12 @@ export class AuthService {
     try {
       await this.createEmailToken(user.id, input.email, "verify");
     } catch (error) {
+      if (earlyUserRewardGranted) await this.prisma.economyEntry.deleteMany({ where: { userId: user.id, type: "EARLY_USER_REWARD" } });
       await this.prisma.user.delete({ where: { id: user.id } });
       throw error;
     }
-    return this.issueSession(user.id, this.toAuthenticatedUser(user));
+    const session = await this.issueSession(user.id, this.toAuthenticatedUser(user));
+    return { ...session, user: { ...session.user, earlyUserRewardJustGranted: earlyUserRewardGranted } };
   }
 
   async registerGuest(turnstileToken: string) {
@@ -109,17 +127,31 @@ export class AuthService {
     const passwordHash = await this.hashPassword(input.password);
 
     let user;
+    let earlyUserRewardGranted = false;
     try {
-      user = await this.prisma.user.update({
-        where: { id: guest.id },
-        data: {
-          email: input.email,
-          displayName: input.displayName,
-          passwordHash,
-          isGuest: false,
-          credits: settings.initialCredits,
-        },
+      const upgraded = await this.prisma.$transaction(async (transaction) => {
+        await transaction.$executeRaw`SELECT pg_advisory_xact_lock(164824916)`;
+        const eligible = (await transaction.user.count({ where: { earlyUserRewardGranted: true } })) < EARLY_USER_REWARD_LIMIT;
+        const next = await transaction.user.update({
+          where: { id: guest.id },
+          data: {
+            email: input.email,
+            displayName: input.displayName,
+            passwordHash,
+            isGuest: false,
+            credits: settings.initialCredits + (eligible ? EARLY_USER_REWARD_CREDITS : 0),
+            earlyUserRewardGranted: eligible,
+          },
+        });
+        if (eligible) {
+          await transaction.economyEntry.create({
+            data: { userId: next.id, type: "EARLY_USER_REWARD", creditsDelta: EARLY_USER_REWARD_CREDITS, balanceAfter: next.credits, referenceKey: "early-user-reward:" + next.id },
+          });
+        }
+        return { user: next, earlyUserRewardGranted: eligible };
       });
+      user = upgraded.user;
+      earlyUserRewardGranted = upgraded.earlyUserRewardGranted;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         throw new ConflictException("Этот адрес почты уже занят");
@@ -130,10 +162,12 @@ export class AuthService {
     try {
       await this.createEmailToken(user.id, input.email, "verify");
     } catch (error) {
-      await this.prisma.user.update({ where: { id: guest.id }, data: { email: null, displayName: guest.displayName, passwordHash: null, isGuest: true, credits: guest.credits } });
+      if (earlyUserRewardGranted) await this.prisma.economyEntry.deleteMany({ where: { userId: guest.id, type: "EARLY_USER_REWARD" } });
+      await this.prisma.user.update({ where: { id: guest.id }, data: { email: null, displayName: guest.displayName, passwordHash: null, isGuest: true, credits: guest.credits, earlyUserRewardGranted: guest.earlyUserRewardGranted } });
       throw error;
     }
-    return this.issueSession(user.id, this.toAuthenticatedUser(user));
+    const session = await this.issueSession(user.id, this.toAuthenticatedUser(user));
+    return { ...session, user: { ...session.user, earlyUserRewardJustGranted: earlyUserRewardGranted } };
   }
 
   async login(input: LoginDto) {

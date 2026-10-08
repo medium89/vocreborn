@@ -132,6 +132,7 @@ export type AuthUser = {
   rating: number;
   credits: number;
   appearance?: CosmeticAppearance;
+  earlyUserRewardJustGranted?: boolean;
 };
 
 export type Room = {

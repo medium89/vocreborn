@@ -363,6 +363,7 @@ export default function Home() {
   const [notice, setNotice] = useState("Проверка сессии…");
   const [reconnecting, setReconnecting] = useState(false);
   const [errorNotice, setErrorNotice] = useState("");
+  const [earlyUserRewardOpen, setEarlyUserRewardOpen] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tabAlertPreferencesRef = useRef<TabAlertPreferences>(
@@ -2286,7 +2287,7 @@ export default function Home() {
     presenceStatusRef.current = authenticatedUser.status;
     setUser(authenticatedUser);
     applyMutedUntil(authenticatedUser.mutedUntil);
-    showNotice("Вы вошли как " + authenticatedUser.displayName + ".");
+    if (authenticatedUser.earlyUserRewardJustGranted) setEarlyUserRewardOpen(true); else showNotice("Вы вошли как " + authenticatedUser.displayName + ".");
     loadSocialData(authenticatedUser).catch(() =>
       showNotice("Не удалось загрузить пользователей и личные диалоги."),
     );
@@ -2726,6 +2727,16 @@ export default function Home() {
             </button>
             <strong>Не удалось выполнить действие</strong>
             <p>{errorNotice}</p>
+          </section>
+        </div>
+      )}
+      {earlyUserRewardOpen && (
+        <div className="chat-error-backdrop" role="presentation" onMouseDown={() => setEarlyUserRewardOpen(false)}>
+          <section className="chat-error-modal early-user-reward-modal" role="dialog" aria-modal="true" aria-label="Награда для первых пользователей" onMouseDown={(event) => event.stopPropagation()}>
+            <button type="button" aria-label="Закрыть" title="Закрыть" onClick={() => setEarlyUserRewardOpen(false)}>×</button>
+            <strong>5000 кредитов уже на вашем счёте</strong>
+            <p>Вы один из первых пользователей чата и поэтому получаете 5000 кредитов. Можете потратить их в магазине чата.</p>
+            <button type="button" className="action-button" onClick={() => setEarlyUserRewardOpen(false)}>Отлично</button>
           </section>
         </div>
       )}

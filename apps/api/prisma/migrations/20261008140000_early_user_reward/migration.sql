@@ -1,0 +1,4 @@
+ALTER TYPE "EconomyEntryType" ADD VALUE IF NOT EXISTS 'EARLY_USER_REWARD';
+
+ALTER TABLE "users"
+  ADD COLUMN "early_user_reward_granted" BOOLEAN NOT NULL DEFAULT false;
