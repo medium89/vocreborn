@@ -21,7 +21,7 @@
 .quiz-history article{display:grid;gap:5px;padding:10px 0;border-bottom:1px solid var(--line)}
 .quiz-preview details{padding:9px 0;border-top:1px solid var(--line)}
 .quiz-notice{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
-.quiz-bot-badge{display:inline-flex;align-items:center;padding:3px 8px;margin-bottom:5px;border-radius:8px;background:#d9ed8f33;color:#53751b;font-size:11px;font-weight:600}
+.quiz-bot-badge{background:#d9ed8f33;color:#53751b}
 .message.quiz-message{padding:14px;border:1px solid #8da24650;border-radius:14px;background:#edf4db}
 .message.quiz-message-won{border-color:#ad922866}
 :root[data-theme=dark] .quiz-bot-badge{color:#e1f3aa;background:#d9ed8f22}
@@ -3324,7 +3324,7 @@ html:has(.tusova-info-page),body:has(.tusova-info-page){height:auto;min-height:1
   .people-panel.mobile-open .room-switcher{display:none}
 }
 
-.overseer-bot-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;margin-bottom:5px;border:1px solid #d8b36a;border-radius:8px;background:#fff3d8;color:#8b5a14;font-size:11px;font-weight:700}
+.overseer-bot-badge{border-color:#d8b36a;background:#fff3d8;color:#8b5a14}
 :root[data-theme=dark] .overseer-bot-badge{border-color:#806234;background:#3a2f1d;color:#f2cf8f}
 
 /* Mobile rooms opened from navigation are a simple room switcher, not an editor. */

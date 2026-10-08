@@ -41,6 +41,10 @@ class UpdateUserDto {
   @IsString() @MaxLength(48)
   participantBadge?: string;
 
+  @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() : value)
+  @IsString() @MaxLength(16)
+  participantBadgeIcon?: string;
+
   @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
   rating?: number;
 

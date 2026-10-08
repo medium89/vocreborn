@@ -190,6 +190,7 @@ export type Person = {
   isGuest?: boolean;
   participantBadge?: ParticipantBadge;
   room: string;
+  participantBadgeIcon?: string;
   avatar: string;
   avatarThumbnail?: string;
   appearance?: CosmeticAppearance;

@@ -55,7 +55,7 @@ export class AdminService {
     const user = await this.prisma.user.findFirst({
       where: { id, deletedAt: null },
       select: {
-        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true, participantBadge: true,
+        id: true, username: true, displayName: true, bio: true, gender: true, role: true, hideRole: true, hideDj: true, isDj: true, status: true, participantBadge: true, participantBadgeIcon: true,
         cosmetics: { select: { effectKey: true, settings: true } },
         rating: true, credits: true, avatarKey: true, isGuest: true, isBot: true, createdAt: true, updatedAt: true,
         _count: { select: { messages: true, profilePosts: true, reportsReceived: true } },
@@ -72,7 +72,7 @@ export class AdminService {
   }
 
   async updateUser(actor: AuthenticatedUser, id: string, input: {
-    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; participantBadge?: string; rating?: number; credits?: number;
+    username?: string; displayName?: string; bio?: string; gender?: Gender; role?: UserRole; hideRole?: boolean; hideDj?: boolean; participantBadge?: string; participantBadgeIcon?: string; rating?: number; credits?: number;
   }) {
     this.requireAdmin(actor);
     if (id === actor.id && input.role && input.role !== "ADMIN")

@@ -86,6 +86,7 @@ export type ApiPerson = {
   isGuest: boolean;
   participantBadge?: string;
   avatarThumbnail?: string;
+  participantBadgeIcon?: string;
   appearance?: Record<string, Record<string, string | boolean>>;
 };
 

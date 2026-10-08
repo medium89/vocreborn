@@ -157,6 +157,7 @@ model User {
   status          UserStatus        @default(OFFLINE)
   participantBadge String            @default("member") @map("participant_badge") @db.VarChar(48)
   createdAt       DateTime          @default(now()) @map("created_at")
+  participantBadgeIcon String         @default("") @map("participant_badge_icon") @db.VarChar(16)
   updatedAt       DateTime          @updatedAt @map("updated_at")
   deletedAt       DateTime?         @map("deleted_at")
   rating          Int               @default(0)

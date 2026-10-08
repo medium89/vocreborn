@@ -45,7 +45,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
 
   function load(next: EditableUser) {
     setRecord(next);
-    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadge: next.participantBadge, rating: next.rating, credits: next.credits });
+    setDraft({ username: next.username, displayName: next.displayName, bio: next.bio ?? "", gender: next.gender, role: next.role, hideRole: next.hideRole, hideDj: next.hideDj, participantBadge: next.participantBadge, participantBadgeIcon: next.participantBadgeIcon, rating: next.rating, credits: next.credits });
   }
   useEffect(() => {
     let active = true;
@@ -171,6 +171,9 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
           <label>Статус-плашка
             <input disabled={!isAdmin || busy} value={draft.participantBadge === "member" ? "" : draft.participantBadge ?? ""} maxLength={48} placeholder="Например, Организатор" onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value })} />
           </label>
+          <label>Значок плашки
+            <input disabled={!isAdmin || busy} value={draft.participantBadgeIcon ?? ""} maxLength={16} placeholder="Например, ⭐" onChange={(event) => setDraft({ ...draft, participantBadgeIcon: event.target.value })} />
+          </label>
           {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
             <input type="checkbox" checked={Boolean(draft.hideRole)} disabled={busy} onChange={(event) => setDraft({ ...draft, hideRole: event.target.checked })} />
             <span><strong>Скрывать статус администратора / модератора</strong><small>Не показывать другим участникам административную или модераторскую роль.</small></span>
@@ -191,7 +194,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
         </div>
 
         {isAdmin && <div className="user-editor-actions">
-          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadge"])}><Save size={15} />Сохранить профиль</button>
+          <button className="action-button" type="button" disabled={busy} onClick={() => void save(["username","displayName","bio","gender","hideRole","hideDj","participantBadge","participantBadgeIcon"])}><Save size={15} />Сохранить профиль</button>
         </div>}
       </section>}
 

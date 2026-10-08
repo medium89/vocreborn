@@ -76,10 +76,10 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     <div className="person-lower">
       <span className="person-role-badges">
         {visibleDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
-        {participantBadge === "quiz" && <span className="person-role-badge quiz-bot-badge">Викторина</span>}
-        {participantBadge === "sheriff" && <span className="person-role-badge overseer-bot-badge"><Shield size={10} />Шериф</span>}
-        {participantBadge === "member" && !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.isGuest ? "Гость" : "Участник"}</span>}
-        {participantBadge !== "member" && participantBadge !== "quiz" && participantBadge !== "sheriff" && <span className="person-role-badge person-role-badge-custom">{participantBadge}</span>}
+        {participantBadge === "quiz" && <span className="person-role-badge quiz-bot-badge">{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}Викторина</span>}
+        {participantBadge === "sheriff" && <span className="person-role-badge overseer-bot-badge">{person.participantBadgeIcon ? <span aria-hidden="true">{person.participantBadgeIcon}</span> : <Shield size={10} />}Шериф</span>}
+        {participantBadge === "member" && !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{person.isGuest ? "Гость" : "Участник"}</span>}
+        {participantBadge !== "member" && participantBadge !== "quiz" && participantBadge !== "sheriff" && <span className="person-role-badge person-role-badge-custom">{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{participantBadge}</span>}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>
