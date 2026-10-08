@@ -58,6 +58,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
   const isVip = Boolean(person.appearance?.vip && person.appearance.vip.enabled !== false);
   const avatarRole = visibleDj ? "dj" : role ?? (isVip ? "vip" : null);
   const participantBadge = person.participantBadge ?? (person.isBot && person.username === "tusova_quiz" ? "quiz" : person.isBot && person.username === "tusova_overseer" ? "sheriff" : "member");
+  const participantBadges = participantBadge.split(/\r?\n/).map((badge) => badge.trim()).filter(Boolean);
   const participantBadgeStyle = {
     ...(person.participantBadgeBackgroundColor ? { backgroundColor: person.participantBadgeBackgroundColor } : {}),
     ...(person.participantBadgeOutlined === false ? { borderColor: "transparent" } : person.participantBadgeBorderColor ? { borderColor: person.participantBadgeBorderColor } : {}),
@@ -81,10 +82,13 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
     <div className="person-lower">
       <span className="person-role-badges">
         {visibleDj && <span className="person-role-badge person-role-badge-dj"><Headphones size={10} />DJ</span>}
-        {participantBadge === "quiz" && <span className="person-role-badge quiz-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}Викторина</span>}
-        {participantBadge === "sheriff" && <span className="person-role-badge overseer-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon ? <span aria-hidden="true">{person.participantBadgeIcon}</span> : <Shield size={10} />}Шериф</span>}
-        {participantBadge === "member" && !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" && <span className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")} style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{person.isGuest ? "Гость" : "Участник"}</span>}
-        {participantBadge !== "member" && participantBadge !== "quiz" && participantBadge !== "sheriff" && <span className="person-role-badge person-role-badge-custom" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{participantBadge}</span>}
+        {participantBadges.map((badge, index) => {
+          const key = badge + "-" + index;
+          if (badge === "quiz") return <span key={key} className="person-role-badge quiz-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}Викторина</span>;
+          if (badge === "sheriff") return <span key={key} className="person-role-badge overseer-bot-badge" style={participantBadgeStyle}>{person.participantBadgeIcon ? <span aria-hidden="true">{person.participantBadgeIcon}</span> : <Shield size={10} />}Шериф</span>;
+          if (badge === "member") return !role && !isVip && !visibleDj && typeof person.isGuest === "boolean" ? <span key={key} className={"person-role-badge person-role-badge-" + (person.isGuest ? "guest" : "member")} style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{person.isGuest ? "Гость" : "Участник"}</span> : null;
+          return <span key={key} className="person-role-badge person-role-badge-custom" style={participantBadgeStyle}>{person.participantBadgeIcon && <span aria-hidden="true">{person.participantBadgeIcon}</span>}{badge}</span>;
+        })}
         {role && <span className={"person-role-badge person-role-badge-" + role} role="img" aria-label={role === "admin" ? "Администратор" : "Модератор"} title={role === "admin" ? "Администратор" : "Модератор"}>{role === "admin" ? <ShieldCheck size={10} /> : <Star size={10} fill="currentColor" />}{role === "admin" ? "Админ" : "Модер"}</span>}
         {isVip && <span className="person-role-badge person-role-badge-vip"><Crown size={10} fill="currentColor" />VIP</span>}
       </span>

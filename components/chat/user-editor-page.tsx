@@ -168,13 +168,12 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
               <option value="unspecified">Не указан</option><option value="male">Парень</option><option value="female">Девушка</option>
             </StyledSelect>
           </label>
-          <label>Статус-плашка
-            <input disabled={!isAdmin || busy} value={draft.participantBadge === "member" ? "" : draft.participantBadge ?? ""} maxLength={48} placeholder="Например, Организатор" onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value })} />
+          <label className="wide">Статус-плашки
+            <textarea disabled={!isAdmin || busy} value={draft.participantBadge === "member" ? "" : draft.participantBadge ?? ""} rows={4} maxLength={500} placeholder={"По одной плашке на строку, например:\nОрганизатор\nВетеран"} onChange={(event) => setDraft({ ...draft, participantBadge: event.target.value })} />
           </label>
           <label>Значок плашки
             <input disabled={!isAdmin || busy} value={draft.participantBadgeIcon ?? ""} maxLength={16} placeholder="Например, ⭐" onChange={(event) => setDraft({ ...draft, participantBadgeIcon: event.target.value })} />
           </label>
-          {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
           <label className="profile-role-visibility wide">
             <input type="checkbox" checked={draft.participantBadgeOutlined ?? true} disabled={!isAdmin || busy} onChange={(event) => setDraft({ ...draft, participantBadgeOutlined: event.target.checked })} />
             <span><strong>Обводка плашки</strong><small>Показывать рамку вокруг статуса.</small></span>
@@ -185,6 +184,7 @@ export function UserEditorPage({ backLabel = "К чату", person, actor, onBac
           <label>Цвет рамки
             <input type="color" disabled={!isAdmin || busy} value={draft.participantBadgeBorderColor || "#648239"} onChange={(event) => setDraft({ ...draft, participantBadgeBorderColor: event.target.value })} />
           </label>
+          {isAdmin && (draft.role === "admin" || draft.role === "moderator") && <label className="profile-role-visibility wide">
             <input type="checkbox" checked={Boolean(draft.hideRole)} disabled={busy} onChange={(event) => setDraft({ ...draft, hideRole: event.target.checked })} />
             <span><strong>Скрывать статус администратора / модератора</strong><small>Не показывать другим участникам административную или модераторскую роль.</small></span>
           </label>}

@@ -38,7 +38,7 @@ class UpdateUserDto {
   hideDj?: boolean;
 
   @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() || "member" : value)
-  @IsString() @MaxLength(48)
+  @IsString() @MaxLength(500)
   participantBadge?: string;
 
   @ValidateIf((_object, value) => value !== undefined) @Transform(({ value }) => typeof value === "string" ? value.trim() : value)

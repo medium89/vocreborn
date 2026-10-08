@@ -155,7 +155,7 @@ model User {
   hideDj          Boolean           @default(false) @map("hide_dj")
   isDj            Boolean           @default(false) @map("is_dj")
   status          UserStatus        @default(OFFLINE)
-  participantBadge String            @default("member") @map("participant_badge") @db.VarChar(48)
+  participantBadge String            @default("member") @map("participant_badge") @db.VarChar(500)
   createdAt       DateTime          @default(now()) @map("created_at")
   participantBadgeIcon String         @default("") @map("participant_badge_icon") @db.VarChar(16)
   updatedAt       DateTime          @updatedAt @map("updated_at")
