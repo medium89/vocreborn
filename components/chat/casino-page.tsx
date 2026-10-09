@@ -97,8 +97,8 @@ export function CasinoPage({ balance, isGuest, onBalance, onBack }: {
                 const rad = index * STEP * Math.PI / 180;
                 return <span key={number} className="casino-wheel-number" style={{ left: `${50 + 42 * Math.sin(rad)}%`, top: `${50 - 42 * Math.cos(rad)}%`, transform: `translate(-50%, -50%) rotate(${-rotation}deg)` }}>{number}</span>;
               })}
-              <div className="casino-wheel-center"><Dices size={27} /><span>TUSOVA</span></div>
             </div>
+            <div className="casino-wheel-center"><Dices size={27} /><span>TUSOVA</span></div>
           </div>
           <p className="casino-wheel-caption">{spinning ? "Колесо вращается…" : result ? `Выпало ${result.number} · ${result.color === "red" ? "красное" : result.color === "black" ? "чёрное" : "зелёное"}` : "Европейская рулетка · 37 секторов"}</p>
         </div>
