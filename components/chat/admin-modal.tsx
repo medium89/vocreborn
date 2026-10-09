@@ -12,6 +12,7 @@ import {
   Users,
   X,
   Coins,
+  Dices,
   Gift,
   Radio,
   Bot,
@@ -71,6 +72,7 @@ const tabs = [
   { id: "materials", label: "Материалы", icon: FileImage },
   { id: "moderation", label: "Модерация", icon: Shield },
   { id: "economy", label: "Экономика", icon: Coins },
+  { id: "casino", label: "Казино", icon: Dices },
   { id: "store", label: "Магазин", icon: Gift },
   { id: "radio", label: "Радио", icon: Radio },
   { id: "bots", label: "Боты", icon: Bot },
@@ -485,6 +487,21 @@ export function AdminModal({
               <AdminEconomyLedger />
             )}
           </>
+        )}
+        {tab === "casino" && (
+          <AdminSettingsPanel
+            title="Рулетка и джекпот"
+            keys={[
+              "casinoEnabled",
+              "casinoMinBet",
+              "casinoMaxBet",
+              "casinoRedBlackPayoutBps",
+              "casinoGreenPayoutBps",
+              "casinoJackpotBasePerMillion",
+              "casinoJackpotGrowthPer10000PerMillion",
+              "casinoJackpotMaxPerMillion",
+            ]}
+          />
         )}
         {tab === "store" && (
           <StoreEditorPage

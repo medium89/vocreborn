@@ -1,4 +1,5 @@
 import { ChatSettingsModule } from "./settings/chat-settings.module";
+import { CasinoModule } from "./casino/casino.module";
 import { RadioModule } from "./radio/radio.module";
 import { QuizModule } from "./quiz/quiz.module";
 import { Module } from "@nestjs/common";
@@ -18,7 +19,7 @@ import { SecurityModule } from "./security/security.module";
 import { SupportModule } from "./support/support.module";
 
 @Module({
-  imports: [DatabaseModule, ChatSettingsModule, ObservabilityModule, SecurityModule, AuthModule, AttachmentsModule, ChatModule, BotsModule, CommunitiesModule, GiftsModule, ProfilePostsModule, ReportsModule, SupportModule, AdminModule, RadioModule, QuizModule],
+  imports: [DatabaseModule, ChatSettingsModule, ObservabilityModule, SecurityModule, AuthModule, AttachmentsModule, ChatModule, CasinoModule, BotsModule, CommunitiesModule, GiftsModule, ProfilePostsModule, ReportsModule, SupportModule, AdminModule, RadioModule, QuizModule],
   controllers: [HealthController],
 })
 export class AppModule {}

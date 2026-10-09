@@ -1,11 +1,13 @@
 "use client";
 import "./admin.css";
+import "./casino.css";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 import { RadioPlayer } from "@/components/chat/radio-player";
 import { RadioPage } from "@/components/chat/radio-page";
 import { AdminModal } from "@/components/chat/admin-modal";
+import { CasinoPage } from "@/components/chat/casino-page";
 import {
   AuthModal,
   GuestRegistrationModal,
@@ -322,6 +324,7 @@ export default function Home() {
   const [communityChatOpen, setCommunityChatOpen] = useState(false);
   const [myCommunity, setMyCommunity] = useState<Community | null>(null);
   const [giftsOpen, setGiftsOpen] = useState(false);
+  const [casinoOpen, setCasinoOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [directsOpen, setDirectsOpen] = useState(false);
   const [communityBadge, setCommunityBadge] = useState(0);
@@ -1298,6 +1301,7 @@ export default function Home() {
     setCommunitiesOpen(false);
     setCommunityChatOpen(false);
     setGiftsOpen(false);
+    setCasinoOpen(false);
     setModerationTarget(null);
     setQuickModerationTarget(null);
     setReportsOpen(false);
@@ -2273,6 +2277,7 @@ export default function Home() {
       setReportsOpen(false);
       setReportTarget(null);
       setAdminOpen(false);
+      setCasinoOpen(false);
       setViewedProfile(null);
       setAttachment(null);
       setReplyingTo(null);
@@ -2339,7 +2344,9 @@ export default function Home() {
                         ? "communities"
                         : giftsOpen
                           ? "store"
-                          : "chat"
+                          : casinoOpen
+                            ? "casino"
+                            : "chat"
         }
         onOpenProfile={() => user && openOverlay(setProfileOpen)}
         onOpenRegistration={() => setGuestRegistrationOpen(true)}
@@ -2364,6 +2371,7 @@ export default function Home() {
           window.dispatchEvent(new Event("tusova:open-mobile-people"))
         }
         onOpenGifts={openGifts}
+        onOpenCasino={() => openOverlay(setCasinoOpen)}
         onOpenReports={() => openOverlay(setReportsOpen)}
         onOpenAdmin={() => openOverlay(setAdminOpen)}
         onOpenRadio={() => openRadio("requests")}
@@ -2513,6 +2521,13 @@ export default function Home() {
                   current ? { ...current, appearance } : current,
                 )
               }
+            />
+          ) : casinoOpen && user ? (
+            <CasinoPage
+              balance={user.credits}
+              isGuest={Boolean(user.isGuest)}
+              onBalance={() => void refreshEconomy(user.id)}
+              onBack={() => changeRoom(roomId)}
             />
           ) : (
             <>

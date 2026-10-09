@@ -9,6 +9,14 @@ export const DEFAULT_SETTINGS = {
   initialCredits: 20, firstMessageReward: 5, firstReplyReward: 3,
   profileCommentReward: 4, photoLikeReward: 2, profilePostLikeReward: 2,
   videoQueuePrice: 0,
+  casinoEnabled: true,
+  casinoMinBet: 1,
+  casinoMaxBet: 100000,
+  casinoRedBlackPayoutBps: 18600,
+  casinoGreenPayoutBps: 334800,
+  casinoJackpotBasePerMillion: 1000,
+  casinoJackpotGrowthPer10000PerMillion: 50,
+  casinoJackpotMaxPerMillion: 5000,
 };
 export type ChatSettings = typeof DEFAULT_SETTINGS;
 const ranges: Partial<Record<keyof ChatSettings, [number, number]>> = {
@@ -16,6 +24,13 @@ const ranges: Partial<Record<keyof ChatSettings, [number, number]>> = {
   initialCredits: [0, 100000], firstMessageReward: [0, 1000], firstReplyReward: [0, 1000],
   profileCommentReward: [0, 1000], photoLikeReward: [0, 1000], profilePostLikeReward: [0, 1000],
   videoQueuePrice: [0, 100000],
+  casinoMinBet: [1, 100000],
+  casinoMaxBet: [1, 100000],
+  casinoRedBlackPayoutBps: [10000, 30000],
+  casinoGreenPayoutBps: [10000, 500000],
+  casinoJackpotBasePerMillion: [0, 100000],
+  casinoJackpotGrowthPer10000PerMillion: [0, 10000],
+  casinoJackpotMaxPerMillion: [0, 100000],
 };
 
 @Injectable()
@@ -42,6 +57,9 @@ export class ChatSettingsService {
       if ((record?.version ?? 0) !== version) throw new ConflictException("Настройки уже изменены другим администратором. Обновите страницу перед сохранением.");
       const before = { ...DEFAULT_SETTINGS, ...(record?.settings as Partial<ChatSettings> ?? {}) };
       const settings = { ...before, ...patch } as ChatSettings;
+      if (settings.casinoMinBet > settings.casinoMaxBet)
+        throw new BadRequestException("Минимальная ставка не может быть больше максимальной");
+      if (settings.casinoJackpotBasePerMillion > settings.casinoJackpotMaxPerMillion)
       await tx.chatSetting.upsert({ where: { id: "main" }, create: { id: "main", settings, version: 1 }, update: { settings, version: { increment: 1 } } });
       await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CHAT_SETTINGS", details: { before, after: settings, reason: reason.trim() } } });
       return { settings, version: version + 1 };

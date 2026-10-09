@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/lib/chat-contract";
-import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, Coins, DoorOpen, Ellipsis, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Settings, ShieldCheck, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
+import { Bell, BellOff, ChevronLeft, ChevronRight, CircleDot, Coins, Dices, DoorOpen, Ellipsis, Gift, Headphones, LayoutDashboard, LogOut, MessageCircle, MessagesSquare, Settings, ShieldCheck, UserRound, UserRoundSearch, UsersRound } from "lucide-react";
 import { Avatar } from "./avatar";
 
 
@@ -11,7 +11,7 @@ type SidebarProps = {
   unreadDirects: number;
   unreadNotifications: number;
   unreadChatMessages: number;
-  activeSection: "profile" | "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "reports" | "admin" | "radio";
+  activeSection: "profile" | "chat" | "directs" | "notifications" | "community-chat" | "communities" | "store" | "casino" | "reports" | "admin" | "radio";
   onOpenProfile: () => void;
   onOpenRegistration: () => void;
   onSetStatus: (status: "online" | "dnd") => void;
@@ -25,6 +25,7 @@ type SidebarProps = {
   communityChatName: string | null;
   onOpenCommunityChat: () => void;
   onOpenGifts: () => void;
+  onOpenCasino: () => void;
   communityBadge: number;
   shopBadge: number;
   onOpenReports: () => void;
@@ -79,7 +80,7 @@ function CreditBalance({ credits, mobile = false, onOpenStore }: { credits: numb
   </button>;
 }
 
-export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onOpenRegistration, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenReports, onOpenAdmin, onOpenRadio, onNotice }: SidebarProps) {
+export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMessages, communityBadge, shopBadge, activeSection, onOpenProfile, onOpenRegistration, onSetStatus, onLogout, onOpenChat, onOpenDirects, onOpenNotifications, onOpenRooms, communityChatName, onOpenCommunityChat, onOpenCommunities, onOpenPeople, onOpenGifts, onOpenCasino, onOpenReports, onOpenAdmin, onOpenRadio, onNotice }: SidebarProps) {
   const name = user?.displayName ?? "Гость";
   const canModerate = user?.role === "admin" || user?.role === "moderator";
   const [collapsed, setCollapsed] = useState(false);
@@ -110,6 +111,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
       <button className={"rail-link rail-mobile-primary " + (activeSection === "notifications" ? "active" : "")} onClick={user ? onOpenNotifications : () => onNotice("Войдите, чтобы открыть уведомления.")}><Bell size={18} /><span>Уведомления</span>{unreadNotifications > 0 && <b className="direct-unread-count">{unreadNotifications > 99 ? "99+" : unreadNotifications}</b>}</button>
       <button className={"rail-link " + (activeSection === "communities" ? "active" : "")} onClick={onOpenCommunities} aria-label="Сообщества" title="Сообщества"><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b className="direct-unread-count">{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>
       <button className={"rail-link " + (activeSection === "store" ? "active" : "")} onClick={onOpenGifts}><Gift size={18} /><span>Магазин</span>{shopBadge > 0 && <b className="direct-unread-count">{shopBadge > 99 ? "99+" : shopBadge}</b>}</button>
+      <button className={"rail-link " + (activeSection === "casino" ? "active" : "")} onClick={onOpenCasino}><Dices size={18} /><span>Казино</span></button>
       <button type="button" className={"rail-link " + (activeSection === "radio" ? "active" : "")} onClick={onOpenRadio} aria-label="Радио TUSOVA" title="Радио TUSOVA"><Headphones size={18} /><span>Радио</span></button>
       {canModerate && <section className="rail-admin" aria-label="Административные функции"><span>УПРАВЛЕНИЕ</span><button className={"rail-link " + (activeSection === "reports" ? "active" : "")} onClick={onOpenReports}><ShieldCheck size={18} /><span>Модерация</span></button>{user?.role === "admin" && <button className={"rail-link " + (activeSection === "admin" ? "active" : "")} onClick={onOpenAdmin}><LayoutDashboard size={18} /><span>Управление</span></button>}</section>}
       {user && <CreditBalance key={user.id} credits={user.credits} mobile onOpenStore={onOpenGifts} />}
@@ -124,6 +126,7 @@ export function Sidebar({ user, unreadDirects, unreadNotifications, unreadChatMe
         {communityChatName && <button type="button" onClick={() => runMobile(onOpenCommunityChat)}><MessagesSquare size={18} /><span>{communityChatName}</span></button>}
         <button type="button" onClick={() => runMobile(onOpenCommunities)}><UsersRound size={18} /><span>Сообщества</span>{communityBadge > 0 && <b>{communityBadge > 99 ? "99+" : communityBadge}</b>}</button>
         <button type="button" onClick={() => runMobile(onOpenGifts)}><Gift size={18} /><span>Магазин</span>{shopBadge > 0 && <b>{shopBadge > 99 ? "99+" : shopBadge}</b>}</button>
+        <button type="button" onClick={() => runMobile(onOpenCasino)}><Dices size={18} /><span>Казино</span></button>
         <button type="button" onClick={() => runMobile(onOpenRadio)}><Headphones size={18} /><span>Радио</span></button>
         {canModerate && <button type="button" onClick={() => runMobile(onOpenReports)}><ShieldCheck size={18} /><span>Модерация</span></button>}
         {user?.role === "admin" && <button type="button" onClick={() => runMobile(onOpenAdmin)}><LayoutDashboard size={18} /><span>Управление</span></button>}

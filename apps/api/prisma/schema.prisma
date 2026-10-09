@@ -128,6 +128,7 @@ enum EconomyEntryType {
   COSMETIC_PURCHASE
   VIDEO_QUEUE
   EARLY_USER_REWARD
+  CASINO_SPIN
 }
 
 enum DailyActivityAction {
@@ -208,6 +209,7 @@ model User {
   pushSubscriptions    PushSubscription[]
   notificationActions  Notification[]     @relation("NotificationActor")
   economyEntries       EconomyEntry[]
+  casinoSpins          CasinoSpin[]
   dailyActivityRewards DailyActivityReward[]
   cosmetics UserCosmetic[]
   supportTickets SupportTicket[]
@@ -1026,4 +1028,32 @@ model PushSubscription {
 
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+model CasinoState {
+  id        String   @id @default("main")
+  jackpot   Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("casino_state")
+}
+
+model CasinoSpin {
+  id                      String   @id @default(uuid()) @db.Uuid
+  requestId               String   @unique @map("request_id") @db.Uuid
+  userId                  String   @map("user_id") @db.Uuid
+  choice                  String   @db.VarChar(5)
+  number                  Int
+  color                   String   @db.VarChar(5)
+  bet                     Int
+  payout                  Int
+  jackpotWon              Int      @default(0) @map("jackpot_won")
+  jackpotChancePerMillion Int      @map("jackpot_chance_per_million")
+  balanceAfter            Int      @map("balance_after")
+  jackpotAfter            Int      @map("jackpot_after")
+  createdAt               DateTime @default(now()) @map("created_at")
+  user                    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("casino_spins")
 }
