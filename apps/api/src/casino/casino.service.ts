@@ -11,15 +11,25 @@ export function rouletteColor(number: number): CasinoColor {
   return number === 0 ? "green" : RED_NUMBERS.has(number) ? "red" : "black";
 }
 
-export function jackpotChance(jackpot: number, settings: ChatSettings) {
-  return Math.min(settings.casinoJackpotMaxPerMillion,
-    settings.casinoJackpotBasePerMillion
-      + Math.floor(jackpot / 10000) * settings.casinoJackpotGrowthPer10000PerMillion);
+const RED_VALUES = Array.from(RED_NUMBERS);
+const BLACK_VALUES = Array.from({ length: 36 }, (_, index) => index + 1).filter(number => !RED_NUMBERS.has(number));
+
+export function randomRouletteNumber() {
+  const roll = randomInt(197);
+  if (roll < 3) return 0;
+  return roll < 100 ? RED_VALUES[randomInt(RED_VALUES.length)] : BLACK_VALUES[randomInt(BLACK_VALUES.length)];
+}
+
+export function jackpotChance(jackpot: number, bet: number, settings: ChatSettings) {
+  if (bet < settings.casinoJackpotMinBet) return 0;
+  const tickets = Math.max(1, Math.floor(Math.sqrt(bet / settings.casinoJackpotCreditsPerTicket)));
+  const chancePerTicket = settings.casinoJackpotBasePerTicketPerMillion + Math.floor(jackpot / 100000) * settings.casinoJackpotGrowthPer100000PerTicketPerMillion;
+  return Math.min(settings.casinoJackpotMaxPerMillion, tickets * chancePerTicket);
 }
 
 export function roulettePayout(bet: number, choice: CasinoColor, color: CasinoColor, settings: ChatSettings) {
   if (choice !== color) return 0;
-  const multiplier = choice === "green" ? settings.casinoGreenPayoutBps : settings.casinoRedBlackPayoutBps;
+  const multiplier = choice === "green" ? settings.casinoGreenPayoutBps : 20000;
   return Math.floor(bet * multiplier / 10000);
 }
 
@@ -36,8 +46,7 @@ export class CasinoService {
     ]);
     if (!player) throw new ForbiddenException("Аккаунт не найден");
     const jackpot = state?.jackpot ?? 0;
-    return { balance: player.credits, jackpot, chancePerMillion: jackpotChance(jackpot, config.settings),
-      settings: this.publicSettings(config.settings), recent };
+    return { balance: player.credits, jackpot, settings: this.publicSettings(config.settings), recent };
   }
 
   async spin(userId: string, requestId: string, choice: CasinoColor, bet: number) {
@@ -67,12 +76,12 @@ export class CasinoService {
           const state = await tx.casinoState.upsert({
             where: { id: "main" }, create: { id: "main" }, update: {},
           });
-          const number = randomInt(37);
+          const number = randomRouletteNumber();
           const color = rouletteColor(number);
           const payout = roulettePayout(bet, choice, color, settings);
           const pot = state.jackpot + (payout === 0 ? bet : 0);
           if (pot > 2147483647) throw new BadRequestException("Джекпот временно достиг лимита");
-          const chance = jackpotChance(pot, settings);
+          const chance = jackpotChance(pot, bet, settings);
           const jackpotWon = pot > 0 && randomInt(1000000) < chance ? pot : 0;
           const jackpotAfter = jackpotWon ? 0 : pot;
           const credit = payout + jackpotWon;
@@ -105,10 +114,12 @@ export class CasinoService {
       enabled: settings.casinoEnabled,
       minBet: settings.casinoMinBet,
       maxBet: settings.casinoMaxBet,
-      redBlackPayoutBps: settings.casinoRedBlackPayoutBps,
+      redBlackPayoutBps: 20000,
       greenPayoutBps: settings.casinoGreenPayoutBps,
-      jackpotBasePerMillion: settings.casinoJackpotBasePerMillion,
-      jackpotGrowthPer10000PerMillion: settings.casinoJackpotGrowthPer10000PerMillion,
+      jackpotMinBet: settings.casinoJackpotMinBet,
+      jackpotCreditsPerTicket: settings.casinoJackpotCreditsPerTicket,
+      jackpotBasePerTicketPerMillion: settings.casinoJackpotBasePerTicketPerMillion,
+      jackpotGrowthPer100000PerTicketPerMillion: settings.casinoJackpotGrowthPer100000PerTicketPerMillion,
       jackpotMaxPerMillion: settings.casinoJackpotMaxPerMillion,
     };
   }

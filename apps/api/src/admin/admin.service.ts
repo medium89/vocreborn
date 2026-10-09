@@ -172,7 +172,24 @@ export class AdminService {
   async saveSettings(actor: AuthenticatedUser, input: { settings: Record<string, unknown>; version: number; reason: string }) {
     this.requireAdmin(actor); return this.chatSettings.save(actor, input.settings, input.version, input.reason);
   }
+  async casinoJackpot(actor: AuthenticatedUser) {
+    this.requireAdmin(actor);
+    return { jackpot: (await this.prisma.casinoState.findUnique({ where: { id: "main" } }))?.jackpot ?? 0 };
+  }
+  async setCasinoJackpot(actor: AuthenticatedUser, input: { amount: number; reason: string }) {
+    this.requireAdmin(actor);
+    if (!Number.isInteger(input.amount) || input.amount < 0 || input.amount > 2147483647 || typeof input.reason !== "string" || input.reason.trim().length < 2 || input.reason.trim().length > 500)
+      throw new BadRequestException("Укажите сумму джекпота и причину изменения");
+    return this.prisma.$transaction(async tx => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(284732)`;
+      const before = (await tx.casinoState.upsert({ where: { id: "main" }, create: { id: "main" }, update: {} })).jackpot;
+      const state = await tx.casinoState.update({ where: { id: "main" }, data: { jackpot: input.amount } });
+      await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CASINO_JACKPOT_SET", details: { before, after: state.jackpot, reason: input.reason.trim() } } });
+      return { jackpot: state.jackpot };
+    });
+  }
   async adjustCredits(actor: AuthenticatedUser, id: string, input: { mode: "add" | "remove" | "set"; amount: number; reason: string; requestId: string }) {
+
     this.requireAdmin(actor);
     if (input.reason.trim().length < 2) throw new BadRequestException("Укажите причину операции");
     return this.prisma.$transaction(async tx => {

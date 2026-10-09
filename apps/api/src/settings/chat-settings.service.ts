@@ -12,11 +12,13 @@ export const DEFAULT_SETTINGS = {
   casinoEnabled: true,
   casinoMinBet: 1,
   casinoMaxBet: 100000,
-  casinoRedBlackPayoutBps: 18600,
+  casinoRedBlackPayoutBps: 20000,
   casinoGreenPayoutBps: 334800,
-  casinoJackpotBasePerMillion: 1000,
-  casinoJackpotGrowthPer10000PerMillion: 50,
-  casinoJackpotMaxPerMillion: 5000,
+  casinoJackpotMinBet: 10,
+  casinoJackpotCreditsPerTicket: 10,
+  casinoJackpotBasePerTicketPerMillion: 2,
+  casinoJackpotGrowthPer100000PerTicketPerMillion: 1,
+  casinoJackpotMaxPerMillion: 1000,
 };
 export type ChatSettings = typeof DEFAULT_SETTINGS;
 const ranges: Partial<Record<keyof ChatSettings, [number, number]>> = {
@@ -28,8 +30,10 @@ const ranges: Partial<Record<keyof ChatSettings, [number, number]>> = {
   casinoMaxBet: [1, 100000],
   casinoRedBlackPayoutBps: [10000, 30000],
   casinoGreenPayoutBps: [10000, 500000],
-  casinoJackpotBasePerMillion: [0, 100000],
-  casinoJackpotGrowthPer10000PerMillion: [0, 10000],
+  casinoJackpotMinBet: [1, 100000],
+  casinoJackpotCreditsPerTicket: [1, 100000],
+  casinoJackpotBasePerTicketPerMillion: [0, 100000],
+  casinoJackpotGrowthPer100000PerTicketPerMillion: [0, 10000],
   casinoJackpotMaxPerMillion: [0, 100000],
 };
 
@@ -59,7 +63,10 @@ export class ChatSettingsService {
       const settings = { ...before, ...patch } as ChatSettings;
       if (settings.casinoMinBet > settings.casinoMaxBet)
         throw new BadRequestException("Минимальная ставка не может быть больше максимальной");
-      if (settings.casinoJackpotBasePerMillion > settings.casinoJackpotMaxPerMillion)
+      if (settings.casinoJackpotMinBet < settings.casinoMinBet)
+        throw new BadRequestException("Ставка для джекпота не может быть меньше минимальной ставки");
+      if (settings.casinoJackpotBasePerTicketPerMillion > settings.casinoJackpotMaxPerMillion)
+        throw new BadRequestException("Базовый шанс джекпота не может превышать потолок");
       await tx.chatSetting.upsert({ where: { id: "main" }, create: { id: "main", settings, version: 1 }, update: { settings, version: { increment: 1 } } });
       await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CHAT_SETTINGS", details: { before, after: settings, reason: reason.trim() } } });
       return { settings, version: version + 1 };

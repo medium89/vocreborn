@@ -107,6 +107,7 @@ export class AdminController {
   @RateLimit({ limit: 10, windowMs: 60000, key: "session" })
   announce(@CurrentUser() actor: AuthenticatedUser, @Body() input: AnnouncementDto) { return this.admin.announce(actor, input); }
 
+
   @Get("economy")
   economy(@CurrentUser() actor: AuthenticatedUser, @Query("userId") userId?: string, @Query("cursor") cursor?: string) { return this.admin.economy(actor, userId, cursor); }
 

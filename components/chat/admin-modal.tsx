@@ -497,8 +497,10 @@ export function AdminModal({
               "casinoMaxBet",
               "casinoRedBlackPayoutBps",
               "casinoGreenPayoutBps",
-              "casinoJackpotBasePerMillion",
-              "casinoJackpotGrowthPer10000PerMillion",
+              "casinoJackpotMinBet",
+              "casinoJackpotCreditsPerTicket",
+              "casinoJackpotBasePerTicketPerMillion",
+              "casinoJackpotGrowthPer100000PerTicketPerMillion",
               "casinoJackpotMaxPerMillion",
             ]}
           />

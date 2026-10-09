@@ -86,19 +86,13 @@ export function CasinoPage({ balance, isGuest, onBalance, onBack }: {
     {isGuest ? <div className="casino-guest"><Dices size={32} /><h2>Для игры нужна регистрация</h2><p>Ставки доступны зарегистрированным участникам чата.</p></div> : <>
       <div className="casino-topline">
         <div className="casino-stat"><span><Coins size={17} /> Ваш баланс</span><strong>{format(available)}</strong><small>кредитов</small></div>
-        <div className="casino-stat casino-pot"><span><Trophy size={17} /> Джекпот</span><strong>{format(data?.jackpot ?? 0)}</strong><small>кредитов · шанс сейчас {((data?.chancePerMillion ?? 0) / 10000).toLocaleString("ru-RU", { maximumFractionDigits: 3 })}%</small></div>
+        <div className="casino-stat casino-pot"><span><Trophy size={17} /> Джекпот</span><strong>{format(data?.jackpot ?? 0)}</strong><small>кредитов</small></div>
       </div>
       <div className="casino-main">
         <div className="casino-wheel-panel">
           <div className="casino-wheel-wrap">
-            <div className="casino-pointer" aria-hidden="true"><i /></div>
-            <div className={"casino-wheel" + (spinning ? " is-spinning" : "")} style={{ background: wheelGradient, transform: `rotate(${rotation}deg)` }} aria-label="Европейская рулетка с числами от 0 до 36">
-              {ORDER.map((number, index) => {
-                const rad = index * STEP * Math.PI / 180;
-                return <span key={number} className="casino-wheel-number" style={{ left: `${50 + 42 * Math.sin(rad)}%`, top: `${50 - 42 * Math.cos(rad)}%` }}>{number}</span>;
-              })}
-              <div className="casino-wheel-center"><Dices size={27} /><span>TUSOVA</span></div>
-            </div>
+            <img className="casino-pointer" src="/casino/roulette-pointer.png" alt="" aria-hidden="true" />
+            <img className={"casino-wheel" + (spinning ? " is-spinning" : "")} style={{ transform: `rotate(${rotation}deg)` }} src="/casino/roulette-wheel.png" alt="Европейская рулетка с числами от 0 до 36" />
           </div>
           <p className="casino-wheel-caption">{spinning ? "Колесо вращается…" : result ? `Выпало ${result.number} · ${result.color === "red" ? "красное" : result.color === "black" ? "чёрное" : "зелёное"}` : "Европейская рулетка · 37 секторов"}</p>
         </div>

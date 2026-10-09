@@ -3,7 +3,9 @@ export type ChatSettings = {
   registrationOpen: boolean; allowUserRooms: boolean; maintenance: boolean; allowLinks: boolean;
   maxMessageLength: number; slowModeSeconds: number; imageMaxMb: number; audioMaxMb: number;
   casinoEnabled: boolean; casinoMinBet: number; casinoMaxBet: number; casinoRedBlackPayoutBps: number;
-  casinoGreenPayoutBps: number; casinoJackpotBasePerMillion: number; casinoJackpotGrowthPer10000PerMillion: number; casinoJackpotMaxPerMillion: number;
+  casinoGreenPayoutBps: number; casinoJackpotMinBet: number; casinoJackpotCreditsPerTicket: number;
+  casinoJackpotBasePerTicketPerMillion: number; casinoJackpotGrowthPer100000PerTicketPerMillion: number;
+  casinoJackpotMaxPerMillion: number;
   initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number; videoQueuePrice: number;
 };
 export type SettingsRecord = { settings: ChatSettings; version: number };

@@ -7,11 +7,12 @@ export type CasinoSpin = {
   balanceAfter: number; jackpotAfter: number; createdAt: string;
 };
 export type CasinoState = {
-  balance: number; jackpot: number; chancePerMillion: number;
+  balance: number; jackpot: number;
   settings: {
     enabled: boolean; minBet: number; maxBet: number; redBlackPayoutBps: number;
-    greenPayoutBps: number; jackpotBasePerMillion: number;
-    jackpotGrowthPer10000PerMillion: number; jackpotMaxPerMillion: number;
+    greenPayoutBps: number; jackpotMinBet: number; jackpotCreditsPerTicket: number;
+    jackpotBasePerTicketPerMillion: number; jackpotGrowthPer100000PerTicketPerMillion: number;
+    jackpotMaxPerMillion: number;
   };
   recent: CasinoSpin[];
 };
