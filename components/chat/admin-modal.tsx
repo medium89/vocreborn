@@ -73,6 +73,7 @@ const tabs = [
   { id: "moderation", label: "Модерация", icon: Shield },
   { id: "economy", label: "Экономика", icon: Coins },
   { id: "casino", label: "Казино", icon: Dices },
+  { id: "mafia", label: "Мафия", icon: Dices },
   { id: "store", label: "Магазин", icon: Gift },
   { id: "radio", label: "Радио", icon: Radio },
   { id: "bots", label: "Боты", icon: Bot },
@@ -488,6 +489,7 @@ export function AdminModal({
             )}
           </>
         )}
+        {tab === "mafia" && <AdminSettingsPanel title="Таймеры Мафии" keys={["mafiaNightSeconds", "mafiaDaySeconds", "mafiaVotingSeconds"]} />}
         {tab === "casino" && (
           <AdminSettingsPanel
             title="Рулетка и джекпот"

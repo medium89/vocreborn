@@ -13,6 +13,7 @@ import { useSiteTheme } from "@/lib/use-site-theme";
 import { DirectConversationTabs } from "./direct-conversation-tabs";
 import { GifPicker } from "./gif-picker";
 import { VideoRoomPlayer } from "./video-room-player";
+import { MafiaPanel } from "./mafia-panel";
 import type { ChatGif } from "@/lib/gif-api";
 
 const reactionOptions: Array<{ type: ReactionType; emoji: string; label: string }> = [
@@ -551,7 +552,8 @@ export function Conversation({ videoSession, onSetVideoSource, onVideoControl, o
       </>}
     </div>
     {searchOpen && <div className="message-search-backdrop" onMouseDown={() => setSearchOpen(false)}><section className="message-search" onMouseDown={(event) => event.stopPropagation()}><div><strong>Поиск по всей истории</strong><button type="button" onClick={() => setSearchOpen(false)} aria-label="Закрыть поиск"><X size={16} /></button></div><input autoFocus value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Текст или имя автора" />{searchLoading ? <p className="message-search-state">Поиск…</p> : searchQuery.trim() && (searchResults.length ? <ul>{searchResults.map((message) => <li key={message.id}><button type="button" onClick={() => { setSearchOpen(false); jumpToMessage(message.id, message); }}><strong>{message.author}</strong><small>{message.time} · {message.body || "Вложение"}</small></button></li>)}</ul> : <p className="message-search-state">Ничего не найдено.</p>)}</section></div>}
-    {!dialog && room.isVideoRoom && <VideoRoomPlayer session={videoSession} currentUserId={currentUserId} currentUserRole={currentUserRole} messages={messages} openSourceRequest={videoSourceRequest} onSetSource={onSetVideoSource} onControl={onVideoControl} onRemoveItem={onVideoQueueRemove} onEnded={onVideoEnded} onTitle={onVideoTitle} onSendMessage={onVideoChatSend} />}    {(directConversations.length > 0 || contentTab !== "chat" || dialog) && <DirectConversationTabs conversations={directConversations} dialogId={dialogId} showReturn={contentTab !== "chat" || Boolean(dialog)} onReturn={returnToRoomChat} onOpen={onOpenDirect} onDismiss={onDismissDirect} />}
+    {!dialog && room.isVideoRoom && <VideoRoomPlayer session={videoSession} currentUserId={currentUserId} currentUserRole={currentUserRole} messages={messages} openSourceRequest={videoSourceRequest} onSetSource={onSetVideoSource} onControl={onVideoControl} onRemoveItem={onVideoQueueRemove} onEnded={onVideoEnded} onTitle={onVideoTitle} onSendMessage={onVideoChatSend} />}
+    {!dialog && room.isMafiaRoom && currentUserId && <MafiaPanel roomId={room.id} userId={currentUserId} isAdmin={currentUserRole === "admin"} />}    {(directConversations.length > 0 || contentTab !== "chat" || dialog) && <DirectConversationTabs conversations={directConversations} dialogId={dialogId} showReturn={contentTab !== "chat" || Boolean(dialog)} onReturn={returnToRoomChat} onOpen={onOpenDirect} onDismiss={onDismissDirect} />}
     <div className={"conversation-message-area" + (contentTab === "chat" ? "" : " tab-hidden")}>
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
       {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}

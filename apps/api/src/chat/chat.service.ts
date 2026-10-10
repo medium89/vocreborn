@@ -63,9 +63,9 @@ export class ChatService {
     return Promise.all(rooms.map((room) => this.toApiRoom(room)));
   }
 
-  async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean }) {
+  async createRoom(userId: string, input: { name: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean; isMafiaRoom?: boolean }) {
     const [{ settings }, actor] = await Promise.all([this.settings.read(), this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } })]);
-    if (input.isVideoRoom && actor?.role !== "ADMIN") throw new ForbiddenException("Видеокомнату может создать только администратор");
+    if ((input.isVideoRoom || input.isMafiaRoom) && actor?.role !== "ADMIN") throw new ForbiddenException("Игровую или видеокомнату может создать только администратор");
     if (actor?.role !== "ADMIN" && (!settings.allowUserRooms || settings.maintenance)) throw new ForbiddenException("Создание комнат отключено администратором");
     const position = await this.prisma.room.count();
     const room = await this.prisma.room.create({
@@ -78,6 +78,7 @@ export class ChatService {
         rules: input.rules ?? "",
         visibility: input.visibility === "private" ? "PRIVATE" : "PUBLIC",
         isVideoRoom: Boolean(input.isVideoRoom),
+        isMafiaRoom: Boolean(input.isMafiaRoom),
         position,
         createdById: userId,
         memberships: { create: { userId, role: "OWNER" } },
@@ -86,9 +87,10 @@ export class ChatService {
     return this.toApiRoom(room);
   }
 
-  async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean }) {
+  async updateRoom(roomId: string, userId: string, role: "user" | "moderator" | "admin", input: { name?: string; description?: string; tone?: string; coverEmoji?: string; rules?: string; visibility?: string; isVideoRoom?: boolean; isMafiaRoom?: boolean }) {
     const room = await this.assertRoom(roomId);
-    if (input.isVideoRoom !== undefined && role !== "admin") throw new ForbiddenException("Видеокомнату может создать или изменить только администратор");
+    if (input.isMafiaRoom === false && room.isMafiaRoom && await this.prisma.mafiaGame.findFirst({ where: { roomId, phase: { not: "FINISHED" } }, select: { id: true } })) throw new BadRequestException("Сначала завершите активную партию «Мафии»");
+    if ((input.isVideoRoom !== undefined || input.isMafiaRoom !== undefined) && role !== "admin") throw new ForbiddenException("Тип комнаты может изменить только администратор");
     if (role !== "admin") {
       const membership = await this.prisma.roomMembership.findUnique({ where: { userId_roomId: { userId, roomId } } });
       if (membership?.role !== "OWNER") throw new ForbiddenException("Изменять комнату может только владелец или администратор");
@@ -367,6 +369,15 @@ export class ChatService {
       for (const listener of this.messageListeners) listener({ roomId, authorId, message: apiMessage });
     }
     return apiMessage;
+  }
+
+  async createRoomSystemMessage(roomId: string, body: string): Promise<ApiMessage> {
+    await this.assertRoom(roomId);
+    const message = await this.prisma.message.create({
+      data: { roomId, authorName: "Ведущий", body, kind: "SYSTEM" },
+      include: { attachments: true, reactions: true },
+    });
+    return this.toApiMessage(message);
   }
 
   async createSystemMessage(body: string, greetingRecipientId?: string): Promise<ApiMessage> {
@@ -948,8 +959,9 @@ export class ChatService {
       coverThumbnailUrl: room.coverThumbKey ? (process.env.PUBLIC_API_URL ?? "http://localhost:3001") + room.coverThumbKey : undefined,
       rules: room.rules,
       visibility,
-      kind: room.id === "main" ? "general" : room.isVideoRoom ? "video" : visibility,
+      kind: room.id === "main" ? "general" : room.isMafiaRoom ? "mafia" : room.isVideoRoom ? "video" : visibility,
       isVideoRoom: room.isVideoRoom,
+      isMafiaRoom: room.isMafiaRoom,
       createdAt: room.createdAt.toISOString(),
       memberCount,
       online,

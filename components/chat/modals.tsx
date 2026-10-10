@@ -14,7 +14,7 @@ import type { NotificationPreferences, TabAlertPreferences } from "@/lib/tab-ale
 
 const roleLabels = { user: "УЧАСТНИК", moderator: "МОДЕРАТОР", admin: "АДМИНИСТРАТОР" } as const;
 
-type RoomInput = { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; isVideoRoom: boolean; coverFile: File | null };
+type RoomInput = { name: string; description: string; tone: string; coverEmoji: string; rules: string; visibility: "public" | "private"; isVideoRoom: boolean; isMafiaRoom: boolean; coverFile: File | null };
 type RoomsModalProps = {
   embedded?: boolean;
   rooms: Room[];
@@ -27,7 +27,7 @@ type RoomsModalProps = {
 type RoomEditor = { mode: "create" } | { mode: "edit"; room: Room };
 
 export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSaveRoom, onDeleteRoom, onClose }: RoomsModalProps & { onDeleteRoom: (room: Room) => Promise<void> }) {
-  const empty: RoomInput = { name: "", description: "", tone: "lime", coverEmoji: "✦", rules: "", visibility: "public", isVideoRoom: false, coverFile: null };
+  const empty: RoomInput = { name: "", description: "", tone: "lime", coverEmoji: "✦", rules: "", visibility: "public", isVideoRoom: false, isMafiaRoom: false, coverFile: null };
   const [editor, setEditor] = useState<RoomEditor | null>(null);
   const [viewing, setViewing] = useState<Room | null>(null);
   const [deleting, setDeleting] = useState<Room | null>(null);
@@ -47,7 +47,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
     setEditor({ mode: "create" });
   };
   const beginEdit = (room: Room) => {
-    setInput({ name: room.name, description: room.description, tone: room.tone, coverEmoji: room.coverEmoji, rules: room.rules, visibility: room.visibility, isVideoRoom: room.isVideoRoom, coverFile: null });
+    setInput({ name: room.name, description: room.description, tone: room.tone, coverEmoji: room.coverEmoji, rules: room.rules, visibility: room.visibility, isVideoRoom: room.isVideoRoom, isMafiaRoom: room.isMafiaRoom, coverFile: null });
     setError("");
     setEditor({ mode: "edit", room });
   };
@@ -97,7 +97,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
       {!embedded && <nav className="rooms-mobile-navigation" aria-label="Переход в комнату">
         {rooms.map((room) => <button type="button" className="rooms-mobile-room-link" key={room.id} onClick={() => openRoom(room)}>
           <span className={"orb " + room.tone} />
-          <span>{room.name}{room.isVideoRoom ? " · видео" : ""}</span>
+          <span>{room.name}{room.isVideoRoom ? " · видео" : ""}{room.isMafiaRoom ? " · мафия" : ""}</span>
           <small>{room.online}</small>
           <ChevronRight size={17} aria-hidden="true" />
         </button>)}
@@ -106,7 +106,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
         {rooms.map((room) => <article className="modal-room" key={room.id}>
           <button type="button" className="room-card-summary" onClick={() => setViewing(room)} aria-label={"Открыть сведения о комнате " + room.name}>
             <span className={"orb " + room.tone} />
-            <span className="room-card-copy"><strong>{room.name}{room.isVideoRoom ? " · видео" : ""}</strong><small>{room.description || "Без описания"} · {room.memberCount} участников</small></span>
+            <span className="room-card-copy"><strong>{room.name}{room.isVideoRoom ? " · видео" : ""}{room.isMafiaRoom ? " · мафия" : ""}</strong><small>{room.description || "Без описания"} · {room.memberCount} участников</small></span>
             <b className="room-card-presence">{room.online} в сети</b>
           </button>
           <div className="admin-record-actions room-record-actions">
@@ -124,7 +124,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
         <p className="admin-record-meta">{viewing.visibility === "public" ? "Публичная комната" : "Приватная комната"} · {viewing.memberCount} участников · {viewing.online} в сети</p>
         <dl className="room-record-details">
           <div><dt>Описание</dt><dd>{viewing.description || "Не указано"}</dd></div>
-          <div><dt>Тип</dt><dd>{viewing.isVideoRoom ? "Совместный просмотр" : "Обычная комната"}</dd></div>
+          <div><dt>Тип</dt><dd>{viewing.isMafiaRoom ? "Мафия" : viewing.isVideoRoom ? "Совместный просмотр" : "Обычная комната"}</dd></div>
           {viewing.rules && <div><dt>Правила</dt><dd>{viewing.rules}</dd></div>}
         </dl>
         <footer>
@@ -147,6 +147,7 @@ export function RoomsModal({ embedded = false, rooms, user, onChangeRoom, onSave
           <label>Фото обложки<input type="file" accept="image/png,image/jpeg,image/webp" onChange={(event) => setInput((old) => ({ ...old, coverFile: event.target.files?.[0] ?? null }))} /><small>{input.coverFile ? input.coverFile.name : "PNG, JPEG или WebP, до 10 МБ"}</small></label>
           <label>Видимость<StyledSelect value={input.visibility} onChange={(event) => setInput((old) => ({ ...old, visibility: event.target.value as "public" | "private" }))}><option value="public">Публичная</option><option value="private">Приватная</option></StyledSelect></label>
           {user.role === "admin" && <label className="room-video-kind"><input type="checkbox" checked={input.isVideoRoom} onChange={(event) => setInput((old) => ({ ...old, isVideoRoom: event.target.checked }))} /><span><strong>Комната совместного просмотра</strong><small>В ней доступна ссылка на YouTube, VK Видео или Rutube.</small></span></label>}
+          {user.role === "admin" && <label className="room-video-kind"><input type="checkbox" checked={input.isMafiaRoom} onChange={(event) => setInput((old) => ({ ...old, isMafiaRoom: event.target.checked }))} /><span><strong>Комната «Мафия»</strong><small>Участники могут запускать партии прямо в комнате.</small></span></label>}
           <label>Правила комнаты<textarea value={input.rules} maxLength={1000} rows={3} onChange={(event) => setInput((old) => ({ ...old, rules: event.target.value }))} placeholder="Краткие правила для участников" /></label>
           <label>Цвет<StyledSelect value={input.tone} onChange={(event) => setInput((old) => ({ ...old, tone: event.target.value }))}><option value="lime">Салатовый</option><option value="gray">Серый</option></StyledSelect></label>
         </div>

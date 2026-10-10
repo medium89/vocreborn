@@ -6,7 +6,7 @@ export type ChatSettings = {
   casinoGreenPayoutBps: number; casinoJackpotMinBet: number; casinoJackpotCreditsPerTicket: number;
   casinoJackpotBasePerTicketPerMillion: number; casinoJackpotGrowthPer100000PerTicketPerMillion: number;
   casinoJackpotMaxPerMillion: number;
-  initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number; videoQueuePrice: number;
+  initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number; videoQueuePrice: number; mafiaNightSeconds: number; mafiaDaySeconds: number; mafiaVotingSeconds: number;
 };
 export type SettingsRecord = { settings: ChatSettings; version: number };
 export type SystemState = { uptimeSeconds: number; databaseMs: number; memoryMb: number; diskFreeMb: number | null; environment: string; modules: { radio: boolean; quiz: boolean; testBots: boolean } };

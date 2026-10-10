@@ -48,6 +48,27 @@ enum RoomVisibility {
   PRIVATE
 }
 
+enum MafiaPhase {
+  LOBBY
+  NIGHT
+  DAY
+  VOTING
+  FINISHED
+}
+
+enum MafiaRole {
+  MAFIA
+  DOCTOR
+  COMMISSAR
+  CIVILIAN
+}
+
+enum MafiaNightActionType {
+  MAFIA_KILL
+  DOCTOR_PROTECT
+  COMMISSAR_CHECK
+}
+
 enum MembershipRole {
   MEMBER
   MODERATOR
@@ -219,6 +240,13 @@ model User {
   radioUploads RadioUpload[]
   radioBroadcasts RadioBroadcast[]
   quizWins QuizRound[]
+  mafiaHostedGames MafiaGame[] @relation("MafiaHost")
+  mafiaPlayers MafiaPlayer[]
+  mafiaNightActions MafiaNightAction[] @relation("MafiaActionActor")
+  mafiaNightTargets MafiaNightAction[] @relation("MafiaActionTarget")
+  mafiaVotes MafiaVote[] @relation("MafiaVoter")
+  mafiaVoteTargets MafiaVote[] @relation("MafiaVoteTarget")
+  mafiaSecretMessages MafiaSecretMessage[]
 
   @@map("users")
 }
@@ -291,6 +319,7 @@ model Room {
   rules       String           @default("") @db.VarChar(1000)
   visibility  RoomVisibility   @default(PUBLIC)
   isVideoRoom Boolean          @default(false) @map("is_video_room")
+  isMafiaRoom Boolean          @default(false) @map("is_mafia_room")
   position    Int              @default(0)
   createdById String?          @map("created_by_id") @db.Uuid
   createdAt   DateTime         @default(now()) @map("created_at")
@@ -300,8 +329,118 @@ model Room {
   messages    Message[]
   videoSession VideoRoomSession?
   videoQueueItems VideoRoomQueueItem[]
+  mafiaGames MafiaGame[]
 
   @@map("rooms")
+}
+
+model MafiaGame {
+  id String @id @default(uuid()) @db.Uuid
+  roomId String @map("room_id") @db.VarChar(64)
+  hostUserId String @map("host_user_id") @db.Uuid
+  phase MafiaPhase @default(LOBBY)
+  round Int @default(0)
+  isTestMode Boolean @default(false) @map("is_test_mode")
+  phaseEndsAt DateTime? @map("phase_ends_at")
+  winner String? @db.VarChar(16)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  host User @relation("MafiaHost", fields: [hostUserId], references: [id], onDelete: Restrict)
+  players MafiaPlayer[]
+  nightActions MafiaNightAction[]
+  votes MafiaVote[]
+  secretMessages MafiaSecretMessage[]
+  testMessages MafiaTestMessage[]
+
+  @@index([roomId, phase, createdAt(sort: Desc)])
+  @@index([phase, phaseEndsAt])
+  @@map("mafia_games")
+}
+
+model MafiaPlayer {
+  id String @id @default(uuid()) @db.Uuid
+  gameId String @map("game_id") @db.Uuid
+  userId String @map("user_id") @db.Uuid
+  name String @db.VarChar(64)
+  role MafiaRole?
+  isAlive Boolean @default(true) @map("is_alive")
+  isAiBot Boolean @default(false) @map("is_ai_bot")
+  joinedAt DateTime @default(now()) @map("joined_at")
+  game MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([gameId, userId])
+  @@index([gameId, isAlive])
+  @@map("mafia_players")
+}
+
+model MafiaNightAction {
+  id String @id @default(uuid()) @db.Uuid
+  gameId String @map("game_id") @db.Uuid
+  round Int
+  actorUserId String @map("actor_user_id") @db.Uuid
+  type MafiaNightActionType
+  targetUserId String @map("target_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  game MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  actor User @relation("MafiaActionActor", fields: [actorUserId], references: [id], onDelete: Restrict)
+  target User @relation("MafiaActionTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@unique([gameId, round, actorUserId, type])
+  @@index([gameId, round])
+  @@map("mafia_night_actions")
+}
+
+model MafiaVote {
+  id String @id @default(uuid()) @db.Uuid
+  gameId String @map("game_id") @db.Uuid
+  round Int
+  voterUserId String @map("voter_user_id") @db.Uuid
+  targetUserId String? @map("target_user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  game MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  voter User @relation("MafiaVoter", fields: [voterUserId], references: [id], onDelete: Restrict)
+  target User? @relation("MafiaVoteTarget", fields: [targetUserId], references: [id], onDelete: Restrict)
+
+  @@unique([gameId, round, voterUserId])
+  @@index([gameId, round])
+  @@map("mafia_votes")
+}
+
+model MafiaSecretMessage {
+  id String @id @default(uuid()) @db.Uuid
+  gameId String @map("game_id") @db.Uuid
+  round Int
+  authorUserId String @map("author_user_id") @db.Uuid
+  authorName String @map("author_name") @db.VarChar(64)
+  body String @db.VarChar(1000)
+  createdAt DateTime @default(now()) @map("created_at")
+  game MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([gameId, round, createdAt])
+  @@map("mafia_secret_messages")
+}
+
+model MafiaTestMessage {
+  id String @id @default(uuid()) @db.Uuid
+  gameId String @map("game_id") @db.Uuid
+  round Int
+  phase MafiaPhase
+  authorUserId String @map("author_user_id") @db.Uuid
+  authorName String @map("author_name") @db.VarChar(64)
+  audience String @db.VarChar(16)
+  recipientUserId String? @map("recipient_user_id") @db.Uuid
+  body String @db.VarChar(1000)
+  turnKey String? @unique @map("turn_key") @db.VarChar(160)
+  createdAt DateTime @default(now()) @map("created_at")
+  game MafiaGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  @@index([gameId, createdAt])
+  @@map("mafia_test_messages")
 }
 
 model VideoRoomSession {

@@ -1,6 +1,7 @@
 "use client";
 import "./admin.css";
 import "./casino.css";
+import "./mafia.css";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
@@ -131,6 +132,7 @@ const defaultRoom: Room = {
   visibility: "public",
   kind: "general",
   isVideoRoom: false,
+  isMafiaRoom: false,
   createdAt: new Date().toISOString(),
 };
 
@@ -2097,6 +2099,7 @@ export default function Home() {
       rules: string;
       visibility: "public" | "private";
       isVideoRoom: boolean;
+      isMafiaRoom: boolean;
       coverFile: File | null;
     },
   ) {

@@ -8,6 +8,7 @@ export class CreateRoomDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsOptional() @IsString() @MaxLength(1000) rules?: string;
   @IsOptional() @IsIn(["public", "private"]) visibility?: string;
   @IsOptional() @IsBoolean() isVideoRoom?: boolean;
+  @IsOptional() @IsBoolean() isMafiaRoom?: boolean;
 }
 export class UpdateRoomDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsOptional() @IsString() @Length(2, 80) name?: string;
@@ -17,4 +18,5 @@ export class UpdateRoomDto {
   @Transform(({ value }) => typeof value === "string" ? value.trim() : value) @IsOptional() @IsString() @MaxLength(1000) rules?: string;
   @IsOptional() @IsIn(["public", "private"]) visibility?: string;
   @IsOptional() @IsBoolean() isVideoRoom?: boolean;
+  @IsOptional() @IsBoolean() isMafiaRoom?: boolean;
 }

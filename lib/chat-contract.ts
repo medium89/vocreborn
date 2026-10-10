@@ -146,8 +146,9 @@ export type Room = {
   coverThumbnailUrl?: string;
   rules: string;
   visibility: "public" | "private";
-  kind: "general" | "public" | "private" | "video";
+  kind: "general" | "public" | "private" | "video" | "mafia";
   isVideoRoom: boolean;
+  isMafiaRoom: boolean;
   createdAt: string;
   memberCount: number;
   createdById?: string;

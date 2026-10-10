@@ -17,6 +17,8 @@ import { NotificationsService } from "../notifications/notifications.service";
 import { PushService } from "../notifications/push.service";
 import { SessionRevocationService } from "../security/session-revocation.service";
 import { ChatService } from "./chat.service";
+import { MafiaService } from "./mafia.service";
+import { MafiaCreateTestDto, MafiaNightActionDto, MafiaRoomDto, MafiaSecretMessageDto, MafiaTestMessageDto, MafiaVoteDto } from "./dto/mafia.dto";
 import { JoinRoomDto } from "./dto/join-room.dto";
 import { UpdatePresenceDto } from "./dto/presence.dto";
 import { ControlVideoRoomDto, SetVideoRoomSourceDto, VideoQueueItemDto, VideoRoomEndedDto, VideoRoomStateDto, VideoRoomTitleDto } from "./dto/video-room.dto";
@@ -57,12 +59,17 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
 
   constructor(
     private readonly chat: ChatService,
+    private readonly mafia: MafiaService,
     private readonly auth: AuthService,
     private readonly limits: RateLimitService,
     sessionRevocation: SessionRevocationService,
     notifications: NotificationsService,
     private readonly push: PushService,
   ) {
+    mafia.subscribe(({ roomId, event, payload, userId }) => {
+      if (!this.server) return;
+      this.server.to(userId ? "user:" + userId : roomId).emit(event, payload);
+    });
     chat.subscribeMessages(({ roomId, recipientId, authorId, requestId, message }) => {
       if (!this.server) return;
       if (roomId) {
@@ -185,7 +192,9 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!this.allowAction(client, user.id, "room", 120, 60 * 1000)) return;
     await this.chat.joinMembership(user.id, input.roomId);
     await client.join(input.roomId);
-    client.emit("room:snapshot", await this.chat.getSnapshot(input.roomId, user.id));
+    const snapshot = await this.chat.getSnapshot(input.roomId, user.id);
+    client.emit("room:snapshot", snapshot);
+    if (snapshot.room.isMafiaRoom) client.emit("mafia:private-state", await this.mafia.status(input.roomId, user.id));
     return { ok: true, roomId: input.roomId };
   }
 
@@ -195,6 +204,78 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     if (!user || !this.allowAction(client, user.id, "room", 120, 60 * 1000)) return;
     await client.leave(input.roomId);
     return { ok: true, roomId: input.roomId };
+  }
+
+  @SubscribeMessage("mafia:create")
+  createMafia(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.create(input.roomId, client.data.user!.id, client.data.user!.displayName));
+  }
+
+  @SubscribeMessage("mafia:create-test")
+  createTestMafia(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaCreateTestDto) {
+    return this.mafiaAction(client, () => this.mafia.createTest(input.roomId, client.data.user!.id, client.data.user!.displayName, input.botCount));
+  }
+
+  @SubscribeMessage("mafia:test-message")
+  mafiaTestMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaTestMessageDto) {
+    return this.mafiaAction(client, () => this.mafia.sendTestMessage(input.roomId, client.data.user!.id, input.body, input.audience, input.recipientUserId));
+  }
+
+  @SubscribeMessage("mafia:advance-test")
+  mafiaAdvanceTest(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.advanceTest(input.roomId, client.data.user!.id));
+  }
+
+  @SubscribeMessage("mafia:join")
+  joinMafia(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.join(input.roomId, client.data.user!.id, client.data.user!.displayName));
+  }
+
+  @SubscribeMessage("mafia:start")
+  startMafia(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.start(input.roomId, client.data.user!.id));
+  }
+
+  @SubscribeMessage("mafia:night-action")
+  mafiaNightAction(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaNightActionDto) {
+    return this.mafiaAction(client, () => this.mafia.nightAction(input.roomId, client.data.user!.id, input.type, input.targetUserId));
+  }
+
+  @SubscribeMessage("mafia:start-vote")
+  mafiaStartVote(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.startVote(input.roomId, client.data.user!.id));
+  }
+
+  @SubscribeMessage("mafia:vote")
+  mafiaVote(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaVoteDto) {
+    return this.mafiaAction(client, () => this.mafia.vote(input.roomId, client.data.user!.id, input.targetUserId ?? null));
+  }
+
+  @SubscribeMessage("mafia:status")
+  mafiaStatus(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.status(input.roomId, client.data.user!.id));
+  }
+
+  @SubscribeMessage("mafia:stop")
+  mafiaStop(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaRoomDto) {
+    return this.mafiaAction(client, () => this.mafia.stop(input.roomId, client.data.user!.id));
+  }
+
+  @SubscribeMessage("mafia:secret-message")
+  mafiaSecretMessage(@ConnectedSocket() client: AuthenticatedSocket, @MessageBody() input: MafiaSecretMessageDto) {
+    return this.mafiaAction(client, () => this.mafia.secretChat(input.roomId, client.data.user!.id, input.body));
+  }
+
+  private async mafiaAction<T>(client: AuthenticatedSocket, action: () => Promise<T>) {
+    const user = client.data.user;
+    if (!user) { client.disconnect(true); return; }
+    if (!this.allowAction(client, user.id, "mafia", 100, 60 * 1000)) return;
+    try { return await action(); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Ошибка игры";
+      client.emit("mafia:error", { message });
+      return { error: message };
+    }
   }
 
   @SubscribeMessage("video:get")

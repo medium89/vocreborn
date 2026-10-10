@@ -1,0 +1,61 @@
+.mafia-panel {
+  flex: none;
+  display: grid;
+  gap: 12px;
+  margin: 10px 14px;
+  padding: 16px 18px;
+  border: 1px solid #dce6cb;
+  border-radius: 18px;
+  background: linear-gradient(135deg, #f9fced, #f4f7e9);
+  box-shadow: 0 8px 30px #304a1d0c;
+  color: #263226;
+}
+.mafia-panel-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.mafia-panel-head > div { display: grid; gap: 1px; }
+.mafia-eyebrow { color: #71805d; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.mafia-panel-head strong { font-size: 20px; }
+.mafia-phase { padding: 7px 11px; border-radius: 999px; background: #e9efd9; color: #435334; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.mafia-players, .mafia-targets > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.mafia-player { padding: 6px 10px; border: 1px solid #dce5cb; border-radius: 999px; background: #fff; font-size: 13px; }
+.mafia-player.eliminated { opacity: .6; text-decoration: line-through; }
+.mafia-actions { display: grid; justify-items: start; gap: 10px; }
+.mafia-actions p, .mafia-lobby p { margin: 0; font-size: 13px; color: #56624d; }
+.mafia-actions button, .mafia-lobby button, .mafia-secret-chat button { padding: 8px 13px; border: 1px solid #b8cd97; border-radius: 10px; background: #e2edc9; color: #263b19; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.mafia-actions button:hover:not(:disabled), .mafia-lobby button:hover:not(:disabled), .mafia-secret-chat button:hover:not(:disabled) { background: #d7e9b4; }
+.mafia-actions button:disabled, .mafia-lobby button:disabled, .mafia-secret-chat button:disabled { opacity: .55; cursor: default; }
+.mafia-targets { display: grid; gap: 8px; }
+.mafia-targets strong { font-size: 13px; }
+.mafia-targets button { background: white; }
+.mafia-targets button.selected { background: #cdeba0; border-color: #779f43; }
+.mafia-targets small, .mafia-actions small { color: #68745e; font-size: 12px; }
+.mafia-my-role { margin: 0; padding: 9px 11px; border-radius: 10px; background: #fff; color: #405334; font-size: 13px; font-weight: 700; }
+.mafia-secret-chat { width: 100%; display: grid; gap: 8px; padding: 12px; border: 1px solid #d6d2e9; border-radius: 12px; background: #f7f5fd; }
+.mafia-secret-chat strong { font-size: 13px; }
+.mafia-secret-chat small { color: #746d89; }
+.mafia-secret-feed { display: grid; gap: 5px; max-height: 120px; overflow: auto; }
+.mafia-secret-feed p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.mafia-secret-chat form { display: flex; gap: 7px; }
+.mafia-secret-chat input { min-width: 0; flex: 1; padding: 8px 10px; border: 1px solid #d6d2e9; border-radius: 9px; background: white; color: #252435; font: inherit; }
+.mafia-checks { display: grid; gap: 4px; padding: 10px; border-radius: 10px; background: #fff; font-size: 12px; }
+.mafia-stop { justify-self: start; border: 0; background: none; color: #95615d; cursor: pointer; font: inherit; font-size: 12px; text-decoration: underline; }
+.mafia-error { margin: 0; padding: 8px 10px; border-radius: 9px; background: #ffe6e4; color: #a32b2b; font-size: 13px; }
+.mafia-test-notice { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 10px 12px; border: 1px solid #e6dab5; border-radius: 10px; background: #fff9e8; color: #6c572b; font-size: 12px; }
+.mafia-test-notice strong { font-size: 13px; }
+.mafia-test-chat { display: grid; gap: 8px; padding: 12px; border: 1px solid #dce5d4; border-radius: 12px; background: #fff; }
+.mafia-test-chat > strong { font-size: 14px; }
+.mafia-test-chat > small { color: #68745e; font-size: 12px; }
+.mafia-test-feed { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
+.mafia-test-feed p { display: grid; gap: 2px; margin: 0; padding: 8px 10px; border-radius: 9px; background: #f5f8ed; overflow-wrap: anywhere; font-size: 13px; }
+.mafia-test-feed p span:first-child { color: #657253; font-size: 11px; }
+.mafia-test-chat form { display: flex; gap: 7px; }
+.mafia-test-chat select, .mafia-test-chat input { min-width: 0; padding: 8px 10px; border: 1px solid #ccd7bd; border-radius: 9px; background: white; color: #263226; font: inherit; font-size: 13px; }
+.mafia-test-chat input { flex: 1; }
+.mafia-test-chat button, .mafia-advance { padding: 8px 13px; border: 1px solid #b8cd97; border-radius: 10px; background: #e2edc9; color: #263b19; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.mafia-test-chat button:disabled, .mafia-advance:disabled { opacity: .55; cursor: default; }
+.mafia-advance { justify-self: start; }
+@media (max-width: 640px) {
+  .mafia-panel { margin: 8px; padding: 12px; }
+  .mafia-panel-head { align-items: flex-start; flex-direction: column; }
+  .mafia-phase { white-space: normal; }
+  .mafia-secret-chat form { flex-wrap: wrap; }
+}
