@@ -419,8 +419,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   }
 
   private async roomOnlineUserIds(roomId: string) {
-    const sockets = await this.server.in(roomId).fetchSockets();
-    return [...new Set(sockets.map((socket) => (socket.data as AuthenticatedSocket["data"]).user?.id).filter((id): id is string => Boolean(id)))];
+    const [sockets, members] = await Promise.all([this.server.in(roomId).fetchSockets(), this.chat.listRoomPresentUserIds(roomId)]);
+    const connected = sockets
+      .map((socket) => (socket.data as AuthenticatedSocket["data"]).user?.id)
+      .filter((id): id is string => Boolean(id));
+    return [...new Set([...members, ...connected])];
   }
 
   private async publishRoomPresence(roomId: string) {

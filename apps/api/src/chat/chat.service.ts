@@ -441,6 +441,18 @@ export class ChatService {
     }));
   }
 
+  async listRoomPresentUserIds(roomId: string): Promise<string[]> {
+    const users = await this.prisma.user.findMany({
+      where: {
+        deletedAt: null,
+        status: { in: ["ONLINE", "AWAY", "DND"] },
+        memberships: { some: { roomId } },
+      },
+      select: { id: true },
+    });
+    return users.map((user) => user.id);
+  }
+
   async listDirectConversations(userId: string): Promise<DirectConversation[]> {
     const heads = await this.prisma.$queryRaw<Array<{ messageId: string; peerId: string }>>(Prisma.sql`
       SELECT DISTINCT ON ("peerId") "messageId", "peerId"
