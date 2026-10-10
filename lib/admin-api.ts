@@ -8,7 +8,7 @@ export type ChatSettings = {
   casinoJackpotMaxPerMillion: number;
   initialCredits: number; firstMessageReward: number; firstReplyReward: number; profileCommentReward: number; photoLikeReward: number; profilePostLikeReward: number; videoQueuePrice: number; mafiaNightSeconds: number; mafiaDaySeconds: number; mafiaVotingSeconds: number;
 };
-export type SettingsRecord = { settings: ChatSettings; version: number };
+export type SettingsRecord = { settings: ChatSettings; version: number; jackpot: number };
 export type SystemState = { uptimeSeconds: number; databaseMs: number; memoryMb: number; diskFreeMb: number | null; environment: string; modules: { radio: boolean; quiz: boolean; testBots: boolean } };
 export type EconomyRecord = { id: string; type: string; creditsDelta: number; ratingDelta: number; balanceAfter: number; createdAt: string; user: { id: string; displayName: string; username: string } };
 export async function adminRequest<T>(path: string, body?: unknown, method = "PATCH"): Promise<T> {

@@ -33,6 +33,7 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
   const socketRef = useRef<Socket | null>(null);
   const [state, setState] = useState<MafiaState | null>(null);
   const [busy, setBusy] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState("");
   const [secretDraft, setSecretDraft] = useState("");
   const [testDraft, setTestDraft] = useState("");
@@ -43,6 +44,19 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    try { setCollapsed(window.localStorage.getItem(`tusova:mafia-panel-collapsed:${userId}:${roomId}`) === "true"); }
+    catch { setCollapsed(false); }
+  }, [roomId, userId]);
+
+  function toggleCollapsed() {
+    setCollapsed(current => {
+      const next = !current;
+      try { window.localStorage.setItem(`tusova:mafia-panel-collapsed:${userId}:${roomId}`, String(next)); } catch {}
+      return next;
+    });
+  }
 
   useEffect(() => {
     setState(null);
@@ -121,13 +135,15 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
     ? !state.allies?.some(ally => ally.userId === player.userId)
     : state?.myRole === "COMMISSAR" ? player.userId !== userId : true);
 
-  return <section className="mafia-panel" aria-label="Игра Мафия">
+  return <aside className={"mafia-panel" + (collapsed ? " collapsed" : "")} aria-label="Игра Мафия">
     <div className="mafia-panel-head">
       <div><span className="mafia-eyebrow">Игра в комнате</span><strong>Мафия</strong></div>
-      {state && <span className="mafia-phase">{phaseNames[state.phase]}{state.round > 0 ? ` · раунд ${state.round}` : ""}{timer ? ` · ${timer}` : ""}</span>}
+      {state && <span className="mafia-phase" title={`${phaseNames[state.phase]}${state.round > 0 ? ` · раунд ${state.round}` : ""}${timer ? ` · ${timer}` : ""}`}>{phaseNames[state.phase]}{!collapsed && state.round > 0 ? ` · раунд ${state.round}` : ""}{timer ? ` · ${timer}` : ""}</span>}
+      <button type="button" className="mafia-collapse-button" aria-expanded={!collapsed} aria-label={collapsed ? "Развернуть панель Мафии" : "Свернуть панель Мафии"} onClick={toggleCollapsed}>{collapsed ? "Развернуть" : "Свернуть"}</button>
     </div>
+    <div className="mafia-panel-body" hidden={collapsed}>
     {error && <p className="mafia-error" role="alert">{error}</p>}
-    {!state ? <div className="mafia-lobby"><p>Соберите от 4 до 12 участников для новой партии.</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Создать партию</button>{isAdmin && <button type="button" disabled={busy} onClick={() => action("mafia:create-test", { botCount: 5 })}>Проверить одному · 5 ботов</button>}</div> : <>
+    {!state ? <div className="mafia-lobby"><p>Соберите от 4 до 12 участников для новой партии.</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Создать партию</button>{isAdmin && <button type="button" className="mafia-test-start" disabled={busy} onClick={() => action("mafia:create-test", { botCount: 5 })}>Запустить с 5 ботами</button>}</div> : <>
       <div className="mafia-players" aria-label="Игроки">
         {state.players.map(player => <span key={player.userId} className={"mafia-player" + (player.isAlive ? "" : " eliminated")}>
           {player.name}{player.userId === state.hostUserId ? " ★" : ""}{player.role || state.adminView && state.adminRoles?.find(item => item.userId === player.userId)?.role ? ` · ${roleNames[(player.role ?? state.adminRoles?.find(item => item.userId === player.userId)?.role) as Role]}` : ""}
@@ -177,7 +193,7 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
           const recipient = state.players.find(player => player.userId === message.recipientUserId)?.name;
           const address = message.audience === "ALL" ? "всем" : message.audience === "MAFIA" ? "мафии"
             : message.audience === "DOCTOR" ? "доктору" : message.audience === "COMMISSAR" ? "комиссару" : recipient ?? "игроку";
-          return <p key={message.id}><span><b>{message.authorName}</b> · Кому: {address}</span><span>{message.body}</span></p>;
+          return <p key={message.id} className={"mafia-test-message mafia-test-message-" + message.audience.toLowerCase()}><span><b>{message.authorName}</b> · Кому: {address}</span><span>{message.body}</span></p>;
         })}</div>
         {state.phase !== "FINISHED" && (state.adminView || canAct) && <form onSubmit={sendTest}>
           <select aria-label="Адресат" value={testAudience} onChange={event => setTestAudience(event.target.value)}>
@@ -194,5 +210,6 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
       {state.phase === "FINISHED" && <div className="mafia-actions"><p>{state.winner === "MAFIA" ? "Победила мафия." : state.winner === "CIVILIANS" ? "Победили мирные." : "Игра остановлена."}</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Новая партия</button></div>}
       {host && state.phase !== "FINISHED" && <button type="button" className="mafia-stop" disabled={busy} onClick={() => { if (window.confirm("Остановить текущую партию?")) action("mafia:stop"); }}>Остановить игру</button>}
     </>}
-  </section>;
+    </div>
+  </aside>;
 }

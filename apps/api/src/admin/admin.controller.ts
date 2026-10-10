@@ -75,6 +75,8 @@ class SettingsDto {
   @IsObject() settings!: Record<string, unknown>;
   @IsInt() @Min(0) version!: number;
   @IsString() @Length(1, 500) reason!: string;
+  @ValidateIf((_object, value) => value !== undefined) @IsInt() @Min(0) @Max(2147483647)
+  jackpotAmount?: number;
 }
 class AnnouncementDto {
   @IsString() @Length(1, 1000) body!: string;

@@ -168,9 +168,17 @@ export class AdminService {
   }
 
 
-  async settings(actor: AuthenticatedUser) { this.requireAdmin(actor); return this.chatSettings.read(); }
-  async saveSettings(actor: AuthenticatedUser, input: { settings: Record<string, unknown>; version: number; reason: string }) {
-    this.requireAdmin(actor); return this.chatSettings.save(actor, input.settings, input.version, input.reason);
+  async settings(actor: AuthenticatedUser) {
+    this.requireAdmin(actor);
+    const [record, state] = await Promise.all([
+      this.chatSettings.read(),
+      this.prisma.casinoState.findUnique({ where: { id: "main" } }),
+    ]);
+    return { ...record, jackpot: state?.jackpot ?? 0 };
+  }
+  async saveSettings(actor: AuthenticatedUser, input: { settings: Record<string, unknown>; version: number; reason: string; jackpotAmount?: number }) {
+    this.requireAdmin(actor);
+    return this.chatSettings.save(actor, input.settings, input.version, input.reason, input.jackpotAmount);
   }
   async casinoJackpot(actor: AuthenticatedUser) {
     this.requireAdmin(actor);

@@ -78,6 +78,7 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
 
   async createTest(roomId: string, userId: string, name: string, botCount: number) {
     if (!Number.isInteger(botCount) || botCount < 3 || botCount > 11) throw new BadRequestException("Можно добавить от 3 до 11 ботов");
+    const { settings } = await this.settings.read();
     await this.locked(roomId, userId, async tx => {
       const actor = await tx.user.findUnique({ where: { id: userId }, select: { role: true } });
       if (actor?.role !== "ADMIN") throw new ForbiddenException("Тестовую игру с ИИ-ботами может создать только администратор");
@@ -91,6 +92,15 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
         } });
         await tx.mafiaPlayer.create({ data: { gameId: game.id, userId: bot.id, name: bot.displayName, isAiBot: true } });
       }
+      const players = await tx.mafiaPlayer.findMany({ where: { gameId: game.id }, orderBy: { joinedAt: "asc" } });
+      const roles = mafiaRoleDeck(players.length);
+      for (let index = roles.length - 1; index > 0; index--) {
+        const swap = randomInt(index + 1);
+        [roles[index], roles[swap]] = [roles[swap], roles[index]];
+      }
+      for (let index = 0; index < players.length; index++)
+        await tx.mafiaPlayer.update({ where: { id: players[index].id }, data: { role: roles[index] } });
+      await tx.mafiaGame.update({ where: { id: game.id }, data: { phase: MafiaPhase.NIGHT, round: 1, phaseEndsAt: new Date(Date.now() + settings.mafiaNightSeconds * 1000) } });
     });
     await this.publish(roomId, "mafia:lobby-updated");
     return this.status(roomId, userId);

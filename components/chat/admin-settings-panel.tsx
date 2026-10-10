@@ -37,28 +37,43 @@ export function AdminSettingsPanel({ title, keys }: { title: string; keys: Array
   const [record, setRecord] = useState<SettingsRecord | null>(null);
   const [draft, setDraft] = useState<ChatSettings | null>(null);
   const [reason, setReason] = useState("");
+  const [jackpotInput, setJackpotInput] = useState("");
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   async function load() {
     setBusy(true); setError("");
-    try { const next = await adminRequest<SettingsRecord>("settings"); setRecord(next); setDraft(next.settings); setNotice(""); }
+    try { const next = await adminRequest<SettingsRecord>("settings"); setRecord(next); setDraft(next.settings); setJackpotInput(String(next.jackpot)); setReason(""); setNotice(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось загрузить настройки"); }
     finally { setBusy(false); }
   }
   useEffect(() => { void load(); }, []);
+  const isCasino = title === "Рулетка и джекпот";
   const changed = draft && record ? Object.fromEntries(keys.filter(key => draft[key] !== record.settings[key]).map(key => [key, draft[key]])) : {};
+  const jackpotValid = !isCasino || jackpotInput.trim() !== "" && Number.isSafeInteger(Number(jackpotInput)) && Number(jackpotInput) >= 0 && Number(jackpotInput) <= 2147483647;
+  const jackpotDirty = isCasino && record !== null && jackpotInput !== String(record.jackpot);
+  const hasChanges = Object.keys(changed).length > 0 || jackpotDirty;
   async function save(event: React.FormEvent) {
-    event.preventDefault(); if (!record || !draft) return;
+    event.preventDefault(); if (!record || !draft || !hasChanges) return;
+    if (!jackpotValid) { setError("Введите целую сумму джекпота от 0 до 2147483647."); return; }
     setBusy(true); setError(""); setNotice("");
-    try { const next = await adminRequest<SettingsRecord>("settings", { settings: changed, version: record.version, reason: reason.trim() }); setRecord(next); setDraft(next.settings); setReason(""); setNotice("Сохранено. Настройки применяются на сервере без перезапуска."); }
+    try {
+      const next = await adminRequest<SettingsRecord>("settings", { settings: changed, version: record.version, reason: reason.trim(), ...(jackpotDirty ? { jackpotAmount: Number(jackpotInput) } : {}) });
+      setRecord(next); setDraft(next.settings); setJackpotInput(String(next.jackpot)); setReason("");
+      setNotice("Сохранено. Настройки применяются на сервере без перезапуска.");
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : "Не удалось сохранить настройки"); }
     finally { setBusy(false); }
   }
-  return <section className="admin-panel"><header><h3>{title}</h3><button type="button" disabled={busy} onClick={() => { if (!Object.keys(changed).length || window.confirm("Обновить настройки и отменить несохранённые изменения?")) void load(); }}><RefreshCw className="admin-refresh-icon" size={15} />Обновить</button></header>
+  return <section className="admin-panel"><header><h3>{title}</h3><button type="button" disabled={busy} onClick={() => { if (!hasChanges || window.confirm("Обновить настройки и отменить несохранённые изменения?")) void load(); }}><RefreshCw className="admin-refresh-icon" size={15} />Обновить</button></header>
     {error && <p className="auth-error" role="alert">{error}</p>}{notice && <p role="status" className="user-editor-notice">{notice}</p>}
     {!draft ? <p>Загрузка настроек…</p> : <form onSubmit={save}><div className="admin-settings-grid">{keys.map(key => {
       const field = fields[key];
       const isToggle = typeof draft[key] === "boolean";
       return <label key={key} className={isToggle ? `admin-setting-toggle${draft[key] ? " is-enabled" : ""}` : ""}>{isToggle ? <><span className="admin-setting-toggle-head"><span>{field.label}</span><span className="admin-setting-toggle-control"><input type="checkbox" checked={draft[key] as boolean} disabled={busy} onChange={event => setDraft({ ...draft, [key]: event.target.checked })} /><span>{draft[key] ? "Включено" : "Выключено"}</span></span></span><small>{field.hint}</small></> : <><span>{field.label}</span><input type="number" required min={field.min === undefined ? undefined : field.min / (field.scale ?? 1)} max={field.max === undefined ? undefined : field.max / (field.scale ?? 1)} step={field.step ?? 1} disabled={busy} value={(draft[key] as number) / (field.scale ?? 1)} onChange={event => setDraft({ ...draft, [key]: Math.round(event.target.valueAsNumber * (field.scale ?? 1)) })} /><small>{field.hint}</small></>}</label>;
-    })}</div><label className="admin-operation-reason">Причина изменения<input required maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Например: уменьшили паузу после тестирования" /></label><button className="action-button" disabled={busy || !reason.trim() || !Object.keys(changed).length}><Save size={15} />Сохранить настройки</button>{title === "Рулетка и джекпот" && <button type="button" className="action-button" disabled={busy || !reason.trim()} onClick={() => { const amount = window.prompt("Новая сумма джекпота в кредитах"); if (amount === null) return; const value = Number(amount); if (!Number.isSafeInteger(value) || value < 0) { setError("Введите целую сумму джекпота от 0."); return; } setBusy(true); void adminRequest<{ jackpot: number }>("casino/jackpot", { amount: value, reason }).then(() => setNotice("Сумма джекпота обновлена.")).catch(cause => setError(cause instanceof Error ? cause.message : "Не удалось обновить джекпот")).finally(() => setBusy(false)); }}>Установить сумму джекпота</button>}</form>}
+    })}
+      {isCasino && <label><span>Сумма джекпота, кредитов</span><input type="number" required min={0} max={2147483647} step={1} disabled={busy} value={jackpotInput} onChange={event => setJackpotInput(event.target.value)} /><small>Текущая сумма банка. Изменение будет записано в журнал с указанной причиной.</small></label>}
+    </div>
+    <label className="admin-operation-reason">Причина изменения<input required minLength={isCasino ? 2 : 1} maxLength={500} value={reason} onChange={event => setReason(event.target.value)} placeholder="Например: увеличили джекпот после тестирования" /></label>
+    <button className="action-button" disabled={busy || !jackpotValid || reason.trim().length < (isCasino ? 2 : 1) || !hasChanges}><Save size={15} />Сохранить настройки</button>
+  </form>}
   </section>;
 }

@@ -50,11 +50,15 @@ export class ChatSettingsService {
     const record = await database.chatSetting.findUnique({ where: { id: "main" } });
     return { settings: { ...DEFAULT_SETTINGS, ...(record?.settings as Partial<ChatSettings> ?? {}) }, version: record?.version ?? 0 };
   }
-  async save(actor: AuthenticatedUser, patch: Record<string, unknown>, version: number, reason: string) {
+  async save(actor: AuthenticatedUser, patch: Record<string, unknown>, version: number, reason: string, jackpotAmount?: number) {
     if (actor.role !== "admin") throw new ForbiddenException("Требуются права администратора");
     if (!Number.isInteger(version) || version < 0 || !reason?.trim() || reason.trim().length > 500)
       throw new BadRequestException("Укажите версию настроек и причину изменения (до 500 символов)");
-    if (!patch || typeof patch !== "object" || Array.isArray(patch) || !Object.keys(patch).length) throw new BadRequestException("Нет изменений");
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) throw new BadRequestException("Некорректные настройки");
+    const hasSettingsChanges = Object.keys(patch).length > 0;
+    if (!hasSettingsChanges && jackpotAmount === undefined) throw new BadRequestException("Нет изменений");
+    if (jackpotAmount !== undefined && (!Number.isSafeInteger(jackpotAmount) || jackpotAmount < 0 || jackpotAmount > 2147483647 || reason.trim().length < 2))
+      throw new BadRequestException("Укажите целую сумму джекпота от 0 до 2147483647 и причину изменения");
     for (const [key, value] of Object.entries(patch)) {
       if (!Object.hasOwn(DEFAULT_SETTINGS, key)) throw new BadRequestException("Неизвестная настройка: " + key);
       const name = key as keyof ChatSettings, range = ranges[name];
@@ -74,8 +78,18 @@ export class ChatSettingsService {
       if (settings.casinoJackpotBasePerTicketPerMillion > settings.casinoJackpotMaxPerMillion)
         throw new BadRequestException("Базовый шанс джекпота не может превышать потолок");
       await tx.chatSetting.upsert({ where: { id: "main" }, create: { id: "main", settings, version: 1 }, update: { settings, version: { increment: 1 } } });
-      await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CHAT_SETTINGS", details: { before, after: settings, reason: reason.trim() } } });
-      return { settings, version: version + 1 };
+      if (hasSettingsChanges)
+        await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CHAT_SETTINGS", details: { before, after: settings, reason: reason.trim() } } });
+      let jackpot: number;
+      if (jackpotAmount !== undefined) {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(284732)`;
+        const previous = (await tx.casinoState.upsert({ where: { id: "main" }, create: { id: "main" }, update: {} })).jackpot;
+        jackpot = (await tx.casinoState.update({ where: { id: "main" }, data: { jackpot: jackpotAmount } })).jackpot;
+        await tx.moderationAudit.create({ data: { actorId: actor.id, action: "CASINO_JACKPOT_SET", details: { before: previous, after: jackpot, reason: reason.trim() } } });
+      } else {
+        jackpot = (await tx.casinoState.findUnique({ where: { id: "main" } }))?.jackpot ?? 0;
+      }
+      return { settings, version: version + 1, jackpot };
     });
   }
   async assertMessage(userId: string, body: string) {

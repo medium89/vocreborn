@@ -65,12 +65,35 @@ test('Settings are validated, versioned, persisted and audited', async () => {
   assert.equal(original.body.settings.maxMessageLength,1000);
   assert.equal((await settings({maxMessageLength:20})).status,200);
   assert.equal((await settings({allowLinks:false},original.body.version)).status,409);
-  for (const patch of [{maxMessageLength:1001},{slowModeSeconds:-1},{imageMaxMb:6},{allowLinks:'false'},{madeUp:true},{firstMessageReward:1.5}])
+  for (const patch of [{maxMessageLength:1001},{slowModeSeconds:-1},{imageMaxMb:21},{allowLinks:'false'},{madeUp:true},{firstMessageReward:1.5}])
     assert.equal((await settings(patch)).status,400,JSON.stringify(patch));
   const stored=await prisma.chatSetting.findUnique({where:{id:'main'}});
   assert.equal(stored.settings.maxMessageLength,20);
   assert.equal(await prisma.moderationAudit.count({where:{action:'CHAT_SETTINGS'}}),1);
   await settings({maxMessageLength:1000});
+});
+test('Jackpot amount saves with casino settings in one audited operation', async () => {
+  const before = await request('/api/admin/settings', alice.cookie);
+  assert.equal(before.body.jackpot, 0);
+  const payload = (settings, version, jackpotAmount) => ({ settings, version, jackpotAmount, reason: 'Integration jackpot' });
+  const invalid = await request('/api/admin/settings', alice.cookie, payload({ casinoMinBet: 99999, casinoMaxBet: 100 }, before.body.version, 9000), 'PATCH');
+  assert.equal(invalid.status, 400);
+  assert.equal((await request('/api/admin/settings', alice.cookie)).body.jackpot, 0);
+  const saved = await request('/api/admin/settings', alice.cookie, payload({ casinoMinBet: 2 }, before.body.version, 9000), 'PATCH');
+  assert.equal(saved.status, 200);
+  assert.equal(saved.body.jackpot, 9000);
+  assert.equal(saved.body.settings.casinoMinBet, 2);
+  assert.equal((await prisma.casinoState.findUnique({ where: { id: 'main' } })).jackpot, 9000);
+  assert.equal(await prisma.moderationAudit.count({ where: { action: 'CASINO_JACKPOT_SET' } }), 1);
+  const stale = await request('/api/admin/settings', alice.cookie, payload({}, before.body.version, 5000), 'PATCH');
+  assert.equal(stale.status, 409);
+  assert.equal((await prisma.casinoState.findUnique({ where: { id: 'main' } })).jackpot, 9000);
+  const amountOnly = await request('/api/admin/settings', alice.cookie, payload({}, saved.body.version, 5000), 'PATCH');
+  assert.equal(amountOnly.status, 200);
+  assert.equal(amountOnly.body.jackpot, 5000);
+  assert.equal((await request('/api/admin/settings', alice.cookie)).body.jackpot, 5000);
+  const restored = await request('/api/admin/settings', alice.cookie, payload({ casinoMinBet: 1 }, amountOnly.body.version, 0), 'PATCH');
+  assert.equal(restored.status, 200);
 });
 test('Message limits and link policy work on room and direct HTTP sends', async () => {
   const user=await account('admin_policy','USER');
