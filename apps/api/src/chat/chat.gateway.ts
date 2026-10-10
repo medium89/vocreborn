@@ -136,9 +136,11 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
   handleDisconnect(client: AuthenticatedSocket) {
     const user = client.data.user;
     if (!user) return;
+    const roomIds = [...client.rooms].filter((roomId) => roomId !== client.id && !roomId.startsWith("user:"));
 
     const sockets = this.connections.get(user.id);
     sockets?.delete(client.id);
+    for (const roomId of roomIds) void this.publishRoomPresence(roomId);
     if (sockets && sockets.size > 0) return;
     this.connections.delete(user.id);
 
@@ -193,8 +195,10 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     await this.chat.joinMembership(user.id, input.roomId);
     await client.join(input.roomId);
     const snapshot = await this.chat.getSnapshot(input.roomId, user.id);
-    client.emit("room:snapshot", snapshot);
+    const onlineUserIds = await this.roomOnlineUserIds(input.roomId);
+    client.emit("room:snapshot", { ...snapshot, onlineUserIds });
     if (snapshot.room.isMafiaRoom) client.emit("mafia:private-state", await this.mafia.status(input.roomId, user.id));
+    void this.publishRoomPresence(input.roomId);
     return { ok: true, roomId: input.roomId };
   }
 
@@ -203,6 +207,7 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     const user = client.data.user;
     if (!user || !this.allowAction(client, user.id, "room", 120, 60 * 1000)) return;
     await client.leave(input.roomId);
+    void this.publishRoomPresence(input.roomId);
     return { ok: true, roomId: input.roomId };
   }
 
@@ -411,6 +416,15 @@ export class ChatGateway implements OnGatewayInit, OnGatewayConnection, OnGatewa
     await this.chat.setPresence(user.id, status);
     user.status = status;
     this.server.emit("presence:changed", { userId: user.id, status });
+  }
+
+  private async roomOnlineUserIds(roomId: string) {
+    const sockets = await this.server.in(roomId).fetchSockets();
+    return [...new Set(sockets.map((socket) => (socket.data as AuthenticatedSocket["data"]).user?.id).filter((id): id is string => Boolean(id)))];
+  }
+
+  private async publishRoomPresence(roomId: string) {
+    this.server.to(roomId).emit("room:presence", { roomId, userIds: await this.roomOnlineUserIds(roomId) });
   }
 
   private refreshInactivityTimer(userId: string) {

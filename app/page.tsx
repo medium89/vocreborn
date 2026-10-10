@@ -115,6 +115,7 @@ type RoomSnapshot = {
   messages: Message[];
   people: Person[];
   videoSession?: VideoRoomState;
+  onlineUserIds?: string[];
 };
 type PrivateMessagePreview = { peerId: string; text: string };
 
@@ -280,6 +281,7 @@ export default function Home() {
     Record<string, VideoRoomState | undefined>
   >({});
   const [chatPeople, setChatPeople] = useState<Person[]>([]);
+  const [roomOnlineUserIds, setRoomOnlineUserIds] = useState<string[]>([]);
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -841,6 +843,7 @@ export default function Home() {
     });
     socket.on("room:snapshot", (snapshot: RoomSnapshot) => {
       if (snapshot.room.id !== activeRoomRef.current) return;
+      setRoomOnlineUserIds(snapshot.onlineUserIds ?? []);
       const snapshotMessages = snapshot.messages.map((message) => ({
         ...message,
         mine: message.authorId
@@ -855,6 +858,9 @@ export default function Home() {
         ...old,
         [snapshot.room.id]: snapshot.videoSession,
       }));
+    });
+    socket.on("room:presence", (payload: { roomId: string; userIds: string[] }) => {
+      if (payload.roomId === activeRoomRef.current) setRoomOnlineUserIds(payload.userIds);
     });
     socket.on("video:state", (state: VideoRoomState) => {
       setVideoSessions((old) => ({ ...old, [state.roomId]: state }));
@@ -1252,8 +1258,7 @@ export default function Home() {
         .filter(
           (person) =>
             person.id === privateMessagePreview?.peerId ||
-            (person.status !== "offline" &&
-              (person.room === roomId || person.role === "admin")),
+            (person.status !== "offline" && roomOnlineUserIds.includes(person.id ?? "")),
         )
         .map((person) =>
           person.id === user?.id
@@ -1265,6 +1270,7 @@ export default function Home() {
       roomId,
       privateMessagePreview?.peerId,
       user?.id,
+      roomOnlineUserIds,
       user?.appearance,
     ],
   );

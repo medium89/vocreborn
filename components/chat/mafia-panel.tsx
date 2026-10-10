@@ -207,7 +207,7 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
         </form>}
       </div>}
       {state.isTestMode && host && !["LOBBY", "FINISHED"].includes(state.phase) && <button type="button" className="mafia-advance" disabled={busy} onClick={() => action("mafia:advance-test")}>Завершить фазу сейчас</button>}
-      {state.phase === "FINISHED" && <div className="mafia-actions"><p>{state.winner === "MAFIA" ? "Победила мафия." : state.winner === "CIVILIANS" ? "Победили мирные." : "Игра остановлена."}</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Новая партия</button></div>}
+      {state.phase === "FINISHED" && <div className="mafia-actions"><p>{state.winner === "MAFIA" ? "Победила мафия." : state.winner === "CIVILIANS" ? "Победили мирные." : "Игра остановлена."}</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Новая партия</button>{isAdmin && <button type="button" className="mafia-test-start" disabled={busy} onClick={() => action("mafia:create-test", { botCount: 5 })}>Запустить с 5 ботами</button>}</div>}
       {host && state.phase !== "FINISHED" && <button type="button" className="mafia-stop" disabled={busy} onClick={() => { if (window.confirm("Остановить текущую партию?")) action("mafia:stop"); }}>Остановить игру</button>}
     </>}
     </div>
