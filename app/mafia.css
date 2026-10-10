@@ -90,3 +90,38 @@
 :root[data-theme="dark"] .mafia-actions button, :root[data-theme="dark"] .mafia-lobby button, :root[data-theme="dark"] .mafia-secret-chat button, :root[data-theme="dark"] .mafia-test-chat button, :root[data-theme="dark"] .mafia-advance { border-color: #516e3d; background: #30482d; color: #e5f0b1; }
 :root[data-theme="dark"] .mafia-secret-chat, :root[data-theme="dark"] .mafia-test-notice { border-color: #4a4b62; background: #24283a; color: #eceaf6; }
 :root[data-theme="dark"] .mafia-secret-chat input, :root[data-theme="dark"] .mafia-test-chat input, :root[data-theme="dark"] .mafia-test-chat select { border-color: #495c45; background: #15251b; color: #edf3e8; }
+
+/* Панель должна сжимать содержимое, а не создавать горизонтальную прокрутку. */
+.mafia-panel-body { overflow-x: hidden; }
+.mafia-panel-body > *, .mafia-panel-body form, .mafia-test-feed, .mafia-secret-feed { min-width: 0; max-width: 100%; box-sizing: border-box; }
+.mafia-test-notice > span, .mafia-test-notice > small, .mafia-test-chat > small, .mafia-secret-chat small, .mafia-test-message span { overflow-wrap: anywhere; }
+.mafia-test-chat form, .mafia-secret-chat form { min-width: 0; flex-wrap: wrap; }
+.mafia-test-chat select { flex: 0 1 132px; max-width: 100%; }
+.mafia-test-chat input, .mafia-secret-chat input { flex: 1 1 150px; max-width: 100%; }
+
+.mafia-panel.resized { max-width: none; max-height: none; }
+.mafia-panel.resized .mafia-panel-body { flex: 1 1 auto; }
+.mafia-resize-handle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 0;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 14px 0 8px 0;
+  background: linear-gradient(135deg, #dce98d 0 2px, transparent 2px 5px, #8fa35c 5px 7px, transparent 7px);
+  cursor: nwse-resize;
+  touch-action: none;
+}
+
+@media (max-width: 640px) {
+  .mafia-resize-handle { display: none; }
+  .mafia-panel.resized { width: min(420px, calc(100% - 20px)) !important; height: auto !important; }
+}
+
+:root[data-theme="dark"] .mafia-resize-handle {
+  background: linear-gradient(135deg, #607a4c 0 2px, transparent 2px 5px, #a5c76e 5px 7px, transparent 7px);
+}

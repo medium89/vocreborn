@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { io, type Socket } from "socket.io-client";
 import { API_URL } from "@/lib/chat-api";
 
@@ -39,6 +39,9 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
   const [testDraft, setTestDraft] = useState("");
   const [testAudience, setTestAudience] = useState("ALL");
   const [now, setNow] = useState(Date.now());
+  const [customSize, setCustomSize] = useState<{ width: number; height: number } | null>(null);
+  const rootRef = useRef<HTMLElement | null>(null);
+  const resizeStateRef = useRef<{ x: number; y: number; width: number; height: number } | null>(null);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
@@ -57,6 +60,41 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
       return next;
     });
   }
+
+  function startResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (collapsed || window.innerWidth <= 640 || !rootRef.current) return;
+    event.preventDefault();
+    const rect = rootRef.current.getBoundingClientRect();
+    resizeStateRef.current = { x: event.clientX, y: event.clientY, width: rect.width, height: rect.height };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function resize(event: ReactPointerEvent<HTMLButtonElement>) {
+    const start = resizeStateRef.current;
+    if (!start) return;
+    const minWidth = Math.min(320, Math.max(280, window.innerWidth - 24));
+    const maxWidth = Math.max(minWidth, window.innerWidth - 24);
+    const minHeight = Math.min(300, Math.max(240, window.innerHeight - 100));
+    const maxHeight = Math.max(minHeight, window.innerHeight - 100);
+    setCustomSize({
+      width: Math.round(Math.min(maxWidth, Math.max(minWidth, start.width + (start.x - event.clientX)))),
+      height: Math.round(Math.min(maxHeight, Math.max(minHeight, start.height + (start.y - event.clientY)))),
+    });
+  }
+
+  function stopResize(event: ReactPointerEvent<HTMLButtonElement>) {
+    resizeStateRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  useEffect(() => {
+    const keepInsideViewport = () => {
+      if (window.innerWidth <= 640) { setCustomSize(null); resizeStateRef.current = null; }
+    };
+    keepInsideViewport();
+    window.addEventListener("resize", keepInsideViewport);
+    return () => window.removeEventListener("resize", keepInsideViewport);
+  }, []);
 
   useEffect(() => {
     setState(null);
@@ -135,7 +173,9 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
     ? !state.allies?.some(ally => ally.userId === player.userId)
     : state?.myRole === "COMMISSAR" ? player.userId !== userId : true);
 
-  return <aside className={"mafia-panel" + (collapsed ? " collapsed" : "")} aria-label="Игра Мафия">
+  const style = customSize && !collapsed ? { width: customSize.width, height: customSize.height } : undefined;
+  return <aside className={"mafia-panel" + (collapsed ? " collapsed" : "") + (customSize && !collapsed ? " resized" : "")} ref={rootRef} style={style} aria-label="Игра Мафия">
+    {!collapsed && <button className="mafia-resize-handle" type="button" aria-label="Изменить размер панели Мафии" title="Потяните, чтобы изменить размер" onPointerDown={startResize} onPointerMove={resize} onPointerUp={stopResize} onPointerCancel={stopResize} />}
     <div className="mafia-panel-head">
       <div><span className="mafia-eyebrow">Игра в комнате</span><strong>Мафия</strong></div>
       {state && <span className="mafia-phase" title={`${phaseNames[state.phase]}${state.round > 0 ? ` · раунд ${state.round}` : ""}${timer ? ` · ${timer}` : ""}`}>{phaseNames[state.phase]}{!collapsed && state.round > 0 ? ` · раунд ${state.round}` : ""}{timer ? ` · ${timer}` : ""}</span>}
