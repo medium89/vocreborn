@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
-import { MafiaNightActionType, MafiaPhase, MafiaRole, Prisma, type MafiaTestMessage } from "@prisma/client";
+import { MafiaNightActionType, MafiaPhase, MafiaRole, Prisma } from "@prisma/client";
 import { randomInt, randomUUID } from "node:crypto";
 import { PrismaService } from "../database/prisma.service";
 import { ChatSettingsService } from "../settings/chat-settings.service";
@@ -106,24 +106,8 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     return this.status(roomId, userId);
   }
 
-  async sendTestMessage(roomId: string, userId: string, body: string, audience: string, recipientUserId?: string) {
-    const clean = body.trim();
-    if (!clean || clean.length > 1000) throw new BadRequestException("Сообщение должно содержать от 1 до 1000 символов");
-    if (!["ALL", "MAFIA", "DOCTOR", "COMMISSAR", "PLAYER"].includes(audience)) throw new BadRequestException("Некорректный адресат");
-    const message = await this.locked(roomId, userId, async tx => {
-      const game = this.requireGame(await this.active(tx, roomId));
-      if (!game.isTestMode || game.phase === MafiaPhase.LOBBY) throw new BadRequestException("Адресный чат доступен только во время тестовой игры");
-      const actor = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { role: true, displayName: true } });
-      const player = game.players.find(item => item.userId === userId);
-      if (actor.role !== "ADMIN" && (!player?.isAlive || audience !== "ALL" && !(audience === "MAFIA" && player.role === MafiaRole.MAFIA)))
-        throw new ForbiddenException("Этот канал вам недоступен");
-      if (audience === "PLAYER" && !game.players.some(item => item.userId === recipientUserId))
-        throw new BadRequestException("Адресат не участвует в игре");
-      return tx.mafiaTestMessage.create({ data: { gameId: game.id, round: game.round, phase: game.phase, authorUserId: userId,
-        authorName: actor.displayName, audience, recipientUserId: audience === "PLAYER" ? recipientUserId : null, body: clean } });
-    });
-    await this.publishTestMessage(roomId, message);
-    return { ok: true };
+  async sendTestMessage(_roomId: string, _userId: string, _body: string, _audience: string, _recipientUserId?: string) {
+    throw new BadRequestException("Переписка игроков ведётся в общем чате комнаты");
   }
 
   async advanceTest(roomId: string, userId: string) {
@@ -241,25 +225,8 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     return this.status(roomId, userId);
   }
 
-  async secretChat(roomId: string, userId: string, body: string) {
-    const clean = body.trim();
-    if (!clean || clean.length > 1000) throw new BadRequestException("Сообщение должно содержать от 1 до 1000 символов");
-    const result = await this.locked(roomId, userId, async tx => {
-      const game = this.requireGame(await this.active(tx, roomId));
-      const actor = game.players.find(player => player.userId === userId);
-      if (game.phase !== MafiaPhase.NIGHT || !game.phaseEndsAt || game.phaseEndsAt <= new Date() || !actor?.isAlive || actor.role !== MafiaRole.MAFIA)
-        throw new ForbiddenException("Тайный чат доступен только живой мафии ночью");
-      const message = await tx.mafiaSecretMessage.create({ data: { gameId: game.id, round: game.round, authorUserId: userId, authorName: actor.name, body: clean } });
-      return { message: { id: message.id, authorUserId: userId, authorName: actor.name, body: clean, createdAt: message.createdAt.toISOString() },
-        allies: game.players.filter(player => player.isAlive && player.role === MafiaRole.MAFIA).map(player => player.userId), isTestMode: game.isTestMode };
-    });
-    const recipients = new Set(result.allies);
-    if (result.isTestMode) {
-      const admins = await this.prisma.roomMembership.findMany({ where: { roomId, user: { role: "ADMIN" } }, select: { userId: true } });
-      for (const admin of admins) recipients.add(admin.userId);
-    }
-    for (const recipient of recipients) this.emit({ roomId, event: "mafia:secret-message", userId: recipient, payload: result.message });
-    return { ok: true };
+  async secretChat(_roomId: string, _userId: string, _body: string) {
+    throw new BadRequestException("Переписка игроков ведётся в общем чате комнаты");
   }
 
   async status(roomId: string, userId: string) {
@@ -274,15 +241,16 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     if (!game) return null;
     const publicState = this.publicState(game);
     const viewer = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
-    const adminView = game.isTestMode && viewer?.role === "ADMIN";
+    const adminView = viewer?.role === "ADMIN";
     const self = game.players.find(player => player.userId === userId);
     const isLivingMafia = self?.isAlive && self.role === MafiaRole.MAFIA;
-    const [myAction, myVote, checks, secretMessages, testMessages] = await Promise.all([
+    const [myAction, myVote, checks, secretMessages, testMessages, adminNightActions] = await Promise.all([
       self && game.phase === MafiaPhase.NIGHT ? this.prisma.mafiaNightAction.findFirst({ where: { gameId: game.id, round: game.round, actorUserId: userId } }) : null,
       self && game.phase === MafiaPhase.VOTING ? this.prisma.mafiaVote.findFirst({ where: { gameId: game.id, round: game.round, voterUserId: userId } }) : null,
       self?.role === MafiaRole.COMMISSAR ? this.prisma.mafiaNightAction.findMany({ where: { gameId: game.id, actorUserId: userId, type: MafiaNightActionType.COMMISSAR_CHECK, ...(game.phase === MafiaPhase.NIGHT ? { round: { lt: game.round } } : {}) }, orderBy: { round: "asc" } }) : [],
       isLivingMafia || adminView ? this.prisma.mafiaSecretMessage.findMany({ where: adminView ? { gameId: game.id } : { gameId: game.id, round: game.round }, orderBy: { createdAt: "asc" }, take: 200 }) : [],
       game.isTestMode ? this.prisma.mafiaTestMessage.findMany({ where: { gameId: game.id }, orderBy: { createdAt: "asc" }, take: 200 }) : [],
+      adminView ? this.prisma.mafiaNightAction.findMany({ where: { gameId: game.id, round: game.round }, select: { actorUserId: true, type: true, targetUserId: true, round: true } }) : [],
     ]);
     return {
       ...publicState,
@@ -290,7 +258,8 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
       aiConfigured: adminView ? Boolean(process.env.AITUNNEL_API_KEY?.trim()) : undefined,
       aiIssue: adminView ? this.aiIssues.get(game.id) ?? null : undefined,
       adminRoles: adminView ? game.players.map(player => ({ userId: player.userId, role: player.role })) : [],
-      testMessages: testMessages.filter(message => this.canReadTestMessage(message, self, Boolean(adminView)))
+      adminNightActions,
+      testMessages: testMessages.filter(message => !message.turnKey && this.canReadTestMessage(message, self, Boolean(adminView)))
         .map(message => ({ id: message.id, authorUserId: message.authorUserId, authorName: message.authorName,
           audience: message.audience, recipientUserId: message.recipientUserId, body: message.body,
           round: message.round, phase: message.phase, createdAt: message.createdAt.toISOString() })),
@@ -318,9 +287,11 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     const game = await this.prisma.mafiaGame.findFirst({ where: { roomId }, orderBy: { createdAt: "desc" }, include: { players: { orderBy: { joinedAt: "asc" } }, votes: true } });
     if (!game) return;
     this.emit({ roomId, event, payload: { ...extra, state: this.publicState(game) } });
-    for (const player of game.players) {
-      try { this.emit({ roomId, event: "mafia:private-state", userId: player.userId, payload: await this.status(roomId, player.userId) }); }
-      catch (error) { this.logger.warn("Не удалось обновить личное состояние игрока " + player.userId + ": " + error); }
+    const admins = await this.prisma.roomMembership.findMany({ where: { roomId, user: { role: "ADMIN" } }, select: { userId: true } });
+    const recipients = new Set([...game.players.map(player => player.userId), ...admins.map(admin => admin.userId)]);
+    for (const recipient of recipients) {
+      try { this.emit({ roomId, event: "mafia:private-state", userId: recipient, payload: await this.status(roomId, recipient) }); }
+      catch (error) { this.logger.warn("Не удалось обновить личное состояние участника " + recipient + ": " + error); }
     }
   }
 
@@ -334,18 +305,6 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     if (!viewer) return false;
     if (message.audience === "PLAYER") return message.recipientUserId === viewer.userId;
     return message.audience === viewer.role;
-  }
-
-  private async publishTestMessage(roomId: string, message: MafiaTestMessage) {
-    const players = await this.prisma.mafiaPlayer.findMany({ where: { gameId: message.gameId }, select: { userId: true, role: true } });
-    const admins = await this.prisma.roomMembership.findMany({ where: { roomId, user: { role: "ADMIN" } }, select: { userId: true } });
-    const recipients = new Set(admins.map(item => item.userId));
-    for (const player of players) if (this.canReadTestMessage(message, player, false)) recipients.add(player.userId);
-    const payload = { id: message.id, authorUserId: message.authorUserId, authorName: message.authorName,
-      audience: message.audience, recipientUserId: message.recipientUserId, body: message.body,
-      round: message.round, phase: message.phase, createdAt: message.createdAt.toISOString() };
-    if (message.audience === "ALL") this.emit({ roomId, event: "mafia:test-message", payload });
-    else for (const recipient of recipients) this.emit({ roomId, event: "mafia:test-message", userId: recipient, payload });
   }
 
   private async processTestBots(gameId: string) {
@@ -371,19 +330,17 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
         : bot.role === MafiaRole.COMMISSAR ? living.filter(player => player.userId !== botId)
         : bot.role === MafiaRole.DOCTOR ? living : []
       : game.phase === MafiaPhase.VOTING ? living : [];
-    const [allMessages, sent, mafiaActions, mafiaChat, myChecks] = await Promise.all([
-      this.prisma.mafiaTestMessage.findMany({ where: { gameId: game.id }, orderBy: { createdAt: "desc" }, take: 60 }),
+    const [sent, mafiaActions, myChecks, roomMessages] = await Promise.all([
       this.prisma.mafiaTestMessage.findMany({ where: { gameId: game.id, authorUserId: botId, round: game.round, phase: game.phase }, select: { turnKey: true } }),
       bot.role === MafiaRole.MAFIA ? this.prisma.mafiaNightAction.findMany({ where: { gameId: game.id, round: game.round, type: MafiaNightActionType.MAFIA_KILL }, select: { targetUserId: true } }) : Promise.resolve([]),
-      bot.role === MafiaRole.MAFIA ? this.prisma.mafiaSecretMessage.findMany({ where: { gameId: game.id, round: game.round },
-        orderBy: { createdAt: "desc" }, take: 20, select: { authorName: true, body: true } }) : Promise.resolve([]),
       bot.role === MafiaRole.COMMISSAR ? this.prisma.mafiaNightAction.findMany({ where: {
         gameId: game.id, actorUserId: botId, type: MafiaNightActionType.COMMISSAR_CHECK,
         round: game.phase === MafiaPhase.NIGHT ? { lt: game.round } : { lte: game.round },
       }, select: { targetUserId: true } }) : Promise.resolve([]),
+      this.chat.getMessages(game.roomId),
     ]);
-    const visible = allMessages.filter(message => this.canReadTestMessage(message, bot, false));
-    const latestHuman = visible.find(message => !game.players.some(player => player.userId === message.authorUserId && player.isAiBot));
+    const publicMessages = roomMessages.filter(message => !message.system && message.createdAt && new Date(message.createdAt) >= game.createdAt);
+    const latestHuman = [...publicMessages].reverse().find(message => message.authorId && !game.players.some(player => player.userId === message.authorId && player.isAiBot));
     const baseKey = [game.id, game.round, game.phase, botId].join(":");
     const initialKey = baseKey + ":initial";
     const replyKey = latestHuman ? baseKey + ":" + latestHuman.id : null;
@@ -394,15 +351,13 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
       botId, phase: game.phase, round: game.round,
       players: game.players.map(player => ({ userId: player.userId, name: player.name, isAlive: player.isAlive, role: player.role })),
       allowedTargets: choices.map(player => ({ userId: player.userId, name: player.name })),
-      publicChat: allMessages.filter(message => message.audience === "ALL").reverse().map(message => ({ authorName: message.authorName, body: message.body })),
-      directedMessages: allMessages.filter(message => message.audience !== "ALL").reverse().map(message => ({
-        authorName: message.authorName, audience: message.audience, recipientUserId: message.recipientUserId, body: message.body,
-      })),
-      mafiaChat: mafiaChat.reverse(),
+      publicChat: publicMessages.map(message => ({ authorName: message.author, body: message.body })),
+      directedMessages: [],
+      mafiaChat: [],
       checks: myChecks,
       mafiaAllyChoices: mafiaActions.map(action => action.targetUserId),
     });
-    const audience = view.audience;
+    const audience = "ALL";
     let decision: MafiaAiDecision | null = null;
     const key = process.env.AITUNNEL_API_KEY?.trim();
     if (key) {
@@ -436,10 +391,10 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
           update: { targetUserId: target?.userId ?? null } });
       }
       return tx.mafiaTestMessage.create({ data: { gameId: game.id, round: game.round, phase: game.phase,
-        authorUserId: botId, authorName: bot.name, audience, recipientUserId: audience === "PLAYER" ? botId : null, body, turnKey } });
+        authorUserId: botId, authorName: bot.name, audience, recipientUserId: null, body, turnKey } });
     });
     if (result) {
-      await this.publishTestMessage(game.roomId, result);
+      if (game.phase !== MafiaPhase.NIGHT) await this.chat.createBotMessage(game.roomId, botId, bot.name, body, true);
       if (game.phase === MafiaPhase.VOTING) {
         await this.notice(game.roomId, target ? bot.name + " голосует против " + target.name + "." : bot.name + " воздерживается.");
         await this.publish(game.roomId, "mafia:vote-cast", { voterUserId: botId, targetUserId: target?.userId ?? null });

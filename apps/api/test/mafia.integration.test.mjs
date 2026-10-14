@@ -73,7 +73,7 @@ after(async () => {
   await admin.$disconnect();
 });
 
-test("WebSocket Mafia: roles stay private, mafia chat stays private, phases survive in DB", async () => {
+test("WebSocket Mafia: roles stay private, old secret chat is disabled, phases survive in DB", async () => {
   const accounts = await Promise.all(Array.from({ length: 7 }, (_, index) => account(index + 1)));
   const players = accounts.slice(0, 6);
   const spectator = accounts[6];
@@ -96,14 +96,7 @@ test("WebSocket Mafia: roles stay private, mafia chat stays private, phases surv
   const doctor = roles.find(player => player.state.myRole === "DOCTOR");
   const victim = roles.find(player => player.state.myRole === "CIVILIAN" && player.user.id !== host.user.id);
   assert(victim);
-  const secret = new Promise(resolve => mafia2.socket.once("mafia:secret-message", resolve));
-  const outsiderSecrets = [];
-  spectator.socket.on("mafia:secret-message", payload => outsiderSecrets.push(payload));
-  doctor.socket.on("mafia:secret-message", payload => outsiderSecrets.push(payload));
-  assert.equal((await ack(mafia1.socket, "mafia:secret-message", { body: "Тайный план" })).ok, true);
-  assert.equal((await secret).body, "Тайный план");
-  await sleep(100);
-  assert.equal(outsiderSecrets.length, 0);
+  assert.match((await ack(mafia1.socket, "mafia:secret-message", { body: "Тайный план" })).error, /общем чате/);
   assert.equal((await ack(doctor.socket, "mafia:status")).secretMessages.length, 0);
 
   for (const mafia of [mafia1, mafia2])
@@ -131,7 +124,7 @@ test("WebSocket Mafia: roles stay private, mafia chat stays private, phases surv
   assert.equal((await ack(host.socket, "mafia:stop")).phase, "FINISHED");
 });
 
-test("Solo test mode: bots act, addressed chat stays private, admin sees every channel", async () => {
+test("Solo test mode: bots act privately and discuss in the room chat; admin sees extra actions", async () => {
   const adminAccount = await account(8, "ADMIN");
   const spectator = await account(9);
   const created = await ack(adminAccount.socket, "mafia:create-test", { botCount: 5 });
@@ -139,28 +132,29 @@ test("Solo test mode: bots act, addressed chat stays private, admin sees every c
   assert.equal(created.players.length, 6);
   assert.equal(created.players.filter(player => player.isAiBot).length, 5);
   assert.equal(created.adminView, true);
-  const started = await ack(adminAccount.socket, "mafia:start");
-  assert.equal(started.phase, "NIGHT");
-  assert.equal(started.adminRoles.length, 6);
-  const privateMessage = "Секрет для мафии";
-  assert.equal((await ack(adminAccount.socket, "mafia:test-message", { audience: "MAFIA", body: privateMessage })).ok, true);
-  const publicMessage = "Привет всем";
-  assert.equal((await ack(adminAccount.socket, "mafia:test-message", { audience: "ALL", body: publicMessage })).ok, true);
+  assert.equal(created.phase, "NIGHT");
+  assert.equal(created.adminRoles.length, 6);
+  assert.match((await ack(adminAccount.socket, "mafia:test-message", { audience: "MAFIA", body: "Секрет" })).error, /общем чате/);
   const spectatorState = await ack(spectator.socket, "mafia:status");
   assert.equal(spectatorState.adminView, false);
-  assert(spectatorState.testMessages.some(message => message.body === publicMessage));
-  assert(!spectatorState.testMessages.some(message => message.body === privateMessage));
+  assert.equal(spectatorState.adminRoles.length, 0);
+  assert.equal(spectatorState.adminNightActions.length, 0);
   for (let index = 0; index < 100; index++) {
     if (await prisma.mafiaTestMessage.count({ where: { gameId: created.gameId, authorUserId: { not: adminAccount.user.id } } }) >= 5) break;
     await sleep(100);
   }
   const messages = await prisma.mafiaTestMessage.findMany({ where: { gameId: created.gameId } });
   assert(messages.filter(message => message.turnKey?.endsWith(":initial")).length >= 5, "Bots did not make opening turns");
-  assert(messages.some(message => message.audience === "MAFIA"), "Mafia bot did not use the private channel");
+  assert(messages.every(message => message.audience === "ALL"), "Bots must not publish private text");
   const actions = await prisma.mafiaNightAction.findMany({ where: { gameId: created.gameId } });
   assert(actions.every(action => created.players.some(player => player.userId === action.actorUserId && player.isAiBot)));
   const adminState = await ack(adminAccount.socket, "mafia:status");
-  assert(adminState.testMessages.length > spectatorState.testMessages.length);
+  assert(adminState.adminNightActions.length > 0);
   assert.equal((await ack(adminAccount.socket, "mafia:advance-test")).phase, "DAY");
+  for (let index = 0; index < 100; index++) {
+    if (await prisma.message.count({ where: { roomId: "mafia-test", authorId: { in: created.players.filter(player => player.isAiBot).map(player => player.userId) } } }) > 0) break;
+    await sleep(100);
+  }
+  assert(await prisma.message.count({ where: { roomId: "mafia-test", authorId: { in: created.players.filter(player => player.isAiBot).map(player => player.userId) } } }) > 0, "Bot speech is missing from the common room chat");
   assert.equal((await ack(adminAccount.socket, "mafia:stop")).phase, "FINISHED");
 });
