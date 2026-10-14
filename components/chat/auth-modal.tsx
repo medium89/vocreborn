@@ -9,28 +9,26 @@ import {
   LockKeyhole,
   Mail,
   MessageCircle,
+  Send,
   Sparkles,
   UserRound,
   UsersRound,
 } from "lucide-react";
 import { SiteHeader } from "@/components/site/site-header";
 import { useSiteTheme } from "@/lib/use-site-theme";
-import { enterAsGuest, login, register, upgradeGuest } from "@/lib/auth-api";
+import { beginOAuth, completeOAuth, enterAsGuest, getOAuthPending, getOAuthProviders, login, register, upgradeGuest, type OAuthProvider, type PublicOAuthProvider } from "@/lib/auth-api";
 import { Turnstile } from "./turnstile";
 import type { AuthUser } from "@/lib/chat-contract";
 
 type Mode = "login" | "register";
 
-function nicknameFromEmail(address: string) {
-  return (
-    address
-      .split("@")[0]
-      .normalize("NFKC")
-      .replace(/[^\p{L}\p{N}]+/gu, "")
-      .slice(0, 64) || "Участник"
-  );
+function tagFromEmail(address: string) {
+  return address.split("@")[0].toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 32) || "user";
 }
 const REMEMBERED_LOGIN_KEY = "tusova-remembered-login";
+const socialLabels: Record<OAuthProvider, string> = { google: "Google", yandex: "Яндекс", vk: "VK", mail: "Mail.ru", telegram: "Telegram" };
+const socialMarks: Record<OAuthProvider, string> = { google: "G", yandex: "Я", vk: "VK", mail: "@", telegram: "" };
+const socialOrder: OAuthProvider[] = ["google", "yandex", "vk", "mail", "telegram"];
 
 export function AuthModal({
   onAuthenticated,
@@ -41,6 +39,7 @@ export function AuthModal({
   const [registerStep, setRegisterStep] = useState<1 | 2>(1);
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberLogin, setRememberLogin] = useState(true);
@@ -51,12 +50,32 @@ export function AuthModal({
   const [guestDialogOpen, setGuestDialogOpen] = useState(false);
   const [guestError, setGuestError] = useState("");
   const [guestBusy, setGuestBusy] = useState(false);
+  const [socialProviders, setSocialProviders] = useState<PublicOAuthProvider[]>([]);
+  const [socialPending, setSocialPending] = useState(false);
+  const [socialEmail, setSocialEmail] = useState("");
+  const [socialEmailLocked, setSocialEmailLocked] = useState(false);
+  const [socialSuggestedTag, setSocialSuggestedTag] = useState("");
+  const [socialName, setSocialName] = useState("");
+  const [socialTag, setSocialTag] = useState("");
+  const [socialBusy, setSocialBusy] = useState(false);
+  const [socialError, setSocialError] = useState("");
 
   useEffect(() => {
     const savedLogin = window.localStorage.getItem(REMEMBERED_LOGIN_KEY);
     if (savedLogin) setEmail(savedLogin);
-    if (new URLSearchParams(window.location.search).get("auth") === "register")
-      setMode("register");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("auth") === "register") setMode("register");
+    if (params.get("auth") === "social_error") setError(params.get("reason") || "Не удалось войти через соцсеть");
+    if (params.get("auth") === "social_setup") {
+      void getOAuthPending().then((pending) => {
+        setSocialEmail(pending.email ?? "");
+        setSocialEmailLocked(pending.emailVerified);
+        setSocialSuggestedTag(pending.suggestedTag);
+        setSocialTag(pending.suggestedTag);
+        setSocialPending(true);
+      }).catch((cause) => setError(cause instanceof Error ? cause.message : "Сеанс регистрации истёк"));
+    }
+    void getOAuthProviders().then(setSocialProviders).catch(() => undefined);
   }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -67,7 +86,7 @@ export function AuthModal({
         setError("Пароли не совпадают");
         return;
       }
-      if (!displayName) setDisplayName(nicknameFromEmail(email));
+      if (!username) setUsername(tagFromEmail(email));
       setRegisterStep(2);
       return;
     }
@@ -75,7 +94,7 @@ export function AuthModal({
     try {
       const user =
         mode === "register"
-          ? await register({ email, displayName, password })
+          ? await register({ email, displayName, username, password })
           : await login(
               email.trim().includes("@")
                 ? { email: email.trim(), password }
@@ -92,6 +111,22 @@ export function AuthModal({
       setError(reason instanceof Error ? reason.message : "Не удалось войти");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function submitSocial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSocialBusy(true);
+    setSocialError("");
+    try {
+      const user = await completeOAuth({ email: socialEmail, displayName: socialName, username: socialTag });
+      setSocialPending(false);
+      window.history.replaceState({}, "", window.location.pathname);
+      onAuthenticated(user);
+    } catch (cause) {
+      setSocialError(cause instanceof Error ? cause.message : "Не удалось завершить вход");
+    } finally {
+      setSocialBusy(false);
     }
   }
 
@@ -234,11 +269,7 @@ export function AuthModal({
                         value={email}
                         onChange={(event) => {
                           const nextEmail = event.target.value;
-                          if (
-                            !displayName ||
-                            displayName === nicknameFromEmail(email)
-                          )
-                            setDisplayName(nicknameFromEmail(nextEmail));
+                          if (!username || username === tagFromEmail(email)) setUsername(tagFromEmail(nextEmail));
                           setEmail(nextEmail);
                         }}
                         maxLength={254}
@@ -323,6 +354,15 @@ export function AuthModal({
                   </span>
                 </label>
               )}
+              {mode === "register" && registerStep === 2 && (
+                <label className="tusova-field">
+                  <span className="tusova-input">
+                    <span aria-hidden="true">@</span>
+                    <input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} minLength={3} maxLength={32} pattern="[a-z0-9_]{3,32}" placeholder="Тег пользователя" required />
+                  </span>
+                  <small>Из почты; можно изменить. Латиница, цифры и _.</small>
+                </label>
+              )}
               <div className="tusova-form-options">
                 <label className="tusova-remember">
                   <input
@@ -384,7 +424,15 @@ export function AuthModal({
               </p>
             )}
             <div className="tusova-divider">
-              <span>или</span>
+              <span>или через соцсеть</span>
+            </div>
+            <div className="tusova-social-logins" aria-label="Вход через соцсети">
+              {socialOrder.map((provider) => {
+                const enabled = socialProviders.some((item) => item.provider === provider && item.enabled);
+                return <button key={provider} type="button" className={"tusova-social-login is-" + provider} aria-label={"Войти через " + socialLabels[provider]} title={enabled ? "Войти через " + socialLabels[provider] : socialLabels[provider] + " пока не подключён"} disabled={!enabled} onClick={() => beginOAuth(provider)}>
+                  {provider === "telegram" ? <Send size={22} strokeWidth={2.2} /> : <span aria-hidden="true">{socialMarks[provider]}</span>}
+                </button>;
+              })}
             </div>
             <button
               type="button"
@@ -400,6 +448,21 @@ export function AuthModal({
             <a className="tusova-guest-explain" href="/chat-bez-registracii">
               Как работает вход без регистрации
             </a>
+            {socialPending && (
+              <div className="tusova-guest-dialog-backdrop">
+                <section className="tusova-guest-dialog tusova-registration-dialog" role="dialog" aria-modal="true" aria-labelledby="social-setup-title">
+                  <h2 id="social-setup-title">Завершить вход</h2>
+                  <p>Введите ник для чата. Тег предложен из почты; его можно изменить.</p>
+                  <form className="tusova-auth-form" onSubmit={submitSocial}>
+                    <label className="tusova-field"><span className="visually-hidden">Электронная почта</span><span className="tusova-input"><Mail size={18} /><input type="email" autoComplete="email" maxLength={254} readOnly={socialEmailLocked} value={socialEmail} onChange={(event) => { const next = event.target.value; if (!socialTag || socialTag === socialSuggestedTag) { const suggested = tagFromEmail(next); setSocialSuggestedTag(suggested); setSocialTag(suggested); } setSocialEmail(next); }} placeholder="Электронная почта" required /></span></label>
+                    <label className="tusova-field"><span className="visually-hidden">Никнейм в чате</span><span className="tusova-input"><UserRound size={18} /><input value={socialName} onChange={(event) => setSocialName(event.target.value)} minLength={2} maxLength={64} placeholder="Никнейм в чате" autoFocus required /></span></label>
+                    <label className="tusova-field"><span className="visually-hidden">Тег пользователя</span><span className="tusova-input"><span aria-hidden="true">@</span><input value={socialTag} onChange={(event) => setSocialTag(event.target.value.toLowerCase())} minLength={3} maxLength={32} pattern="[a-z0-9_]{3,32}" placeholder="Тег пользователя" required /></span></label>
+                    {socialError && <p className="tusova-auth-error" role="alert">{socialError}</p>}
+                    <button className="tusova-submit" disabled={socialBusy}>{socialBusy ? "Подождите…" : "Войти в чат"}</button>
+                  </form>
+                </section>
+              </div>
+            )}
             {guestDialogOpen && (
               <div className="tusova-guest-dialog-backdrop" role="presentation">
                 <section
@@ -501,6 +564,7 @@ export function GuestRegistrationModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [error, setError] = useState("");
@@ -511,13 +575,13 @@ export function GuestRegistrationModal({
     setError("");
     if (step === 1) {
       if (password !== confirmation) return setError("Пароли не совпадают");
-      if (!displayName) setDisplayName(nicknameFromEmail(email));
+      if (!username) setUsername(tagFromEmail(email));
       setStep(2);
       return;
     }
     setBusy(true);
     try {
-      onAuthenticated(await upgradeGuest({ email, displayName, password }));
+      onAuthenticated(await upgradeGuest({ email, displayName, username, password }));
       onClose();
     } catch (reason) {
       setError(
@@ -614,6 +678,15 @@ export function GuestRegistrationModal({
                   autoFocus
                 />
               </span>
+            </label>
+          )}
+          {step === 2 && (
+            <label className="tusova-field">
+              <span className="tusova-input">
+                <span aria-hidden="true">@</span>
+                <input value={username} onChange={(event) => setUsername(event.target.value.toLowerCase())} minLength={3} maxLength={32} pattern="[a-z0-9_]{3,32}" placeholder="Тег пользователя" required />
+              </span>
+              <small>Из почты; можно изменить. Латиница, цифры и _.</small>
             </label>
           )}
           {step === 2 && (

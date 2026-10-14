@@ -10,7 +10,7 @@ import { buildMafiaAiView, requestMafiaAiDecision, type MafiaAiDecision } from "
 type FullGame = Prisma.MafiaGameGetPayload<{ include: { players: true; votes: true } }>;
 type Outbound = { roomId: string; event: string; payload: unknown; userId?: string };
 type Listener = (event: Outbound) => void;
-type Transition = { roomId: string; event: string; payload?: Record<string, unknown>; notice?: string; eliminated?: { userId: string; name: string; role: MafiaRole } };
+type Transition = { roomId: string; event: string; payload?: Record<string, unknown>; notice?: string; noticeKind?: "event" | "result"; eliminated?: { userId: string; name: string; role: MafiaRole } };
 
 @Injectable()
 export class MafiaService implements OnModuleInit, OnModuleDestroy {
@@ -202,14 +202,20 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
       const target = targetUserId ? game.players.find(player => player.userId === targetUserId) : null;
       if (!voter?.isAlive) throw new ForbiddenException("Голосовать могут только живые игроки");
       if (targetUserId && !target?.isAlive) throw new BadRequestException("Кандидат должен быть живым игроком");
+      const previous = game.votes.find(vote => vote.round === game.round && vote.voterUserId === userId);
       await tx.mafiaVote.upsert({
         where: { gameId_round_voterUserId: { gameId: game.id, round: game.round, voterUserId: userId } },
         create: { gameId: game.id, round: game.round, voterUserId: userId, targetUserId },
         update: { targetUserId },
       });
-      return { voter: voter.name, target: target?.name ?? null };
+      return { voter: voter.name, target: target?.name ?? null, changed: !previous || previous.targetUserId !== targetUserId, changedVote: Boolean(previous) };
     });
-    await this.notice(roomId, result.target ? `${result.voter} голосует против ${result.target}.` : `${result.voter} воздерживается.`);
+    if (result.changed) {
+      const notice = result.changedVote
+        ? `${result.voter} меняет голос: ${result.target ? `против ${result.target}` : "воздерживается"}.`
+        : result.target ? `${result.voter} голосует против ${result.target}.` : `${result.voter} воздерживается.`;
+      await this.notice(roomId, notice, "vote");
+    }
     await this.publish(roomId, "mafia:vote-cast", { voterUserId: userId, targetUserId });
     return this.status(roomId, userId);
   }
@@ -295,8 +301,9 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
-  private async notice(roomId: string, body: string) {
-    const message = await this.chat.createRoomSystemMessage(roomId, body);
+  private async notice(roomId: string, body: string, kind: "event" | "vote" | "result" = "event") {
+    const heading = kind === "vote" ? "Голосование" : kind === "result" ? "Итог" : "Событие";
+    const message = await this.chat.createRoomSystemMessage(roomId, `Мафия · ${heading} · ${body}`);
     this.emit({ roomId, event: "message:created", payload: { roomId, message } });
   }
 
@@ -396,7 +403,7 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
     if (result) {
       if (game.phase !== MafiaPhase.NIGHT) await this.chat.createBotMessage(game.roomId, botId, bot.name, body, true);
       if (game.phase === MafiaPhase.VOTING) {
-        await this.notice(game.roomId, target ? bot.name + " голосует против " + target.name + "." : bot.name + " воздерживается.");
+        await this.notice(game.roomId, target ? bot.name + " голосует против " + target.name + "." : bot.name + " воздерживается.", "vote");
         await this.publish(game.roomId, "mafia:vote-cast", { voterUserId: botId, targetUserId: target?.userId ?? null });
       }
     }
@@ -422,7 +429,7 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
       if (!game || game.phase === MafiaPhase.FINISHED || !game.phaseEndsAt || game.phaseEndsAt > new Date()) return null;
       if (game.phase === MafiaPhase.DAY) {
         await tx.mafiaGame.update({ where: { id: game.id }, data: { phase: MafiaPhase.VOTING, phaseEndsAt: new Date(Date.now() + settings.mafiaVotingSeconds * 1000) } });
-        return { roomId, event: "mafia:phase-changed", notice: "Обсуждение закончено. Началось голосование." };
+        return { roomId, event: "mafia:phase-changed", notice: "Обсуждение закончено. Началось голосование.", noticeKind: "event" };
       }
       let eliminated: Transition["eliminated"];
       if (game.phase === MafiaPhase.NIGHT) {
@@ -459,7 +466,7 @@ export class MafiaService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async announceTransition(transition: Transition) {
-    if (transition.notice) await this.notice(transition.roomId, transition.notice);
+    if (transition.notice) await this.notice(transition.roomId, transition.notice, transition.noticeKind ?? "result");
     await this.publish(transition.roomId, transition.event, transition.payload);
     if (transition.eliminated) await this.publish(transition.roomId, "mafia:player-eliminated", { player: transition.eliminated });
     if (transition.payload?.winner) await this.publish(transition.roomId, "mafia:finished", { winner: transition.payload.winner });

@@ -43,7 +43,7 @@ async function request(path, options = {}, cookie) {
 async function register(username, displayName) {
   const result = await request("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ email: username + "@example.test", displayName, password: "Integration123!" }),
+    body: JSON.stringify({ email: username + "@example.test", username, displayName, password: "Integration123!" }),
   });
   assert.equal(result.status, 201);
   return { user: result.body.user, cookie: result.cookie };
@@ -132,6 +132,17 @@ test("session and editable profile bio", async () => {
   assert.equal(profile.status, 200);
   assert.equal(profile.body.displayName, "Integration User");
   assert.equal(profile.body.hideDj, true);
+});
+
+test("tag can be edited but not duplicated", async () => {
+  const next = usernames[1] + "_new";
+  const changed = await request("/api/me", { method: "PATCH", body: JSON.stringify({ username: next }) }, user.cookie);
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.user.username, next);
+  const collision = await request("/api/me", { method: "PATCH", body: JSON.stringify({ username: usernames[0] }) }, user.cookie);
+  assert.equal(collision.status, 409);
+  const restored = await request("/api/me", { method: "PATCH", body: JSON.stringify({ username: usernames[1] }) }, user.cookie);
+  assert.equal(restored.status, 200);
 });
 
 test("friends are stored, visible from both profiles and removable", async () => {

@@ -2225,6 +2225,7 @@ export default function Home() {
   }
   async function saveProfile(
     input: {
+      username?: string;
       bio: string;
       gender: "male" | "female" | "unspecified";
       hideRole?: boolean;

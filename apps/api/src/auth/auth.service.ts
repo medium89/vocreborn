@@ -39,10 +39,8 @@ export class AuthService {
   async register(input: RegisterDto) {
     const { settings } = await this.settings.read();
     if (!settings.registrationOpen || settings.maintenance) throw new ForbiddenException("Регистрация временно закрыта администратором");
-    const baseUsername = input.email.split("@")[0].replace(/[^a-z0-9_]/g, "").slice(0, 32) || "user";
-    const username = baseUsername === "tusova_quiz" || await this.prisma.user.findUnique({ where: { username: baseUsername } })
-      ? baseUsername.slice(0, 23) + "_" + randomBytes(4).toString("hex")
-      : baseUsername;
+    const username = input.username;
+    if (username === "tusova_quiz") throw new ConflictException("Этот тег зарезервирован");
     await this.assertDisplayNameAvailable(input.displayName);
     this.email.ensureConfigured();
     const passwordHash = await this.hashPassword(input.password);
@@ -75,7 +73,7 @@ export class AuthService {
       earlyUserRewardGranted = created.earlyUserRewardGranted;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new ConflictException("Этот адрес почты уже занят");
+        throw new ConflictException("Адрес почты или тег уже занят");
       }
       throw error;
     }
@@ -124,6 +122,7 @@ export class AuthService {
     if (!guest?.isGuest || guest.deletedAt) throw new ForbiddenException("Регистрация доступна только гостевому профилю");
     await this.assertDisplayNameAvailable(input.displayName, guest.id);
     this.email.ensureConfigured();
+    if (input.username === "tusova_quiz") throw new ConflictException("Этот тег зарезервирован");
     const passwordHash = await this.hashPassword(input.password);
 
     let user;
@@ -138,6 +137,7 @@ export class AuthService {
             email: input.email,
             displayName: input.displayName,
             passwordHash,
+            username: input.username,
             isGuest: false,
             credits: settings.initialCredits + (eligible ? EARLY_USER_REWARD_CREDITS : 0),
             earlyUserRewardGranted: eligible,
@@ -154,7 +154,7 @@ export class AuthService {
       earlyUserRewardGranted = upgraded.earlyUserRewardGranted;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-        throw new ConflictException("Этот адрес почты уже занят");
+        throw new ConflictException("Адрес почты или тег уже занят");
       }
       throw error;
     }
@@ -163,11 +163,24 @@ export class AuthService {
       await this.createEmailToken(user.id, input.email, "verify");
     } catch (error) {
       if (earlyUserRewardGranted) await this.prisma.economyEntry.deleteMany({ where: { userId: guest.id, type: "EARLY_USER_REWARD" } });
-      await this.prisma.user.update({ where: { id: guest.id }, data: { email: null, displayName: guest.displayName, passwordHash: null, isGuest: true, credits: guest.credits, earlyUserRewardGranted: guest.earlyUserRewardGranted } });
+      await this.prisma.user.update({ where: { id: guest.id }, data: { email: null, username: guest.username, displayName: guest.displayName, passwordHash: null, isGuest: true, credits: guest.credits, earlyUserRewardGranted: guest.earlyUserRewardGranted } });
       throw error;
     }
     const session = await this.issueSession(user.id, this.toAuthenticatedUser(user));
     return { ...session, user: { ...session.user, earlyUserRewardJustGranted: earlyUserRewardGranted } };
+  }
+
+  async createSocialSession(userId: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { cosmetics: true } });
+    if (!user || user.deletedAt || await this.findActiveBan(user.id)) throw new ForbiddenException("Аккаунт недоступен");
+    const authenticated = this.toAuthenticatedUser(user);
+    [authenticated.mutedUntil, authenticated.chaosUntil] = await Promise.all([this.findMutedUntil(user.id), this.findChaosUntil(user.id)]);
+    return this.issueSession(user.id, authenticated);
+  }
+
+  async sendSocialEmailVerification(userId: string, address: string) {
+    this.email.ensureConfigured();
+    await this.createEmailToken(userId, address, "verify");
   }
 
   async login(input: LoginDto) {

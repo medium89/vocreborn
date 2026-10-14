@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { before, after } from 'node:test';
 import fs from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
 
@@ -10,6 +10,7 @@ for (const line of fs.readFileSync('.env', 'utf8').split(/\r?\n/)) {
   const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
   if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^["']|["']$/g, '');
 }
+process.env.OAUTH_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 const connection = new URL(process.env.DATABASE_URL);
 assert(['localhost', '127.0.0.1', '[::1]', process.env.ADMIN_TEST_LOCAL_DB_HOST].includes(connection.hostname), 'Admin tests require local PostgreSQL');
 const databaseName = 'tusova_admin_test_' + Date.now();
@@ -60,6 +61,78 @@ test('Only administrators can access settings, economy, system and content', asy
   assert.equal(system.status,200);assert.equal(system.body.modules.testBots,false);
   assert(!JSON.stringify(system.body).includes(process.env.DATABASE_URL));
 });
+test('OAuth applications are admin-only, encrypted and expose only configured buttons', async () => {
+  const regular = await account('admin_oauth_reader', 'USER');
+  assert.equal((await request('/api/admin/auth-providers', regular.cookie)).status, 403);
+  const before = await request('/api/auth/oauth/providers');
+  assert.equal(before.status, 200);
+  assert.equal(before.body.find(item => item.provider === 'google').enabled, false);
+  const updated = await request('/api/admin/auth-providers/google', alice.cookie, {
+    enabled: true, clientId: 'integration-client', clientSecret: 'integration-secret'
+  }, 'PATCH');
+  assert.equal(updated.status, 200);
+  const google = updated.body.find(item => item.provider === 'google');
+  assert.equal(google.enabled, true);
+  assert.equal(google.hasSecret, true);
+  assert.equal(google.clientSecret, undefined);
+  assert.match(google.callbackUrl, /\/api\/auth\/oauth\/google\/callback$/);
+  const stored = await prisma.authProviderConfig.findUniqueOrThrow({ where: { provider: 'google' } });
+  assert(!stored.secretEncrypted.includes('integration-secret'));
+  assert.equal((await request('/api/auth/oauth/providers')).body.find(item => item.provider === 'google').enabled, true);
+  const start = await fetch(base + '/api/auth/oauth/google/start', { redirect: 'manual' });
+  assert.equal(start.status, 302);
+  const location = new URL(start.headers.get('location'));
+  assert.equal(location.hostname, 'accounts.google.com');
+  assert.equal(location.searchParams.get('client_id'), 'integration-client');
+  assert(location.searchParams.get('code_challenge'));
+  assert(location.searchParams.get('state'));
+  assert.match(start.headers.get('set-cookie'), /oauth_state=/);
+  assert.equal((await request('/api/auth/oauth/google/start?link=1')).status, 401);
+  assert.deepEqual((await request('/api/auth/oauth/linked', alice.cookie)).body, []);
+  const link = await fetch(base + '/api/auth/oauth/google/start?link=1', { headers: { Cookie: alice.cookie }, redirect: 'manual' });
+  assert.equal(link.status, 302);
+  assert.equal((await prisma.oAuthAttempt.findFirst({ where: { linkUserId: alice.id } })).provider, 'google');
+  assert.equal((await request('/api/admin/auth-providers/google', regular.cookie, {
+    enabled: false, clientId: 'x', clientSecret: 'y'
+  }, 'PATCH')).status, 403);
+});
+
+test('users can change their tag without taking an occupied tag', async () => {
+  const user = await account('admin_tag_user', 'USER');
+  const changed = await request('/api/me', user.cookie, { username: 'fresh_tag_777' }, 'PATCH');
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.user.username, 'fresh_tag_777');
+  assert.equal((await request('/api/me', user.cookie, { username: alice.id }, 'PATCH')).status, 400);
+  assert.equal((await request('/api/me', user.cookie, { username: 'admin_alice' }, 'PATCH')).status, 409);
+});
+
+test('social signup requires nickname and tag, then creates one linked account', async () => {
+  const token = randomUUID();
+  await prisma.oAuthAttempt.create({ data: {
+    tokenHash: createHash('sha256').update(token).digest('hex'),
+    provider: 'google', kind: 'setup', subject: 'google-integration-subject',
+    email: 'oauth-integration@example.test', emailVerified: true,
+    expiresAt: new Date(Date.now() + 600000)
+  } });
+  const cookie = 'oauth_setup=' + token;
+  const pending = await request('/api/auth/oauth/pending', cookie);
+  assert.equal(pending.status, 200);
+  assert.equal(pending.body.emailVerified, true);
+  assert.equal(pending.body.suggestedTag, 'oauthintegration');
+  const missingName = await request('/api/auth/oauth/complete', cookie, { email: pending.body.email, username: 'oauthintegration' });
+  assert.equal(missingName.status, 400);
+  const created = await request('/api/auth/oauth/complete', cookie, {
+    email: pending.body.email, displayName: 'OAuth Integration', username: 'oauthintegration'
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.user.username, 'oauthintegration');
+  assert.equal(created.body.user.emailVerified, true);
+  assert.equal((await prisma.socialIdentity.findUniqueOrThrow({ where: { provider_subject: { provider: 'google', subject: 'google-integration-subject' } } })).userId, created.body.user.id);
+  assert.equal((await request('/api/auth/oauth/complete', cookie, {
+    email: pending.body.email, displayName: 'OAuth Integration 2', username: 'oauthintegration2'
+  })).status, 401);
+});
+
 test('Settings are validated, versioned, persisted and audited', async () => {
   const original=await request('/api/admin/settings',alice.cookie);
   assert.equal(original.body.settings.maxMessageLength,1000);
@@ -124,9 +197,9 @@ test('Maintenance and registration gates apply while administrators can still se
   assert.equal((await request('/api/rooms/main/messages',user.cookie,{body:'hello',requestId:randomUUID()})).status,403);
   assert.equal((await request('/api/direct/'+alice.id+'/messages',user.cookie,{body:'hello',requestId:randomUUID()})).status,403);
   assert.equal((await request('/api/rooms/main/messages',alice.cookie,{body:'maintenance notice',requestId:randomUUID()})).status,201);
-  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
+  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',username:'closed',displayName:'Closed',password:'Integration123!'})).status,403);
   await settings({maintenance:false,registrationOpen:false,allowUserRooms:false});
-  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',displayName:'Closed',password:'Integration123!'})).status,403);
+  assert.equal((await request('/api/auth/register',null,{email:'closed@example.com',username:'closed',displayName:'Closed',password:'Integration123!'})).status,403);
   assert.equal((await request('/api/rooms',user.cookie,{name:'Closed room'})).status,403);
   assert.equal((await request('/api/rooms',alice.cookie,{name:'Admin room'})).status,201);
   await settings({registrationOpen:true,allowUserRooms:true});

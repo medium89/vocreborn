@@ -162,3 +162,32 @@
 :root[data-theme="dark"] .mafia-admin-panel .mafia-panel-head { border-color: #514167; background: #30253d; }
 :root[data-theme="dark"] .mafia-admin-roles { background: #30253d; }
 :root[data-theme="dark"] .mafia-admin-explain { color: #c7b8d9; }
+
+.mafia-vote-board { display: grid; gap: 9px; width: 100%; min-width: 0; padding: 12px; border: 1px solid #d9e3c9; border-radius: 12px; background: #fff; }
+.mafia-vote-board-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
+.mafia-vote-board-head strong { font-size: 13px; }
+.mafia-vote-board-head span { color: #627252; font-size: 11px; font-weight: 700; }
+.mafia-vote-list { display: grid; gap: 8px; min-width: 0; }
+.mafia-vote-row { display: grid; gap: 3px; min-width: 0; }
+.mafia-vote-row-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+.mafia-vote-row-head span { min-width: 0; overflow-wrap: anywhere; }
+.mafia-vote-row-head strong { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.mafia-vote-track { height: 6px; overflow: hidden; border-radius: 999px; background: #edf2e5; }
+.mafia-vote-track span { display: block; height: 100%; border-radius: inherit; background: #9aba57; transition: width .2s ease; }
+.mafia-vote-row small, .mafia-vote-abstain small { color: #64715b; font-size: 11px; overflow-wrap: anywhere; }
+.mafia-vote-abstain { display: flex; flex-wrap: wrap; gap: 3px 5px; padding-top: 7px; border-top: 1px solid #e6eddc; color: #58684d; font-size: 11px; }
+.mafia-vote-abstain small { flex-basis: 100%; }
+.system-message-mafia { display: flex; align-items: center; gap: 12px; margin: 10px 0; padding: 10px 12px; border: 1px solid #dce9c9; border-left: 4px solid #9aba57; border-radius: 10px; background: #f4f9e9; color: #34482c; white-space: normal; overflow: visible; }
+.system-message-mafia-vote { border-color: #efd9aa; border-left-color: #d49b38; background: #fff8e9; color: #6b4b19; }
+.system-message-mafia-result { border-color: #c9dcef; border-left-color: #6e9bc5; background: #f1f7fd; color: #2c5473; }
+.mafia-notice-content { display: grid; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+.mafia-notice-content strong { font-size: 11px; letter-spacing: .02em; text-transform: uppercase; }
+.mafia-notice-content span { font-size: 13px; line-height: 1.4; }
+.system-message-mafia time { margin-left: auto; }
+:root[data-theme="dark"] .mafia-vote-board { border-color: #405641; background: #1d3022; }
+:root[data-theme="dark"] .mafia-vote-board-head span, :root[data-theme="dark"] .mafia-vote-row small, :root[data-theme="dark"] .mafia-vote-abstain small { color: #b4c6a4; }
+:root[data-theme="dark"] .mafia-vote-track { background: #304630; }
+:root[data-theme="dark"] .mafia-vote-abstain { border-color: #405641; color: #c5d4b9; }
+:root[data-theme="dark"] .system-message-mafia { border-color: #46603b; border-left-color: #9aba57; background: #203321; color: #dceecb; }
+:root[data-theme="dark"] .system-message-mafia-vote { border-color: #725b34; border-left-color: #d49b38; background: #382c1c; color: #f4dfb4; }
+:root[data-theme="dark"] .system-message-mafia-result { border-color: #385773; border-left-color: #6e9bc5; background: #1d3040; color: #d7e9fa; }

@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { DailyActivityAction, Gender } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
@@ -8,7 +8,7 @@ import { PrismaService } from "../database/prisma.service";
 import { NotificationsService } from "../notifications/notifications.service";
 import { EconomyService } from "../gifts/economy.service";
 import { cosmeticAppearance } from "../gifts/cosmetics";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { NotificationType } from "@prisma/client";
 import type { UpdateProfileDto } from "./dto/update-profile.dto";
 
@@ -93,10 +93,17 @@ export class ProfileService {
 
 
   async update(userId: string, input: UpdateProfileDto) {
-    const user = await this.prisma.user.update({
-      where: { id: userId },
-      data: { bio: input.bio === undefined ? undefined : input.bio || null, gender: input.gender ? input.gender.toUpperCase() as Gender : undefined, hideRole: input.hideRole === undefined ? undefined : input.hideRole, hideDj: input.hideDj === undefined ? undefined : input.hideDj },
-    });
+    if (input.username === "tusova_quiz") throw new ConflictException("Этот тег зарезервирован");
+    let user;
+    try {
+      user = await this.prisma.user.update({
+        where: { id: userId },
+        data: { username: input.username, bio: input.bio === undefined ? undefined : input.bio || null, gender: input.gender ? input.gender.toUpperCase() as Gender : undefined, hideRole: input.hideRole === undefined ? undefined : input.hideRole, hideDj: input.hideDj === undefined ? undefined : input.hideDj },
+      });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") throw new ConflictException("Этот тег уже занят");
+      throw error;
+    }
     return this.toProfile(user);
   }
 

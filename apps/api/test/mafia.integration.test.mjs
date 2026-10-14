@@ -116,6 +116,16 @@ test("WebSocket Mafia: roles stay private, old secret chat is disabled, phases s
   for (const voter of roles.filter(player => player.user.id !== victim.user.id))
     await ack(voter.socket, "mafia:vote", { targetUserId: mafia1.user.id });
   assert.equal(await prisma.mafiaVote.count({ where: { gameId: game.id } }), 5);
+  await ack(host.socket, "mafia:vote", { targetUserId: null });
+  assert.equal((await ack(spectator.socket, "mafia:status")).votes.find(vote => vote.voterUserId === host.user.id)?.targetUserId, null);
+  await ack(host.socket, "mafia:vote", { targetUserId: mafia1.user.id });
+  await ack(host.socket, "mafia:vote", { targetUserId: mafia1.user.id });
+  const publicVotes = (await ack(spectator.socket, "mafia:status")).votes;
+  assert.equal(publicVotes.length, 5, "Changing a vote must not add a second ballot");
+  assert.equal(publicVotes.filter(vote => vote.targetUserId === mafia1.user.id).length, 5);
+  const voteNotices = await prisma.message.findMany({ where: { roomId: "mafia-test", kind: "SYSTEM", body: { startsWith: "Мафия · Голосование ·" } } });
+  assert.equal(voteNotices.length, 7, "Repeating the same vote must not spam the chat");
+  assert(voteNotices.some(message => message.body.includes("меняет голос: воздерживается")));
   await prisma.mafiaGame.update({ where: { id: game.id }, data: { phaseEndsAt: new Date(Date.now() - 1000) } });
   const nextNight = await waitPhase(host.socket, "NIGHT");
   assert.equal(nextNight.round, 2);

@@ -36,6 +36,7 @@ services:
       WEB_ORIGIN: https://${DOMAIN}
       PUBLIC_API_URL: https://${DOMAIN}
       METRICS_TOKEN: ${METRICS_TOKEN}
+      OAUTH_ENCRYPTION_KEY: ${OAUTH_ENCRYPTION_KEY:-}
       NODE_ENV: production
       TUSOVA_BOTS_ENABLED: "false"
       AITUNNEL_API_KEY: ${AITUNNEL_API_KEY:-}

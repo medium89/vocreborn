@@ -137,6 +137,14 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
   const alive = Boolean(state?.myAlive);
   const living = state?.players.filter(player => player.isAlive) ?? [];
   const canAct = joined && alive;
+  const voteTallies = living.map(player => ({
+    ...player,
+    voters: state?.votes.filter(vote => vote.targetUserId === player.userId)
+      .map(vote => state.players.find(candidate => candidate.userId === vote.voterUserId)?.name ?? "Игрок") ?? [],
+  })).sort((left, right) => right.voters.length - left.voters.length || left.name.localeCompare(right.name, "ru"));
+  const abstainers = state?.votes.filter(vote => vote.targetUserId === null)
+    .map(vote => state.players.find(player => player.userId === vote.voterUserId)?.name ?? "Игрок") ?? [];
+  const myVoteCast = state?.votes.some(vote => vote.voterUserId === userId) ?? false;
   const targetType = state?.myRole === "MAFIA" ? "MAFIA_KILL"
     : state?.myRole === "DOCTOR" ? "DOCTOR_PROTECT"
     : state?.myRole === "COMMISSAR" ? "COMMISSAR_CHECK" : null;
@@ -182,9 +190,19 @@ export function MafiaPanel({ roomId, userId, isAdmin }: { roomId: string; userId
         {host && alive && <button type="button" disabled={busy} onClick={() => action("mafia:start-vote")}>Начать голосование</button>}
       </div>}
       {state.phase === "VOTING" && <div className="mafia-actions">
-        <p>Голосование открытое. Вы можете изменить голос до окончания таймера.</p>
-        {canAct && <div className="mafia-targets"><div>{living.map(player => <button type="button" key={player.userId} className={state.myVoteTargetUserId === player.userId ? "selected" : ""} disabled={busy} onClick={() => action("mafia:vote", { targetUserId: player.userId })}>{player.name}</button>)}<button type="button" disabled={busy} onClick={() => action("mafia:vote", { targetUserId: null })}>Воздержаться</button></div></div>}
-        <small>Проголосовало: {state.votes.length} из {living.length}</small>
+        <p>Голосование открытое. Выберите игрока или воздержитесь; голос можно изменить до конца таймера.</p>
+        {canAct && <div className="mafia-targets"><div>{living.map(player => <button type="button" key={player.userId} className={state.myVoteTargetUserId === player.userId ? "selected" : ""} disabled={busy} onClick={() => action("mafia:vote", { targetUserId: player.userId })}>{player.name}</button>)}<button type="button" className={myVoteCast && state.myVoteTargetUserId === null ? "selected" : ""} disabled={busy} onClick={() => action("mafia:vote", { targetUserId: null })}>Воздержаться</button></div></div>}
+        <section className="mafia-vote-board" aria-label="Текущий счёт голосования">
+          <div className="mafia-vote-board-head"><strong>Счёт голосования</strong><span aria-live="polite">{state.votes.length} из {living.length} проголосовали</span></div>
+          <div className="mafia-vote-list">
+            {voteTallies.map(player => <div className="mafia-vote-row" key={player.userId}>
+              <div className="mafia-vote-row-head"><span>{player.name}</span><strong>{player.voters.length}</strong></div>
+              <div className="mafia-vote-track"><span style={{ width: `${living.length ? player.voters.length / living.length * 100 : 0}%` }} /></div>
+              {player.voters.length > 0 && <small>За: {player.voters.join(", ")}</small>}
+            </div>)}
+            {abstainers.length > 0 && <div className="mafia-vote-abstain">Воздержались: <strong>{abstainers.length}</strong><small>{abstainers.join(", ")}</small></div>}
+          </div>
+        </section>
       </div>}
       {state.checks && state.checks.length > 0 && <div className="mafia-checks"><strong>Проверки комиссара</strong>{state.checks.map(check => <span key={check.round}>Ночь {check.round}: {state.players.find(player => player.userId === check.targetUserId)?.name ?? "Игрок"} — {check.result === "MAFIA" ? "мафия" : "не мафия"}</span>)}</div>}
       {state.phase === "FINISHED" && <div className="mafia-actions"><p>{state.winner === "MAFIA" ? "Победила мафия." : state.winner === "CIVILIANS" ? "Победили мирные." : "Игра остановлена."}</p><button type="button" disabled={busy} onClick={() => action("mafia:create")}>Новая партия</button></div>}

@@ -57,6 +57,19 @@ function displayMessageTime(message: Message) {
   return localTime(message.createdAt, message.time);
 }
 
+function mafiaNotice(body: string) {
+  const match = /^Мафия · (Событие|Голосование|Итог) · ([\s\S]+)$/u.exec(body);
+  if (!match) return null;
+  return { title: match[1], text: match[2], kind: match[1] === "Голосование" ? "vote" : match[1] === "Итог" ? "result" : "event" };
+}
+
+function SystemMessageContent({ body }: { body: string }) {
+  const notice = mafiaNotice(body);
+  return notice
+    ? <span className="mafia-notice-content"><strong>Мафия · {notice.title}</strong><span>{notice.text}</span></span>
+    : <span>{body}</span>;
+}
+
 function QuizHintText({ body }: { body: string }) {
   const separator = ": ";
   const index = body.indexOf(separator);
@@ -558,7 +571,7 @@ export function Conversation({ videoSession, onSetVideoSource, onVideoControl, o
     <div ref={messagesRef} className={"messages " + (contentTab === "chat" ? "" : "tab-hidden")} onScroll={updateLatestPosition} onClick={(event) => { if (event.target === event.currentTarget) setReactionMenu(null); }}>
       {hasOlder && <button className="load-older" disabled={loadingOlder} onClick={requestOlder}>{loadingOlder ? "Загрузка…" : "Показать более ранние"}</button>}
       {messages.filter((message) => !hideQuizMessages || !message.quizKind).map((message) => message.system
-        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "") + (message.greetingRecipientId === currentUserId && !message.body.endsWith(" вошёл в чат.") ? " system-message-greeting-for-me" : "")} key={message.id}><span>{message.body}</span>{message.body.endsWith(" вошёл в чат.") && message.greetingRecipientId !== currentUserId && <button type="button" className="system-message-greet" disabled={greetingMessageIds.has(message.id)} onClick={() => void greetJoinedUser(message.id)}>{greetingMessageIds.has(message.id) ? "Приветствие отправлено" : "Поприветствовать"}</button>}<time>{displayMessageTime(message)}</time>{message.editedAt && <small className="message-edited">отредактировано {localTime(message.editedAt)}</small>}</div>
+        ? <div className={"system-message" + (message.body.endsWith(" вошёл в чат.") ? " system-message-joined" : "") + (message.greetingRecipientId === currentUserId && !message.body.endsWith(" вошёл в чат.") ? " system-message-greeting-for-me" : "") + (mafiaNotice(message.body) ? " system-message-mafia system-message-mafia-" + mafiaNotice(message.body)!.kind : "")} key={message.id}><SystemMessageContent body={message.body} />{message.body.endsWith(" вошёл в чат.") && message.greetingRecipientId !== currentUserId && <button type="button" className="system-message-greet" disabled={greetingMessageIds.has(message.id)} onClick={() => void greetJoinedUser(message.id)}>{greetingMessageIds.has(message.id) ? "Приветствие отправлено" : "Поприветствовать"}</button>}<time>{displayMessageTime(message)}</time>{message.editedAt && <small className="message-edited">отредактировано {localTime(message.editedAt)}</small>}</div>
         : <article id={"message-" + message.id} className={"message " + (message.mine ? "mine " : "") + (message.adminVoice ? "admin-voice " : "") + (message.replyTo?.authorId === currentUserId ? "reply-for-current-user " : "") + (highlightedMessageId === message.id ? "message-highlighted " : "") + (message.quizKind ? "quiz-message quiz-message-" + message.quizKind.toLowerCase() : "")} key={message.id}>
           <Avatar value={message.avatarUrl} name={message.author} className="message-avatar" />
           <div className="message-content">

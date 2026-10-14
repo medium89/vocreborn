@@ -30,6 +30,7 @@ export async function getMe() {
 export async function register(input: {
   email: string;
   displayName: string;
+  username: string;
   password: string;
 }) {
   const result = await authRequest<{ user: AuthUser }>("/api/auth/register", {
@@ -37,6 +38,25 @@ export async function register(input: {
     body: JSON.stringify(input),
   });
   return result.user;
+}
+
+export type OAuthProvider = "google" | "yandex" | "vk" | "mail" | "telegram";
+export type PublicOAuthProvider = { provider: OAuthProvider; enabled: boolean };
+export function getOAuthProviders() {
+  return authRequest<PublicOAuthProvider[]>("/api/auth/oauth/providers");
+}
+export function getOAuthPending() {
+  return authRequest<{ provider: OAuthProvider; email: string | null; emailVerified: boolean; suggestedTag: string }>("/api/auth/oauth/pending");
+}
+export async function completeOAuth(input: { email: string; displayName: string; username: string }) {
+  const result = await authRequest<{ user: AuthUser }>("/api/auth/oauth/complete", { method: "POST", body: JSON.stringify(input) });
+  return result.user;
+}
+export function getLinkedOAuthProviders() {
+  return authRequest<string[]>("/api/auth/oauth/linked");
+}
+export function beginOAuth(provider: OAuthProvider, link = false) {
+  window.location.assign(API_URL + "/api/auth/oauth/" + provider + "/start" + (link ? "?link=1" : ""));
 }
 
 export async function enterAsGuest(turnstileToken: string) {
@@ -50,6 +70,7 @@ export async function enterAsGuest(turnstileToken: string) {
 export async function upgradeGuest(input: {
   email: string;
   displayName: string;
+  username: string;
   password: string;
 }) {
   const result = await authRequest<{ user: AuthUser }>(
@@ -79,6 +100,7 @@ export function logout() {
 }
 
 export function updateProfile(input: {
+  username?: string;
   bio: string;
   gender: "male" | "female" | "unspecified";
   hideRole?: boolean;
