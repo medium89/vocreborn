@@ -75,7 +75,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
         {avatarRole === "dj" ? <Headphones size={11} /> : avatarRole === "admin" ? <ShieldCheck size={11} /> : avatarRole === "moderator" ? <Star size={11} fill="currentColor" /> : <Crown size={11} fill="currentColor" />}
       </span>}
     </span>
-    <button type="button" className="person-main" title={person.name} onClick={() => isSelf ? onClick(person) : onMention(person)}>
+    <button type="button" className="person-main" title={isSelf ? "Открыть свой профиль" : "Упомянуть в сообщении"} onClick={() => isSelf ? onClick(person) : onMention(person)}>
       <span className="person-copy">
         <span className="person-name-line"><strong className={avatarRole ? "person-name-" + avatarRole : undefined}>{person.name}</strong></span>
       </span>
@@ -95,6 +95,7 @@ function PersonRow({ person, currentUserId, canModerate, muted, preview, onClick
       </span>
     </div>
     <span className="person-actions">
+      {!isSelf && person.id && <button type="button" className="person-direct" aria-label={"Открыть личную переписку с " + person.name} title={"Написать лично " + person.name} onClick={() => onOpenPrivate(person)}><MessageCircle size={14} /></button>}
       <button type="button" className="person-profile" aria-label={"Посмотреть профиль " + person.name} title={"Посмотреть профиль " + person.name} onClick={() => onClick(person)}><UserRound size={14} /></button>
       {!isSelf && person.id && <button type="button" className="report-person" aria-label={"Пожаловаться на " + person.name} title={"Пожаловаться на " + person.name} onClick={() => onReport(person)}><Flag size={13} /></button>}
       {!isSelf && canModerate && person.id && (person.role !== "admin" || muted) && <button type="button" className="quick-mute" aria-label={muted ? "Снять мут с " + person.name : "Заглушить " + person.name} title={muted ? "Снять мут" : "Заглушить на 60 минут"} onClick={() => onToggleMute(person, muted)}>{muted ? <BellRing size={14} /> : <BellOff size={14} />}</button>}

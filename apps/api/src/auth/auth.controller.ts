@@ -59,8 +59,10 @@ export class AuthController {
   @Post("email/verify")
   @HttpCode(200)
   @RateLimit({ limit: 10, windowMs: 60 * 60 * 1000, key: "ip" })
-  verifyEmail(@Body() input: EmailTokenDto) {
-    return this.auth.verifyEmail(input);
+  async verifyEmail(@Body() input: EmailTokenDto, @Res({ passthrough: true }) response: Response) {
+    const session = await this.auth.verifyEmail(input);
+    setSessionCookie(response, session.token, session.expiresAt);
+    return { ok: true, user: session.user };
   }
 
   @Post("password/email/request")

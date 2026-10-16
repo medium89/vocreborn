@@ -32,8 +32,8 @@ export default function VerifyEmailPage() {
       <section className="tusova-recovery-card" aria-labelledby="verify-title">
         <span className="tusova-recovery-kicker"><MailCheck size={17} /> Электронная почта</span>
         <h1 id="verify-title">{status === "loading" ? "Подтверждаем адрес…" : status === "done" ? "Почта подтверждена" : "Не получилось подтвердить"}</h1>
-        <p>{status === "done" ? "Теперь этот адрес можно использовать для восстановления пароля." : status === "error" ? error : "Это займёт всего пару секунд."}</p>
-        {status !== "loading" && <a className="tusova-recovery-submit" href="/">Вернуться в TUSOVA <ArrowRight size={20} /></a>}
+        <p>{status === "done" ? "Адрес подтверждён, и вы уже вошли в свой аккаунт." : status === "error" ? error : "Это займёт всего пару секунд."}</p>
+        {status !== "loading" && <a className="tusova-recovery-submit" href="/">{status === "done" ? "Перейти в чат" : "Вернуться в TUSOVA"} <ArrowRight size={20} /></a>}
       </section>
     </div>
   </main>;

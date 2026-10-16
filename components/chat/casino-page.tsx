@@ -52,7 +52,9 @@ export function CasinoPage({ balance, isGuest, onBalance, onBack }: {
     try {
       const spin = await spinRoulette(request.id, request.choice, request.bet);
       setPending(null);
+      // Update immediately so the five-second wheel animation cannot make a payout look missing.
       onBalance(spin.balanceAfter);
+      setData(currentData => currentData ? { ...currentData, balance: spin.balanceAfter, jackpot: spin.jackpotAfter } : currentData);
       const index = ORDER.indexOf(spin.number);
       const target = (360 - index * STEP) % 360;
       const current = rotationRef.current;

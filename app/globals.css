@@ -2094,6 +2094,14 @@ html:has(.tusova-help),body:has(.tusova-help){height:auto;min-height:100%;overfl
   color: var(--dialog-text);
 }
 :root[data-theme="dark"] :is(.profile-field input, .profile-field textarea, .profile-field select, .profile-gender-trigger) { color: var(--dialog-text); }
+:root[data-theme="dark"] :is(.profile-tab-alerts, .profile-tab-alert-option, .mention-picker) { background: var(--dialog-surface); border-color: var(--dialog-border); color: var(--dialog-text); }
+:root[data-theme="dark"] .profile-tab-alert-option:hover { background: var(--dialog-hover); }
+:root[data-theme="dark"] .profile-tab-alert-option small,:root[data-theme="dark"] .profile-tab-alerts>p { color: var(--dialog-muted); }
+:root[data-theme="dark"] .profile-tab-alert-option input { appearance:none;display:grid;place-content:center;border:1px solid #78916f;border-radius:4px;background:#142219; }
+:root[data-theme="dark"] .profile-tab-alert-option input:checked { background:#86ae33;border-color:#a8d85a; }
+:root[data-theme="dark"] .profile-tab-alert-option input:checked::after { content:"✓";color:#12200f;font-size:13px;font-weight:900; }
+:root[data-theme="dark"] .mention-picker button { color:var(--dialog-text)!important; }
+:root[data-theme="dark"] .mention-picker button:hover { background:var(--dialog-hover)!important; }
 :root[data-theme="dark"] :is(.profile-field input::placeholder, .profile-field textarea::placeholder) { color: var(--dialog-muted); }
 :root[data-theme="dark"] .profile-settings-footer { background: #15241a; border-color: var(--dialog-border); }
 :root[data-theme="dark"] .modal .action-button:not(.secondary):not(.danger) { color: #17240e; }

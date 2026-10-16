@@ -308,7 +308,11 @@ export class AuthService {
       await transaction.user.update({ where: { id: token.userId }, data: { emailVerifiedAt: new Date() } });
       await transaction.emailToken.deleteMany({ where: { userId: token.userId, purpose: "verify" } });
     });
-    return { ok: true };
+    const user = await this.prisma.user.findUnique({ where: { id: token.userId }, include: { cosmetics: true } });
+    if (!user) throw invalid;
+    const authenticated = this.toAuthenticatedUser(user);
+    [authenticated.mutedUntil, authenticated.chaosUntil] = await Promise.all([this.findMutedUntil(user.id), this.findChaosUntil(user.id)]);
+    return this.issueSession(user.id, authenticated);
   }
 
   async requestEmailReset(input: EmailAddressDto) {
