@@ -86,6 +86,9 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      # Turnstile is also read while the app server renders the guest-entry dialog.
+      # Keep it available at runtime in addition to the build arg above.
+      NEXT_PUBLIC_TURNSTILE_SITE_KEY: ${NEXT_PUBLIC_TURNSTILE_SITE_KEY:-}
     depends_on:
       api:
         condition: service_healthy
