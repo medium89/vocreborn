@@ -3852,3 +3852,12 @@ pm run build:web успешно пройдены.
 - npm run lint:all, npm run build:all и node --test apps/api/test/casino.rules.test.mjs прошли.
 
 Осталось: вручную пройти гостевой вход через Turnstile и визуально проверить тёмные панели; публикация на production — только по команде пользователя.
+## 2026-10-16 — production-релиз авторизации, уведомлений и рулетки (`58ad69f`)
+
+- Коммит `58ad69f` отправлен в GitHub и развёрнут в отдельном worktree `/opt/tusova/releases/58ad69f`.
+- Перед переключением сохранены БД, медиа и SHA-256-манифест в `/opt/tusova/backups/20261016-auth-alerts-58ad69f`.
+- API и web собраны локально; публичный ключ Turnstile сохранён в web-сборке. На VPS доставлены готовые образы, без server-side сборки.
+- API, web и публичные `/` и `/api/health/ready` прошли healthcheck с HTTP 200. PostgreSQL, радио и сторонние сервисы не пересоздавались.
+- Свежие rollback-образы сохранены как `rollback-20261016-pre-58ad69f`; устаревшие неиспользуемые образы TUSOVA удалены после успешной проверки. Свободно 6,3 ГБ; build cache сохранён.
+
+Осталось: вручную пройти гостевой вход через Turnstile и визуально проверить тёмные панели в production.
